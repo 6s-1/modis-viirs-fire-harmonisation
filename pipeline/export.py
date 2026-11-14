@@ -151,7 +151,9 @@ def main() -> None:
     src = src.sort_values(["year", "month"]).reset_index(drop=True)
     src["idx"] = np.arange(len(src))
     canada = canada_cells()
-    cells = np.sort(np.union1d(H.cell5.unique(), canada))
+    pop5 = pd.read_parquet(PROCESSED / "population_cell5.parquet").set_index("cell5")["pop"]
+    popfire = pd.read_parquet(PROCESSED / "population_fire.parquet")
+    cells = np.sort(np.union1d(np.union1d(H.cell5.unique(), canada), pop5.index.to_numpy().astype(np.uint64)))
     if len(cells) > 65535 or len(src) > 65535:
         raise ValueError("indices exceed uint16")
     reg = reg.set_index("cell5").reindex(cells)
@@ -185,6 +187,11 @@ def main() -> None:
     add("cell_province", reg.province.map({p: i for i, p in enumerate(provinces)}).fillna(255).to_numpy().astype("u1"))
     add("cell_area", area.astype("<f4"))
     add("cell_canada", np.isin(cells, canada).astype("u1"))
+    add("cell_pop", pop5.reindex(cells).fillna(0).to_numpy().astype("<f4"))  # WorldPop 2020, people per display cell
+    pf = popfire.assign(cidx=cidx.reindex(popfire.cell5.to_numpy()).to_numpy()).sort_values(["cidx", "year_mask"])
+    add("pf_cell", pf.cidx.to_numpy().astype("<u2"))
+    add("pf_mask", pf.year_mask.to_numpy().astype("<u4"))  # bit k = fire in year 2000 + k
+    add("pf_pop", pf["pop"].to_numpy().astype("<f4"))
     add("row_cell", H.cidx.to_numpy().astype("<u2"))
     add("row_month", H.idx.to_numpy().astype("<u2"))
     add("row_value", H.cell_days.to_numpy().astype("<f4"))
@@ -230,10 +237,18 @@ def main() -> None:
         "uncertainty": unc,
         "same_days": sd_info,
         "raw_platforms": RAW_PLATFORMS,
+        "population": {"source": "WorldPop 2020, 1 km, UN-adjusted (CC BY 4.0)", "year": 2020,
+                       "note": "modelled estimate of where people live, not a census count",
+                       "fire_cells": "people in ~1 km cells (H3 res 8) with at least one fire cell-day in the year"},
         "canada_cells_source": "Natural Earth 1:50m admin-1 (Canada), H3 res 5 cells whose centre is inside",
         "binary": {"file": "harmonised.bin", "cells": int(len(cells)), "rows": int(len(H)), "layout": layout},
     }
     WEB.mkdir(parents=True, exist_ok=True)
+    places = pd.read_parquet(PROCESSED / "places.parquet")
+    (WEB / "places.json").write_text(json.dumps({
+        "source": "GeoNames cities500 (CC BY 4.0)", "fields": ["name", "lat", "lon", "pop", "province"],
+        "rows": [[r.name, round(r.lat, 4), round(r.lon, 4), int(r.pop), r.province] for r in places.itertuples(index=False)]},
+        separators=(",", ":"), ensure_ascii=False))
     (WEB / "harmonised.bin").write_bytes(b"".join(sections))
     (WEB / "manifest.json").write_text(json.dumps(manifest, separators=(",", ":")))
     import gzip

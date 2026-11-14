@@ -303,3 +303,8 @@ table.data thead th { color: var(--ink-2); font-weight: 500; }
 .key-live { width: 8px; height: 8px; border-radius: 50%; background: #ffffff; box-shadow: 0 0 0 1px #0b0d12; display: inline-block; vertical-align: 0; }
 #live-status { margin: 4px 0 0; }
 #live-status:empty { display: none; }
+
+.exposure { min-width: 0; margin: 4px 0 6px; }
+.exposure th[scope="row"] { font-weight: 400; }
+.exposure .linkish { text-align: left; }
+.exp-note { color: var(--ink-2); margin: 0 0 4px; }

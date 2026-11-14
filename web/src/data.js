@@ -29,6 +29,10 @@ export async function loadData(base = "harmonised/") {
     rowMonth: view("row_month", Uint16Array),
     rowValue: view("row_value", Float32Array),
     area: view("cell_area", Float32Array),
+    pop: L.cell_pop ? view("cell_pop", Float32Array) : null,
+    pfCell: L.pf_cell ? view("pf_cell", Uint16Array) : new Uint16Array(0),
+    pfMask: L.pf_mask ? view("pf_mask", Uint32Array) : new Uint32Array(0),
+    pfPop: L.pf_pop ? view("pf_pop", Float32Array) : new Float32Array(0),
     canada: view("cell_canada", Uint8Array),
     rawCell: view("raw_cell", Uint16Array),
     rawMonth: view("raw_month", Uint16Array),
@@ -53,6 +57,13 @@ export async function loadData(base = "harmonised/") {
   }
   while (c <= n) d.rawStart[c++] = d.rawCell.length;
   d.platforms = manifest.raw_platforms;
+  d.pfStart = new Uint32Array(n + 1);
+  c = 0;
+  for (let i = 0; i < d.pfCell.length; i++) {
+    while (c <= d.pfCell[i]) d.pfStart[c++] = i;
+  }
+  while (c <= n) d.pfStart[c++] = d.pfCell.length;
+  d.idIndex = null; // h3 id -> cell index, built on first use
   d.monthIndex = new Map(d.months.map((m, i) => [m.y * 100 + m.m, i]));
   d.lastMonth = d.months[d.months.length - 1];
   d.firstYear = d.months[0].y;
@@ -115,6 +126,23 @@ export function aggregate(d, b, only = null) {
   const detOf = (p) => det.subarray(d.platforms.indexOf(p) * nM, (d.platforms.indexOf(p) + 1) * nM);
   return { totals, raw, rawOf, detOf, cells, gridCells, mask, sameDays, canadaKm2, boxKm2: only === null ? boxAreaKm2(b) : d.area[only], areaKm2: canadaKm2, only,
     extent: cells.length ? ext : null };
+}
+
+// People living in the selection (WorldPop 2020), and in ~1 km cells that had fire in years y0..y1.
+export function population(d, agg, y0, y1) {
+  if (!d.pop) return null;
+  let all = 0, fire = 0, bits = 0;
+  for (let y = Math.max(y0, 2000); y <= Math.min(y1, 2031); y++) bits |= 1 << (y - 2000);
+  for (const i of agg.gridCells) {
+    all += d.pop[i];
+    for (let r = d.pfStart[i]; r < d.pfStart[i + 1]; r++) if (d.pfMask[r] & bits) fire += d.pfPop[r];
+  }
+  return { all, fire };
+}
+
+export function cellIndexOf(d, id) {
+  if (!d.idIndex) { d.idIndex = new Map(); for (let i = 0; i < d.lat.length; i++) d.idIndex.set(h3Id(d, i), i); }
+  return d.idIndex.get(id);
 }
 
 // "As recorded" raw series: each month in the sensor the record uses, without conversion.

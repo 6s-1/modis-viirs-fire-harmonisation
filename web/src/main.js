@@ -1,7 +1,8 @@
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import "./style.css";
-import { MONTHS, aggregate, fmt, fmtShort, h3Id, loadData, monthDays, rawRecorded, uncertaintyFactors } from "./data.js";
+import { MONTHS, aggregate, fmt, fmtShort, h3Id, loadData, monthDays, population, rawRecorded, uncertaintyFactors } from "./data.js";
+import { renderExposureList, loadPlaces } from "./exposure.js";
 import { cellToBoundary } from "h3-js";
 import { attachTooltip, renderCalendar } from "./calendar.js";
 import { renderCompare } from "./compare.js";
@@ -92,7 +93,10 @@ map.on("load", () => {
   attachGridHover(map, $("tip"), () => rangeLabel());
   addLiveLayer(map);
   attachLiveHover(map, $("tip"));
-  map.on("moveend", () => { if (live.hours) { clearTimeout(live.timer); live.timer = setTimeout(loadLive, 600); } });
+  map.on("moveend", () => {
+    if (live.hours) { clearTimeout(live.timer); live.timer = setTimeout(loadLive, 600); }
+    clearTimeout(state.expTimer); state.expTimer = setTimeout(renderExposure, 400);
+  });
   map.on("click", "grid-fill", (e) => { if (!drawing && e.features && e.features.length) clickCell(+e.features[0].properties.i); });
   map.on("mouseenter", "grid-fill", () => { if (!drawing) map.getCanvas().style.cursor = "pointer"; });
   map.on("mouseleave", "grid-fill", () => { if (!drawing) map.getCanvas().style.cursor = ""; });
@@ -238,6 +242,11 @@ function update() {
     for (let i = a; i <= b; i++) t += v[i];
     return [name, t];
   }).filter(([, t]) => t > 0);
+  const pop = population(d, agg, d.months[a].y, d.months[b].y);
+  const yrs = d.months[a].y === d.months[b].y ? `${d.months[a].y}` : `${d.months[a].y}–${d.months[b].y}`;
+  const popLine = pop ? `<div class="sub" title="WorldPop 2020, 1 km, UN-adjusted: a modelled estimate of where people live, not a census count. Fire cells: ~1 km cells with at least one fire cell-day in ${yrs} (whole years).">
+      <strong>people</strong> ${fmtShort(pop.all)} live in the area · ${fmtShort(pop.fire)} in ~1 km cells that had fire, ${yrs}
+      <span class="dim">(WorldPop 2020, modelled)</span></div>` : "";
   const detLine = dets.length ? `<div class="sub" title="Raw hotspot detections per satellite (vegetation fire, low-confidence class removed), not converted. Counted by grid cell like the cell-days (cells whose centre is in the box, local-date months), so they can differ slightly from the hotspot CSV, which uses each detection's exact position.">
       <strong>hotspots</strong> ${dets.map(([n, t]) => `${n} ${t < 1000 ? Math.round(t).toLocaleString("en-CA") : fmtShort(t)}`).join(" · ")}</div>
     <div class="sub dim">Hotspots count every flagged pixel on every overpass; cell-days count each ~1 km cell once a day.</div>` : "";
@@ -249,7 +258,7 @@ function update() {
     <div class="big" title="Harmonised fire cell-days (VIIRS-equivalent), ${rangeLabel()}">${fmt(total)}${hi - lo > 0.005 * total ? ` <span class="rng">(${fmtShort(lo)}–${fmtShort(hi)})</span>` : ""}
       <span class="unit">fire cell-days</span></div>
     <div class="sub">${rangeLabel()} · ${agg.cells.length.toLocaleString("en-CA")} ${agg.cells.length === 1 ? "cell" : "cells"} with fire ·
-      <span class="info" title="${areaTip}">${areaTxt} km² searched</span>${lowConfidence ? ` <span class="badge low" title="${lowTip}">low conf.</span>` : ""}</div>${detLine}`
+      <span class="info" title="${areaTip}">${areaTxt} km² searched</span>${lowConfidence ? ` <span class="badge low" title="${lowTip}">low conf.</span>` : ""}</div>${popLine}${detLine}`
     : `<div class="big">0 <span class="unit">fire cell-days</span></div>
     <div class="sub"><span class="info" title="${areaTip}">${areaTxt} km² searched</span> · no fire detected</div>`);
   if (ci !== null) $("cell-back").addEventListener("click", () => clickCell(ci));
@@ -304,7 +313,10 @@ $("dl-hotspots").addEventListener("click", async () => {
   }
 });
 
-function renderExposure() { /* exposure list: added in the next step */ }
+function renderExposure() {
+  if (!state.d || !state.mapReady) return;
+  renderExposureList($("exposure"), state.d, map, live.hours ? state.live : null, live.hours, (i) => clickCell(i));
+}
 
 // ---- live fire (near real time, via the Worker); every other feature works without it
 const live = { hours: 0, timer: null, seq: 0 };
@@ -362,5 +374,6 @@ loadData("harmonised/")
       $("dl-status").textContent = "Hotspot download is not available on this copy of the site.";
     });
     select(state.box || PRESETS["all-canada"], false);
+    loadPlaces("harmonised/places.json").then(renderExposure).catch(() => { $("exposure").textContent = "Place names could not be loaded."; });
   })
   .catch((err) => { $("summary").textContent = `Could not load the harmonised data (${err.message}).`; });
