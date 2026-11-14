@@ -1,0 +1,18 @@
+{
+  "name": "fire-activity-calendar",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Harmonised MODIS and VIIRS fire activity calendar for Canada",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "maplibre-gl": "5.24.0"
+  },
+  "devDependencies": {
+    "vite": "8.3.5"
+  }
+}
