@@ -28,3 +28,6 @@ fire_nrt_*
 
 # intermediate experiment outputs (comparison_all.csv is kept)
 reports/experiments/comparison_stage_*
+
+# static hotspot tiles (build artefact, published from a release asset)
+web/public/hotspots/

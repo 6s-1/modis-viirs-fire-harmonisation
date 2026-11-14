@@ -66,6 +66,52 @@ def uncertainty(adopted: dict, areas: dict) -> dict:
     return out
 
 
+def same_days(src: pd.DataFrame, H: pd.DataFrame) -> tuple[dict | None, pd.DataFrame]:
+    """Cell-days for days 1..N of the latest month in every earlier year, when that month is
+    partial (e.g. 1-14 Nov). Observed years: VIIRS reference for those days. Estimated years:
+    the month's harmonised value x the share of the MODIS input's cell-days on days 1..N."""
+    import calibrate as K
+    import h3
+    last = src.iloc[-1]
+    if not bool(last.partial):
+        return None, pd.DataFrame(columns=["cell5", "year", "value"])
+    n_days = int(max(v for c, v in last.items() if c.startswith("days_") and pd.notna(v)))
+    M, Y = int(last.month), int(last.year)
+    fine = pd.read_parquet(C.INTERIM / "cell_days_fine.parquet", columns=["cell8", "date", "platform", "year", "month"])
+    fine = fine[(fine.month == M) & (fine.year < Y)].copy()
+    fine["platform"] = fine.platform.astype(str)
+    uniq, inv = np.unique(fine.cell8.to_numpy(), return_inverse=True)
+    par = np.fromiter((h3.api.basic_int.cell_to_parent(int(c), C.DISPLAY_RES) for c in uniq), np.uint64, len(uniq))
+    fine["cell5"] = par[inv]
+    fine["early"] = fine.date.dt.day <= n_days
+    cov = pd.read_parquet(C.INTERIM / "coverage.parquet")
+    av, _ = K.availability(pd.read_parquet(C.INTERIM / "daily_counts.parquet"), cov)
+    srcm = src[src.month == M].set_index("year").source
+    out = []
+    for y, g in fine.groupby("year"):
+        source = srcm.get(y)
+        if source in ("observed", "near_real_time"):
+            v = g[g.early & g.platform.isin(["snpp", "noaa20"])]
+            w = v.groupby(["cell8", "date", "cell5"]).platform.agg(lambda s: set(s)).reset_index()
+            a = av.reindex(w.date)
+            k = a.snpp.to_numpy().astype(int) + a.noaa20.to_numpy().astype(int)
+            ref = np.array([((("snpp" in p) and sa) + (("noaa20" in p) and na)) / kk if kk else 0.0
+                            for p, sa, na, kk in zip(w.platform, a.snpp.to_numpy(), a.noaa20.to_numpy(), k)])
+            val = pd.Series(ref, index=w.cell5).groupby(level=0).sum()
+        elif source in ("estimated_from_modis", "estimated_from_terra"):
+            plats = ["aqua", "terra"] if source == "estimated_from_modis" else ["terra"]
+            m = g[g.platform.isin(plats)].drop_duplicates(["cell8", "date"])
+            frac = m.groupby("cell5").early.mean()
+            hv = H[(H.year == y) & (H.month == M)].set_index("cell5").cell_days
+            val = (hv * frac.reindex(hv.index).fillna(0))
+        else:
+            continue
+        val = val[val > 0]
+        out.append(pd.DataFrame({"cell5": val.index.to_numpy(), "year": int(y), "value": val.to_numpy()}))
+    info = {"year": Y, "month": M, "days": n_days, "years": sorted(int(y) for y in srcm.index if y < Y)}
+    return info, pd.concat(out, ignore_index=True)
+
+
 def main() -> None:
     H = pd.read_parquet(PROCESSED / "harmonised_cell_month.parquet")
     src = pd.read_csv(C.REPORTS / "calibration" / "month_sources.csv")
@@ -105,6 +151,11 @@ def main() -> None:
     add("row_cell", H.cidx.to_numpy().astype("<u2"))
     add("row_month", H.idx.to_numpy().astype("<u2"))
     add("row_value", H.cell_days.to_numpy().astype("<f4"))
+    sd_info, sd = same_days(src, H)
+    sd = sd[sd.cell5.isin(cidx.index)]
+    add("sd_cell", cidx.reindex(sd.cell5.to_numpy()).to_numpy().astype("<u2"))
+    add("sd_year", sd.year.to_numpy().astype("<u2"))
+    add("sd_value", sd.value.to_numpy().astype("<f4"))
 
     areas = scale_areas()
     unc = uncertainty(adopted, areas)
@@ -134,6 +185,7 @@ def main() -> None:
         "regions": regions,
         "provinces": provinces,
         "uncertainty": unc,
+        "same_days": sd_info,
         "binary": {"file": "harmonised.bin", "cells": int(len(cells)), "rows": int(len(H)), "layout": layout},
     }
     WEB.mkdir(parents=True, exist_ok=True)

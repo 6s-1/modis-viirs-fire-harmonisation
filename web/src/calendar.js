@@ -1,16 +1,9 @@
 // Burning activity calendar: years as rows, months as columns, colour = harmonised cell-days.
 
-import { median } from "./data.js";
+import { MONTHS, SOURCE_LABEL, fmt, fmtShort, isEstimated, median, uncertaintyFactors } from "./data.js";
 
-export const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-const CIVIDIS = ["#00224e", "#213b6e", "#4c556c", "#6c6e72", "#8e8978", "#b1a570", "#d9c55c", "#fee838"];
-
-function ramp() {
-  const dark = matchMedia("(prefers-color-scheme: dark)").matches;
-  // Light: darker = more, without the brightest yellow (it reads as more salient than mid values).
-  // Dark: lighter = more, without the darkest blue (it disappears into the background).
-  return dark ? CIVIDIS.slice(1) : CIVIDIS.slice(0, -1).reverse();
-}
+// cividis without its darkest step; brighter (yellow) = more fire, in light and dark themes
+export const RAMP = ["#213b6e", "#4c556c", "#6c6e72", "#8e8978", "#b1a570", "#d9c55c", "#fee838"];
 
 function nice(v) {
   if (v <= 0) return 0;
@@ -19,45 +12,55 @@ function nice(v) {
   return (m < 1.5 ? 1 : m < 3.5 ? 2 : m < 7.5 ? 5 : 10) * p;
 }
 
-// Log-spaced bin edges between the smallest and largest positive monthly value.
+// Log-spaced bins between the smallest and largest positive value.
 export function makeScale(values) {
   const pos = values.filter((v) => v > 0);
-  const colors = ramp();
-  if (!pos.length) return { edges: [], colors, color: () => "var(--zero)" };
+  if (!pos.length) return { edges: [], colors: RAMP.slice(0, 1), color: () => "var(--zero)" };
   const lo = Math.max(Math.min(...pos), 0.5), hi = Math.max(...pos);
-  const n = colors.length;
+  const n = RAMP.length;
   let edges = [];
   for (let k = 1; k < n; k++) edges.push(nice(Math.exp(Math.log(lo) + (Math.log(hi) - Math.log(lo)) * k / n)));
   edges = [...new Set(edges)].filter((e) => e > 0 && e < hi);
-  const used = colors.slice(colors.length - edges.length - 1);
+  const colors = RAMP.slice(RAMP.length - edges.length - 1);
   return {
-    edges,
-    colors: used,
+    edges, colors,
     color: (v) => {
       if (!(v > 0)) return "var(--zero)";
       let k = 0;
       while (k < edges.length && v >= edges[k]) k++;
-      return used[k];
+      return colors[k];
     },
   };
 }
 
-export const fmt = (v) =>
-  !Number.isFinite(v) ? "–" : v === 0 ? "0" : v >= 100 ? Math.round(v).toLocaleString("en-CA") : v >= 10 ? v.toFixed(0) : v.toFixed(1);
-
-const SOURCE_LABEL = {
-  observed: "observed (VIIRS)",
-  near_real_time: "near real time (VIIRS, provisional)",
-  estimated_from_modis: "estimated from MODIS (Aqua and Terra)",
-  estimated_from_terra: "estimated from MODIS Terra",
-};
+// Year totals with the uncertainty range of their estimated part.
+export function yearTotals(d, agg, years) {
+  return years.map((y) => {
+    let s = 0, any = false, partial = false, lo = 0, hi = 0, est = false, nMonths = 0, nEst = 0;
+    const bySource = {}, estMonths = [];
+    for (let m = 1; m <= 12; m++) {
+      const i = d.monthIndex.get(y * 100 + m);
+      if (i === undefined) continue;
+      any = true;
+      const info = d.months[i], v = agg.totals[i];
+      nMonths++;
+      if (isEstimated(info.source)) { nEst++; estMonths.push(m); }
+      s += v;
+      if (info.partial) partial = true;
+      bySource[info.source] = (bySource[info.source] || 0) + v;
+    }
+    for (const [src, v] of Object.entries(bySource)) {
+      const q = uncertaintyFactors(d, agg.areaKm2, "year", src);
+      if (q) { est = true; lo += v * q[0]; hi += v * q[2]; } else { lo += v; hi += v; }
+    }
+    const complete = d.monthIndex.has(y * 100 + 1) && d.monthIndex.has(y * 100 + 12) && !partial;
+    const estLabel = !est ? "" : nEst === nMonths ? "est." : `${estMonths.map((m) => MONTHS[m - 1]).join(", ")} est.`;
+    return { y, s: any ? s : NaN, lo, hi, est, estLabel, partial: !complete };
+  });
+}
 
 export function renderCalendar(el, d, agg, opts) {
-  const { firstYear, medianYears } = opts;
-  const lastYear = d.months[d.months.length - 1].y;
-  const years = [];
-  for (let y = lastYear; y >= firstYear; y--) years.push(y);
-
+  const { years, medianYears, range, lowConfidence, legendEl } = opts;
   const cell = (y, m) => {
     const i = d.monthIndex.get(y * 100 + m);
     return i === undefined ? null : { i, v: agg.totals[i], info: d.months[i] };
@@ -65,84 +68,82 @@ export function renderCalendar(el, d, agg, opts) {
   const shown = [];
   for (const y of years) for (let m = 1; m <= 12; m++) { const c = cell(y, m); if (c) shown.push(c); }
   const scale = makeScale(shown.map((c) => c.v));
-  const top = new Set([...shown].sort((a, b) => b.v - a.v).filter((c) => c.v > 0).slice(0, 3).map((c) => c.i));
-
-  const yearTotals = years.map((y) => {
-    let s = 0, any = false, partial = false;
-    for (let m = 1; m <= 12; m++) {
-      const c = cell(y, m);
-      if (c) { s += c.v; any = true; if (c.info.partial) partial = true; }
-    }
-    const complete = [1, 12].every((m) => cell(y, m));
-    return { y, s: any ? s : NaN, partialYear: !complete || partial };
-  });
-  const maxYear = Math.max(...yearTotals.map((t) => t.s).filter(Number.isFinite), 1);
-
-  const monthMedians = MONTHS.map((_, k) =>
-    median(medianYears.map((y) => { const c = cell(y, k + 1); return c && !c.info.partial ? c.v : NaN; })));
+  const top = new Set([...shown].filter((c) => c.v > 0).sort((a, b) => b.v - a.v).slice(0, 3).map((c) => c.i));
+  const totals = yearTotals(d, agg, years);
+  const maxYear = Math.max(...totals.map((t) => t.s).filter(Number.isFinite), 1);
+  const medYearsUsed = new Set();
+  const monthMedians = MONTHS.map((_, k) => median(medianYears.map((y) => {
+    const c = cell(y, k + 1);
+    if (!c || c.info.partial) return NaN;
+    medYearsUsed.add(y);
+    return c.v;
+  })));
+  const medSpan = medYearsUsed.size ? `${Math.min(...medYearsUsed)}–${Math.max(...medYearsUsed)}` : "";
 
   let html = `<table class="cal" aria-label="Fire cell-days per month for the selected area">
-    <thead><tr><th scope="col">Year</th>${MONTHS.map((m) => `<th scope="col">${m}</th>`).join("")}
+    <thead><tr><th scope="col">Year</th>${MONTHS.map((m, k) => `<th scope="col" data-month="${k + 1}">${m}</th>`).join("")}
     <th scope="col" class="tot">Year total</th></tr></thead><tbody>`;
-  for (const t of yearTotals) {
-    html += `<tr><th scope="row">${t.y}</th>`;
+  for (const t of totals) {
+    const badge = t.est ? `<span class="badge${lowConfidence ? " low" : ""}">${t.estLabel}${lowConfidence ? " · low confidence" : ""}</span>` : "";
+    html += `<tr class="${t.est ? "est-row" : ""}"><th scope="row">${t.y}${badge}</th>`;
     for (let m = 1; m <= 12; m++) {
       const c = cell(t.y, m);
       if (!c) { html += `<td class="nodata" aria-label="${MONTHS[m - 1]} ${t.y}: no data">–</td>`; continue; }
+      const out = c.i < range[0] || c.i > range[1];
       const cls = ["v", c.info.partial && "partial", c.info.source === "near_real_time" && "nrt",
-        top.has(c.i) && "top"].filter(Boolean).join(" ");
+        isEstimated(c.info.source) && "est", top.has(c.i) && "top", out && "out"].filter(Boolean).join(" ");
       const label = `${MONTHS[m - 1]} ${t.y}: ${fmt(c.v)} cell-days, ${SOURCE_LABEL[c.info.source]}` +
         (c.info.partial ? ", partial month" : "");
-      html += `<td class="${cls}" style="--c:${scale.color(c.v)}" data-i="${c.i}" tabindex="0"
-        aria-label="${label}"><span class="sr">${fmt(c.v)}</span></td>`;
+      html += `<td class="${cls}" style="--c:${scale.color(c.v)}" data-i="${c.i}" tabindex="0" aria-label="${label}"></td>`;
     }
     const w = Number.isFinite(t.s) ? (100 * t.s) / maxYear : 0;
-    html += `<td class="tot"><div class="bar" style="width:${w}%"></div><span>${fmt(t.s)}${t.partialYear && t.y === lastYear ? "*" : ""}</span></td></tr>`;
+    const rangeTxt = t.est && t.s > 0 && t.hi - t.lo > 0.01 * t.s ? ` <span class="rng" title="Likely range ${fmt(t.lo)}–${fmt(t.hi)}">${fmtShort(t.lo)}–${fmtShort(t.hi)}</span>` : "";
+    html += `<td class="tot"><div class="bar" style="width:${w}%"></div><span>${fmt(t.s)}${t.partial ? "*" : ""}${rangeTxt}</span></td></tr>`;
   }
-  html += `</tbody><tfoot><tr><th scope="row" title="Median of complete months, ${medianYears[0]}–${medianYears[medianYears.length - 1]}">Median</th>
-    ${monthMedians.map((v) => `<td class="med">${fmt(v)}</td>`).join("")}<td></td></tr></tfoot></table>`;
+  html += `</tbody><tfoot><tr><th scope="row">Median</th>
+    ${monthMedians.map((v) => `<td class="med">${fmt(v)}</td>`).join("")}<td class="tot muted small">complete months, ${medSpan}</td></tr></tfoot></table>`;
   el.innerHTML = html;
-
-  renderLegend(opts.legendEl, scale);
-  return { scale, monthMedians, yearTotals };
+  renderLegend(legendEl, scale, lowConfidence);
+  return { scale, totals, monthMedians, medSpan };
 }
 
-function renderLegend(el, scale) {
-  const sw = scale.colors.map((c, k) => {
-    const lo = k === 0 ? "> 0" : fmt(scale.edges[k - 1]);
-    return `<li><span class="sw" style="background:${c}"></span>${lo}</li>`;
-  }).join("");
-  el.innerHTML = `<ul class="legend" aria-label="Colour scale, cell-days per month">
-    <li><span class="sw" style="background:var(--zero)"></span>0</li>${sw}</ul>
+function renderLegend(el, scale, lowConfidence) {
+  const sw = scale.colors.map((c, k) => `<li><span class="sw" style="background:${c}"></span>${k === 0 ? "> 0" : fmt(scale.edges[k - 1])}</li>`).join("");
+  el.innerHTML = `<p class="small legend-title">Fire cell-days per month. Brighter (yellow) means more fire.</p>
+    <ul class="legend" aria-label="Colour scale">
+      <li><span class="sw" style="background:var(--zero)"></span>0</li>${sw}</ul>
     <ul class="legend keys">
-      <li><span class="sw key-top"></span>Top 3 months</li>
+      <li><span class="sw key-est"></span>Estimated from MODIS (before 2012)</li>
       <li><span class="sw key-partial"></span>Partial month</li>
       <li><span class="sw key-nrt"></span>Near real time</li>
+      <li><span class="sw key-top"></span>Top 3 months</li>
       <li><span class="sw key-nodata">–</span>No data</li>
-    </ul>`;
+    </ul>
+    ${lowConfidence ? `<p class="small warn">The selection box is smaller than the minimum area for reliable estimates, so estimated years are low confidence.</p>` : ""}`;
 }
 
-export function attachTooltip(tableHost, tip, d, getAgg) {
+export function attachTooltip(host, tip, getState) {
   const show = (td, x, y) => {
-    const i = Number(td.dataset.i);
-    const info = d.months[i];
-    tip.innerHTML = `<strong>${MONTHS[info.m - 1]} ${info.y}</strong><br>${fmt(getAgg().totals[i])} fire cell-days<br>
-      <span class="muted">${SOURCE_LABEL[info.source]}${info.partial ? ` · partial month` : ""}</span>`;
+    const { d, agg } = getState();
+    const i = Number(td.dataset.i), info = d.months[i], v = agg.totals[i];
+    const q = uncertaintyFactors(d, agg.areaKm2, "month", info.source);
+    const rng = q && v > 0 ? `<br>Likely range ${fmt(v * q[0])}–${fmt(v * q[2])}` : "";
+    tip.innerHTML = `<strong>${MONTHS[info.m - 1]} ${info.y}</strong><br>${fmt(v)} fire cell-days${rng}<br>
+      <span class="muted">${SOURCE_LABEL[info.source]}${info.partial ? " · partial month" : ""}</span>`;
     tip.hidden = false;
-    tip.style.left = `${x + 14}px`;
-    tip.style.top = `${y + 14}px`;
+    const r = tip.getBoundingClientRect();
+    tip.style.left = `${Math.min(x + 14, innerWidth - r.width - 8)}px`;
+    tip.style.top = `${Math.min(y + 14, innerHeight - r.height - 8)}px`;
   };
-  tableHost.addEventListener("mousemove", (e) => {
+  host.addEventListener("mousemove", (e) => {
     const td = e.target.closest("td[data-i]");
     if (!td) { tip.hidden = true; return; }
     show(td, e.clientX, e.clientY);
   });
-  tableHost.addEventListener("mouseleave", () => { tip.hidden = true; });
-  tableHost.addEventListener("focusin", (e) => {
+  host.addEventListener("mouseleave", () => { tip.hidden = true; });
+  host.addEventListener("focusin", (e) => {
     const td = e.target.closest("td[data-i]");
-    if (!td) return;
-    const r = td.getBoundingClientRect();
-    show(td, r.right, r.top);
+    if (td) { const r = td.getBoundingClientRect(); show(td, r.right, r.top); }
   });
-  tableHost.addEventListener("focusout", () => { tip.hidden = true; });
+  host.addEventListener("focusout", () => { tip.hidden = true; });
 }

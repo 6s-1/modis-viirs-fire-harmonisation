@@ -107,7 +107,7 @@ def main() -> None:
                     "dropped_window": int((m & is_type0 & is_conf & ~in_window).sum()),
                 })
         out = df.loc[keep, ["platform", "latitude", "longitude", "acq_date", "acq_time", "daynight", "frp", "nrt",
-                            "recent"]]
+                            "recent", "confidence"]]
         out = out.assign(is_day=out.pop("daynight").eq("D"))
         for plat, g in out.groupby("platform"):
             dest = OUT / plat / f"{f.stem}.parquet"
