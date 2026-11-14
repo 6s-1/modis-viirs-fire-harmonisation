@@ -70,22 +70,26 @@ h3 { font-size: 0.8rem; font-weight: 500; margin: 0 0 4px; color: var(--ink-2); 
 .maplibregl-ctrl-attrib { background: rgba(17, 19, 25, 0.7) !important; color: var(--muted); }
 .maplibregl-ctrl-attrib a { color: var(--ink-2) !important; }
 
+
 /* floating controls on the map */
 .map-ui { position: absolute; z-index: 2; }
 .map-tools { top: 12px; left: 12px; display: flex; gap: 6px; flex-wrap: wrap; max-width: calc(100% - 70px); }
-.map-card {
-  left: 12px; bottom: 12px; max-width: min(440px, calc(100% - 24px));
-  background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 6px 10px;
-  backdrop-filter: blur(6px);
+/* bottom row of floating panels: one flex row with a fixed gap, wraps (stacks) when narrow,
+   kept above the map credits; panels never overlap */
+.map-bottom {
+  left: 12px; right: 12px; bottom: 42px;
+  display: flex; flex-wrap: wrap-reverse; gap: 10px; align-items: flex-end; justify-content: space-between;
+  pointer-events: none;
 }
-.map-card > summary { font-size: 0.82rem; color: var(--ink-2); padding: 2px 0; }
-.map-card[open] > summary { margin-bottom: 6px; }
-.map-legend {
-  right: 12px; bottom: 34px; max-width: min(360px, calc(100% - 24px));
-  background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 6px 10px;
+.map-bottom > * { pointer-events: auto; }
+.map-card, .map-legend {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px;
+  backdrop-filter: blur(6px); min-width: 0;
 }
+.map-card { flex: 0 1 372px; }
+.map-legend { flex: 0 1 250px; }
 .map-legend:empty { display: none; }
-@media (max-width: 640px) { .map-legend { right: 12px; left: auto; bottom: 64px; } }
+.card-h { font-size: 0.78rem; margin-bottom: 4px; }
 
 button {
   font: inherit; font-size: 0.82rem; border-radius: 999px; padding: 5px 12px; cursor: pointer;
@@ -100,10 +104,11 @@ button:focus-visible, input:focus-visible, td:focus-visible, summary:focus-visib
 .bounds, .range { display: flex; flex-wrap: wrap; gap: 6px; align-items: end; border: 0; padding: 0; margin: 0 0 6px; }
 .bounds label, .range label { display: flex; flex-direction: column; font-size: 0.72rem; color: var(--muted); }
 .bounds input, .range input {
-  width: 84px; font: inherit; font-size: 0.82rem; padding: 3px 6px; border-radius: 6px;
+  width: 66px; font: inherit; font-size: 0.82rem; padding: 3px 6px; border-radius: 6px;
   border: 1px solid var(--line); background: var(--bg); color: var(--ink);
 }
-.range input { width: 140px; }
+.range input { width: 132px; }
+.bounds, .range { gap: 5px; }
 
 /* panel sections */
 .side { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
@@ -111,13 +116,13 @@ button:focus-visible, input:focus-visible, td:focus-visible, summary:focus-visib
   background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px 12px;
   backdrop-filter: blur(4px); min-width: 0;
 }
-.sec > summary, .map-card > summary { cursor: pointer; list-style: none; display: flex; align-items: center; gap: 8px; }
-.sec > summary::-webkit-details-marker, .map-card > summary::-webkit-details-marker { display: none; }
-.sec > summary::before, .map-card > summary::before {
+.sec > summary { cursor: pointer; list-style: none; display: flex; align-items: center; gap: 8px; }
+.sec > summary::-webkit-details-marker { display: none; }
+.sec > summary::before {
   content: ""; width: 6px; height: 6px; border-right: 1.5px solid var(--muted); border-bottom: 1.5px solid var(--muted);
   transform: rotate(-45deg); transition: transform 0.15s; flex: none;
 }
-.sec[open] > summary::before, .map-card[open] > summary::before { transform: rotate(45deg); }
+.sec[open] > summary::before { transform: rotate(45deg); }
 .sec[open] > summary { margin-bottom: 8px; }
 .sec-controls { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; margin-bottom: 6px; }
 
@@ -218,10 +223,12 @@ h3.gap { margin-top: 10px; }
 .ychart circle { stroke-width: 0; }
 .ychart .stepline { stroke: var(--ink-2); stroke-dasharray: 3 3; }
 
-/* downloads */
-.downloads { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-.downloads p { flex-basis: 100%; margin: 2px 0 0; }
-.downloads p:empty { display: none; }
+/* downloads: always visible, one compact row */
+.sec-static { padding: 8px 14px; }
+.dl-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.dl-row h2 { margin-right: 6px; }
+#dl-status { margin: 4px 0 0; }
+#dl-status:empty { display: none; }
 
 .tip {
   position: fixed; z-index: 10; pointer-events: none; max-width: 260px;
@@ -247,9 +254,20 @@ table.data th[scope="row"], table.data thead th:first-child { text-align: left; 
 table.data thead th { color: var(--ink-2); font-weight: 500; }
 .refs li { font-size: 0.88rem; }
 
-/* phones: globe on top, legend and area card below it instead of floating over the credits */
+/* phones: globe on top, the bottom row of panels below it instead of over the map */
 @media (max-width: 640px) {
   .map-panel { height: auto; min-height: 0; overflow: visible; border-radius: 0; }
   #map { position: relative; height: 58vh; border-radius: 14px; overflow: hidden; }
-  .map-legend, .map-card { position: static; max-width: none; margin-top: 8px; }
+  .map-bottom { position: static; margin-top: 8px; flex-direction: column; align-items: stretch; }
+  .map-card, .map-legend { flex: none; }
 }
+.sub.dim { font-size: 0.72rem; color: var(--muted); opacity: 0.85; }
+.ychart .iqr { fill: var(--med); opacity: 0.35; }
+.ychart .medcurve { fill: none; stroke: var(--ink-2); stroke-width: 1.5; stroke-dasharray: 4 3; }
+.ychart .nowcurve { fill: none; stroke: var(--now); stroke-width: 2; }
+.ychart .dot-now { fill: var(--now); }
+.ychart .dot-partial { fill: var(--bg); stroke: var(--now); stroke-width: 1.5; }
+.key-medcurve { width: 16px; height: 0; border-top: 1.5px dashed var(--ink-2); border-radius: 0; }
+.key-iqr { background: var(--med); opacity: 0.6; }
+.key-now { width: 16px; height: 2px; background: var(--now); border-radius: 0; }
+.key-hollow { width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid var(--now); background: transparent; }

@@ -19,23 +19,37 @@ const ym = (info) => `${info.y}-${String(info.m).padStart(2, "0")}`;
 export const fileStem = (box, d, range) =>
   `S${box.south.toFixed(2)}_N${box.north.toFixed(2)}_W${box.west.toFixed(2)}_E${box.east.toFixed(2)}_${ym(d.months[range[0]])}_${ym(d.months[range[1]])}`;
 
-// One row per display cell and month with fire in the selection and date range.
+// One row per display cell and month with fire in the selection and date range: harmonised
+// cell-days with source and likely range, and raw hotspot detections per satellite.
 export function monthlyCSV(d, agg, range) {
   const cellArea = d.manifest.grid.cell_area_km2;
+  const sensors = ["terra", "aqua", "snpp", "noaa20"];
   const head = ["cell_h3", "cell_lat", "cell_lon", "ecozone", "province", "year", "month", "fire_cell_days",
-    "source", "partial_month", "likely_low", "likely_high"];
+    "source", "partial_month", "likely_low", "likely_high", ...sensors.map((p) => `hotspots_${p}`)];
   const lines = [head.join(",")];
   const q = (src) => uncertaintyFactors(d, cellArea, "month", src);
+  const pIdx = sensors.map((p) => d.platforms.indexOf(p));
   for (const i of agg.cells) {
     const id = h3Id(d, i);
     const reg = d.manifest.regions[d.region[i]] || "";
     const prov = d.manifest.provinces[d.province[i]] || "";
+    const byMonth = new Map();
+    const row = (mi) => { if (!byMonth.has(mi)) byMonth.set(mi, { v: 0, det: [0, 0, 0, 0] }); return byMonth.get(mi); };
     for (let r = d.rowStart[i]; r < d.rowStart[i + 1]; r++) {
       const mi = d.rowMonth[r];
-      if (mi < range[0] || mi > range[1]) continue;
-      const info = d.months[mi], v = d.rowValue[r], f = q(info.source);
+      if (mi >= range[0] && mi <= range[1]) row(mi).v = d.rowValue[r];
+    }
+    if (d.rawDet) {
+      for (let r = d.rawStart[i]; r < d.rawStart[i + 1]; r++) {
+        const mi = d.rawMonth[r], k = pIdx.indexOf(d.rawPlatform[r]);
+        if (k >= 0 && mi >= range[0] && mi <= range[1] && d.rawDet[r] > 0) row(mi).det[k] = d.rawDet[r];
+      }
+    }
+    for (const mi of [...byMonth.keys()].sort((x, y) => x - y)) {
+      const { v, det } = byMonth.get(mi);
+      const info = d.months[mi], f = q(info.source);
       lines.push([id, d.lat[i].toFixed(4), d.lon[i].toFixed(4), `"${reg}"`, `"${prov}"`, info.y, info.m, v.toFixed(3),
-        info.source, info.partial, f ? (v * f[0]).toFixed(3) : "", f ? (v * f[2]).toFixed(3) : ""].join(","));
+        info.source, info.partial, f ? (v * f[0]).toFixed(3) : "", f ? (v * f[2]).toFixed(3) : "", ...det].join(","));
     }
   }
   return new Blob([lines.join("\n") + "\n"], { type: "text/csv" });

@@ -1,6 +1,6 @@
 // Historical comparison: latest months against the median for the same period, and yearly totals.
 
-import { MONTHS, fmt, fmtShort, median, monthDays } from "./data.js";
+import { MONTHS, fmt, fmtShort, median, monthDays, quantile } from "./data.js";
 
 const ratio = (v, med) => (med > 0 ? `${(v / med).toFixed(2)}×` : v > 0 ? "> 0 vs 0" : "0 vs 0");
 const short = (ys) => (ys.length ? `${Math.min(...ys)}–${String(Math.max(...ys)).slice(2)}` : "");
@@ -69,8 +69,51 @@ function rawYearly(d, agg, years) {
     <ul class="legend">${SENSORS.map(([, n], k) => `<li><span class="sw s${k}-bg"></span>${n}</li>`).join("")}</ul>`;
 }
 
+// Seasonal profile: median by calendar month (25th-75th percentile band) over complete months of
+// the median years, with the latest year overlaid.
+function seasonal(d, agg, medianYears) {
+  const per = MONTHS.map((_, k) => medianYears.map((y) => {
+    const i = d.monthIndex.get(y * 100 + k + 1);
+    return i === undefined || d.months[i].partial ? NaN : agg.totals[i];
+  }).filter(Number.isFinite));
+  const used = new Set();
+  medianYears.forEach((y) => MONTHS.forEach((_, k) => {
+    const i = d.monthIndex.get(y * 100 + k + 1);
+    if (i !== undefined && !d.months[i].partial) used.add(y);
+  }));
+  const med = per.map((v) => median(v)), q1 = per.map((v) => quantile(v, 0.25)), q3 = per.map((v) => quantile(v, 0.75));
+  const Y = d.lastYear;
+  const cur = MONTHS.map((_, k) => {
+    const i = d.monthIndex.get(Y * 100 + k + 1);
+    return i === undefined ? null : { v: agg.totals[i], partial: d.months[i].partial, nrt: d.months[i].source === "near_real_time" };
+  });
+  const W = 560, H = 190, padL = 50, padR = 12, padB = 22, padT = 12;
+  const max = Math.max(1, ...q3.filter(Number.isFinite), ...cur.filter(Boolean).map((c) => c.v));
+  const x = (k) => padL + (k * (W - padL - padR)) / 11;
+  const y = (v) => padT + (H - padT - padB) * (1 - v / max);
+  const ticks = [0, max / 2, max].map((v) => `<g><line x1="${padL}" x2="${W - padR}" y1="${y(v)}" y2="${y(v)}" class="grid"/>
+      <text x="${padL - 6}" y="${y(v) + 4}" class="tick" text-anchor="end">${fmtShort(v)}</text></g>`).join("");
+  const band = `M${q3.map((v, k) => `${x(k)},${y(v || 0)}`).join("L")}L${q1.map((v, k) => `${x(k)},${y(v || 0)}`).reverse().join("L")}Z`;
+  const medPath = `M${med.map((v, k) => `${x(k)},${y(v || 0)}`).join("L")}`;
+  const pts = cur.map((c, k) => (c ? [k, c] : null)).filter(Boolean);
+  const curPath = pts.length ? `M${pts.map(([k, c]) => `${x(k)},${y(c.v)}`).join("L")}` : "";
+  const dots = pts.map(([k, c]) => `<circle cx="${x(k)}" cy="${y(c.v)}" r="3" class="${c.partial ? "dot-partial" : "dot-now"}">
+      <title>${MONTHS[k]} ${Y}: ${fmt(c.v)} cell-days${c.partial ? ", partial month" : ""}${c.nrt ? ", near real time" : ""} · median ${fmt(med[k])}</title></circle>`).join("");
+  const xt = MONTHS.map((m, k) => `<text x="${x(k)}" y="${H - 6}" class="tick" text-anchor="middle">${m[0]}</text>`).join("");
+  const span_ = used.size ? `${Math.min(...used)}–${String(Math.max(...used)).slice(2)}` : "";
+  return `<h3 class="gap">Seasonal profile</h3>
+    <svg viewBox="0 0 ${W} ${H}" class="ychart" role="img" aria-label="Median fire cell-days by month with the ${Y} values overlaid">
+      ${ticks}<path d="${band}" class="iqr"/><path d="${medPath}" class="medcurve"/><path d="${curPath}" class="nowcurve"/>${dots}${xt}</svg>
+    <ul class="legend">
+      <li title="Median of complete months ${span_}"><span class="sw key-medcurve"></span>median ${span_}</li>
+      <li><span class="sw key-iqr"></span>middle half of years</li>
+      <li><span class="sw key-now"></span>${Y}</li>
+      <li><span class="sw key-hollow"></span>partial month</li>
+    </ul>`;
+}
+
 export function renderCompare(el, d, agg, opts) {
-  const { yearFilter, totals, mode = "harmonised", years } = opts;
+  const { yearFilter, totals, mode = "harmonised", years, medianYears = [] } = opts;
   if (mode === "raw") { el.innerHTML = rawYearly(d, agg, years); return; }
   const lastI = d.months.length - 1;
   const last = d.months[lastI];
@@ -92,6 +135,8 @@ export function renderCompare(el, d, agg, opts) {
   let j = lastI;
   while (j > 0 && d.months[j].partial) j--;
   if (j !== lastI) html += monthCompare(d, agg, j, yearFilter, false);
+
+  html += seasonal(d, agg, medianYears);
 
   // 3) yearly totals chart
   const rows = totals.filter((t) => Number.isFinite(t.s)).sort((a, b) => a.y - b.y);

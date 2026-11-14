@@ -15,6 +15,20 @@ function nice(v) {
   return (m < 1.5 ? 1 : m < 3.5 ? 2 : m < 7.5 ? 5 : 10) * p;
 }
 
+// Diverging scale for "compared with normal": ratio to the median of the same month.
+// Built from colours already in the app: accent blues below, the cividis yellows above, neutral
+// grey at 1x. Both arms get brighter the further they are from normal.
+export const RATIO_EDGES = [0.25, 0.5, 0.8, 1.25, 2, 4];
+export const RATIO_COLORS = ["#86b6ef", "#3f8ce8", "#2b4f80", "#3a3e47", "#8e8978", "#d9c55c", "#fee838"];
+export const RATIO_LABELS = ["< 0.25×", "0.25–0.5×", "0.5–0.8×", "0.8–1.25×", "1.25–2×", "2–4×", "> 4×"];
+export function ratioColor(v, med) {
+  if (!(med > 0)) return v > 0 ? RATIO_COLORS[6] : RATIO_COLORS[3];
+  const r = v / med;
+  let k = 0;
+  while (k < RATIO_EDGES.length && r >= RATIO_EDGES[k]) k++;
+  return RATIO_COLORS[k];
+}
+
 // Log-spaced bins between the smallest and largest positive value.
 export function makeScale(values) {
   const pos = values.filter((v) => v > 0);
@@ -64,7 +78,7 @@ export function yearTotals(d, agg, years, values = agg.totals, mode = "harmonise
 }
 
 export function renderCalendar(el, d, agg, opts) {
-  const { years, medianYears, range, lowConfidence, legendEl, mode = "harmonised" } = opts;
+  const { years, medianYears, range, lowConfidence, legendEl, mode = "harmonised", colour = "activity" } = opts;
   const values = opts.values || agg.totals;
   const harm = mode === "harmonised";
   const cell = (y, m) => {
@@ -85,6 +99,8 @@ export function renderCalendar(el, d, agg, opts) {
     return c.v;
   })));
   const medSpan = medYearsUsed.size ? `${Math.min(...medYearsUsed)}–${Math.max(...medYearsUsed)}` : "";
+  const normal = colour === "normal";
+  const fill = (c) => (normal ? ratioColor(c.v, monthMedians[c.info.m - 1]) : scale.color(c.v));
 
   let html = `<table class="cal" aria-label="Fire cell-days per month for the selected area">
     <thead><tr><th scope="col">Year</th>${MONTHS.map((m, k) => `<th scope="col" data-month="${k + 1}">${m}</th>`).join("")}
@@ -100,8 +116,9 @@ export function renderCalendar(el, d, agg, opts) {
       const cls = ["v", c.info.partial && "partial", c.info.source === "near_real_time" && "nrt",
         harm && isEstimated(c.info.source) && "est", top.has(c.i) && "top", out && "out"].filter(Boolean).join(" ");
       const label = `${MONTHS[m - 1]} ${t.y}: ${fmt(c.v)} cell-days, ${harm ? SOURCE_LABEL[c.info.source] : `raw ${SENSOR_LABEL[recordedSensor(c.info)]}`}` +
-        (c.info.partial ? ", partial month" : "");
-      html += `<td class="${cls}" style="--c:${scale.color(c.v)}" data-i="${c.i}" tabindex="0" aria-label="${label}"></td>`;
+        (c.info.partial ? ", partial month" : "") +
+        (normal && monthMedians[m - 1] > 0 ? `, ${(c.v / monthMedians[m - 1]).toFixed(2)} times the median` : "");
+      html += `<td class="${cls}" style="--c:${fill(c)}" data-i="${c.i}" tabindex="0" aria-label="${label}"></td>`;
     }
     const w = Number.isFinite(t.s) ? (100 * t.s) / maxYear : 0;
     const rangeTxt = t.est && t.s > 0 && t.hi - t.lo > 0.01 * t.s ? ` <span class="rng" title="Likely range ${fmt(t.lo)}–${fmt(t.hi)}">(${fmtShort(t.lo)}–${fmtShort(t.hi)})</span>` : "";
@@ -110,17 +127,13 @@ export function renderCalendar(el, d, agg, opts) {
   html += `</tbody><tfoot><tr><th scope="row">Median</th>
     ${monthMedians.map((v) => `<td class="med">${fmt(v)}</td>`).join("")}<td class="tot" title="Median of complete months">${medSpan}</td></tr></tfoot></table>`;
   el.innerHTML = html;
-  renderLegend(legendEl, scale, harm && lowConfidence, harm);
+  if (normal) renderRatioLegend(legendEl, harm && lowConfidence, harm, medSpan);
+  else renderLegend(legendEl, scale, harm && lowConfidence, harm);
   return { scale, totals, monthMedians, medSpan };
 }
 
-const DEFINITION = "Fire cell-days: ~1 km grid cells with at least one fire detection on a day, summed over the month. Brighter (yellow) means more fire.";
-
-function renderLegend(el, scale, lowConfidence, harm = true) {
-  const sw = scale.colors.map((c, k) => `<li><span class="sw" style="background:${c}"></span>${k === 0 ? "> 0" : fmt(scale.edges[k - 1])}</li>`).join("");
-  el.innerHTML = `<p class="legend-title"><span class="info" title="${DEFINITION}">${harm ? "Fire cell-days per month" : "Raw fire cell-days per month"}</span></p>
-    <ul class="legend" aria-label="Colour scale"><li><span class="sw" style="background:var(--zero)"></span>0</li>${sw}</ul>
-    <ul class="legend keys">
+function marks(harm, lowConfidence) {
+  return `<ul class="legend keys">
       ${harm ? `<li title="Estimated from MODIS before VIIRS (2012); the year total shows the likely range"><span class="sw key-est"></span>estimated</li>` : ""}
       <li><span class="sw key-partial"></span>partial month</li>
       <li title="Provisional near-real-time data"><span class="sw key-nrt"></span>near real time</li>
@@ -132,9 +145,24 @@ function renderLegend(el, scale, lowConfidence, harm = true) {
     </ul>`;
 }
 
+function renderRatioLegend(el, lowConfidence, harm, medSpan) {
+  el.innerHTML = `<p class="legend-title"><span class="info" title="Each month divided by the median of the same calendar month over complete months ${medSpan}. 1× = a normal month for this area.">Compared with normal · × median of the same month, ${medSpan}</span></p>
+    <ul class="legend" aria-label="Ratio colour scale">${RATIO_COLORS.map((c, k) => `<li><span class="sw" style="background:${c}"></span>${RATIO_LABELS[k]}</li>`).join("")}</ul>
+    ${marks(harm, lowConfidence)}`;
+}
+
+const DEFINITION = "Fire cell-days: ~1 km grid cells with at least one fire detection on a day, summed over the month. Brighter (yellow) means more fire.";
+
+function renderLegend(el, scale, lowConfidence, harm = true) {
+  const sw = scale.colors.map((c, k) => `<li><span class="sw" style="background:${c}"></span>${k === 0 ? "> 0" : fmt(scale.edges[k - 1])}</li>`).join("");
+  el.innerHTML = `<p class="legend-title"><span class="info" title="${DEFINITION}">${harm ? "Fire cell-days per month" : "Raw fire cell-days per month"}</span></p>
+    <ul class="legend" aria-label="Colour scale"><li><span class="sw" style="background:var(--zero)"></span>0</li>${sw}</ul>
+    ${marks(harm, lowConfidence)}`;
+}
+
 export function attachTooltip(host, tip, getState) {
   const show = (td, x, y) => {
-    const { d, agg, mode } = getState();
+    const { d, agg, mode, colour, cal } = getState();
     const i = Number(td.dataset.i), info = d.months[i];
     let body;
     if (mode === "raw") {
@@ -145,7 +173,9 @@ export function attachTooltip(host, tip, getState) {
       const v = agg.totals[i];
       const q = uncertaintyFactors(d, agg.areaKm2, "month", info.source);
       const rng = q && v > 0 ? ` <span class="muted">(${fmt(v * q[0])}–${fmt(v * q[2])})</span>` : "";
-      body = `${fmt(v)}${rng} fire cell-days<br><span class="muted">${SOURCE_LABEL[info.source]}${info.partial ? " · partial month" : ""}</span>`;
+      const med = cal && cal.monthMedians ? cal.monthMedians[info.m - 1] : NaN;
+      const vs = colour === "normal" ? `<br>${med > 0 ? `${(v / med).toFixed(2)}×` : "–"} median ${cal.medSpan} (${fmt(med)})` : "";
+      body = `${fmt(v)}${rng} fire cell-days${vs}<br><span class="muted">${SOURCE_LABEL[info.source]}${info.partial ? " · partial month" : ""}</span>`;
     }
     tip.innerHTML = `<strong>${MONTHS[info.m - 1]} ${info.y}</strong><br>${body}`;
     tip.hidden = false;

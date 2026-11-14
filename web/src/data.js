@@ -34,6 +34,7 @@ export async function loadData(base = "harmonised/") {
     rawMonth: view("raw_month", Uint16Array),
     rawPlatform: view("raw_platform", Uint8Array),
     rawValue: view("raw_value", Float32Array),
+    rawDet: L.raw_det ? view("raw_det", Uint32Array) : null,
     sdCell: L.sd_cell ? view("sd_cell", Uint16Array) : new Uint16Array(0),
     sdYear: L.sd_year ? view("sd_year", Uint16Array) : new Uint16Array(0),
     sdValue: L.sd_value ? view("sd_value", Float32Array) : new Float32Array(0),
@@ -82,7 +83,9 @@ export function aggregate(d, b) {
   const nM = d.months.length, nP = d.platforms.length;
   const totals = new Float64Array(nM);
   const raw = new Float64Array(nM * nP);
+  const det = new Float64Array(nM * nP);
   const cells = [], gridCells = [];
+  const ext = { south: 90, north: -90, west: 180, east: -180 }; // extent of selected cells with data
   const mask = new Uint8Array(d.lat.length);
   let canadaKm2 = 0;
   for (let i = 0; i < d.lat.length; i++) {
@@ -90,16 +93,26 @@ export function aggregate(d, b) {
     if (la < b.south || la > b.north || lo < b.west || lo > b.east) continue;
     gridCells.push(i);
     if (d.canada[i]) canadaKm2 += d.area[i];
-    if (d.rowStart[i + 1] > d.rowStart[i]) { cells.push(i); mask[i] = 1; }
+    if (d.rowStart[i + 1] > d.rowStart[i]) {
+      cells.push(i); mask[i] = 1;
+      if (la < ext.south) ext.south = la; if (la > ext.north) ext.north = la;
+      if (lo < ext.west) ext.west = lo; if (lo > ext.east) ext.east = lo;
+    }
     for (let r = d.rowStart[i]; r < d.rowStart[i + 1]; r++) totals[d.rowMonth[r]] += d.rowValue[r];
-    for (let r = d.rawStart[i]; r < d.rawStart[i + 1]; r++) raw[d.rawPlatform[r] * nM + d.rawMonth[r]] += d.rawValue[r];
+    for (let r = d.rawStart[i]; r < d.rawStart[i + 1]; r++) {
+      const k = d.rawPlatform[r] * nM + d.rawMonth[r];
+      raw[k] += d.rawValue[r];
+      if (d.rawDet) det[k] += d.rawDet[r];
+    }
   }
   const sameDays = new Map();
   for (let r = 0; r < d.sdCell.length; r++) {
     if (mask[d.sdCell[r]]) sameDays.set(d.sdYear[r], (sameDays.get(d.sdYear[r]) || 0) + d.sdValue[r]);
   }
   const rawOf = (p) => raw.subarray(d.platforms.indexOf(p) * nM, (d.platforms.indexOf(p) + 1) * nM);
-  return { totals, raw, rawOf, cells, gridCells, mask, sameDays, canadaKm2, boxKm2: boxAreaKm2(b), areaKm2: canadaKm2 };
+  const detOf = (p) => det.subarray(d.platforms.indexOf(p) * nM, (d.platforms.indexOf(p) + 1) * nM);
+  return { totals, raw, rawOf, detOf, cells, gridCells, mask, sameDays, canadaKm2, boxKm2: boxAreaKm2(b), areaKm2: canadaKm2,
+    extent: cells.length ? ext : null };
 }
 
 // "As recorded" raw series: each month in the sensor the record uses, without conversion.
@@ -142,6 +155,13 @@ export function uncertaintyFactors(d, areaKm2, period, source) {
     }
   }
   return null;
+}
+
+export function quantile(values, q) {
+  const v = values.filter((x) => Number.isFinite(x)).sort((a, b) => a - b);
+  if (!v.length) return NaN;
+  const p = (v.length - 1) * q, lo = Math.floor(p), hi = Math.ceil(p);
+  return v[lo] + (v[hi] - v[lo]) * (p - lo);
 }
 
 export function median(values) {

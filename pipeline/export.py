@@ -81,13 +81,14 @@ def canada_cells() -> np.ndarray:
 
 
 def raw_rows(src: pd.DataFrame, cidx: pd.Series) -> pd.DataFrame:
-    """Each sensor's own cell-days per cell and month, no conversion (Raw view in the app).
-    'viirs' is the VIIRS reference (mean of the available S-NPP and NOAA-20)."""
-    m = pd.read_parquet(C.INTERIM / "cell_days_monthly.parquet", columns=["cell5", "year", "month", "platform", "cell_days"])
+    """Each sensor's own cell-days and hotspot detections per cell and month, no conversion
+    (Raw view and detection counts in the app). 'viirs' is the VIIRS reference (mean of the
+    available S-NPP and NOAA-20); it has cell-days only."""
+    m = pd.read_parquet(C.INTERIM / "cell_days_monthly.parquet", columns=["cell5", "year", "month", "platform", "cell_days", "n_det"])
     m["platform"] = m.platform.astype(str)
     v = (pd.read_parquet(C.INTERIM / "calibration_base.parquet", columns=["cell5", "year", "month", "vref"])
            .groupby(["cell5", "year", "month"]).vref.sum().rename("cell_days").reset_index().assign(platform="viirs"))
-    r = pd.concat([m, v[v.cell_days > 0]], ignore_index=True)
+    r = pd.concat([m, v[v.cell_days > 0].assign(n_det=0)], ignore_index=True)
     r = r.merge(src[["year", "month", "idx"]], on=["year", "month"])
     r = r[r.cell5.isin(cidx.index)]
     r["cidx"] = cidx.reindex(r.cell5.to_numpy()).to_numpy()
@@ -192,6 +193,7 @@ def main() -> None:
     add("raw_month", raw.idx.to_numpy().astype("<u2"))
     add("raw_platform", raw.pcode.to_numpy().astype("u1"))
     add("raw_value", raw.value.to_numpy().astype("<f4"))
+    add("raw_det", raw.n_det.fillna(0).to_numpy().astype("<u4"))  # hotspot detections (cleaned), per sensor
     sd_info, sd = same_days(src, H)
     sd = sd[sd.cell5.isin(cidx.index)]
     add("sd_cell", cidx.reindex(sd.cell5.to_numpy()).to_numpy().astype("<u2"))

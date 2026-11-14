@@ -38,7 +38,7 @@ document.querySelectorAll("details[data-remember]").forEach((el) => {
   try { const v = localStorage.getItem(key); if (v !== null) el.open = v === "1"; } catch { /* storage unavailable */ }
   el.addEventListener("toggle", () => { try { localStorage.setItem(key, el.open ? "1" : "0"); } catch { /* ignore */ } });
 });
-const state = { d: null, box: null, agg: null, cal: null, range: null, observedOnly: false, mode: "harmonised", mapReady: false };
+const state = { d: null, box: null, agg: null, cal: null, range: null, observedOnly: false, mode: "harmonised", colour: "activity", mapReady: false };
 
 // ---- map: globe, north up, no rotation or pitch, starts on Canada
 const map = new maplibregl.Map({
@@ -101,7 +101,7 @@ map.on("mouseup", (e) => {
   start = null;
   setDrawing(false);
   if (b.north - b.south < 0.05 || b.east - b.west < 0.05) { drawBox(state.box); return; }
-  select(b, false);
+  select(b, true);
 });
 
 // ---- bounds inputs and presets
@@ -120,8 +120,23 @@ function select(b, fly) {
   state.box = b;
   fields.forEach((f) => { $(f).value = Math.round(b[f] * 100) / 100; });
   drawBox(b);
-  if (fly) map.fitBounds([[b.west, b.south], [b.east, Math.min(b.north, 75)]], { padding: 30, duration: 800 });
   if (state.d) update();
+  if (fly) fitToData();
+}
+
+// Fit the camera to the cells that have data in the box (or the box itself if none), with ~5%
+// padding plus room for the floating panels, so the loaded cells fill the visible frame.
+function fitToData() {
+  const e = state.agg && state.agg.extent;
+  const half = 0.12; // display cells are ~0.25 degrees across; pad centres by half a cell
+  const b = e ? { south: e.south - half, north: e.north + half, west: e.west - half * 2, east: e.east + half * 2 } : state.box;
+  const el = map.getContainer();
+  const pad = Math.round(0.05 * Math.min(el.clientWidth, el.clientHeight));
+  const panel = (sel) => { const n = document.querySelector(sel); return n && getComputedStyle(n).position === "absolute" ? n.offsetHeight : 0; };
+  map.fitBounds([[b.west, b.south], [b.east, b.north]], {
+    padding: { top: pad + panel(".map-tools") + 12, bottom: pad + panel(".map-bottom") + 42, left: pad, right: pad + 40 },
+    duration: 800, maxZoom: 9,
+  });
 }
 
 // ---- date range, observed-only toggle, harmonised / raw view
@@ -143,6 +158,7 @@ function readRange() {
 ["from", "to"].forEach((id) => $(id).addEventListener("change", () => { if (readRange()) update(); }));
 $("observed-only").addEventListener("change", (e) => { state.observedOnly = e.target.checked; update(); });
 document.querySelectorAll('input[name="view"]').forEach((r) => r.addEventListener("change", (e) => { state.mode = e.target.value; update(); }));
+document.querySelectorAll('input[name="colour"]').forEach((r) => r.addEventListener("change", (e) => { state.colour = e.target.value; update(); }));
 
 function refreshGrid() {
   if (!state.mapReady || !state.agg) return;
@@ -176,11 +192,20 @@ function update() {
   const areaTip = `Canada inside the box (land and lakes): the area searched, not the area burned.${partlyOutside ? ` Part of the box is outside Canada. ${OUTSIDE}` : ""}`;
   const lowTip = `Less than ${fmt(minArea)} km² of Canada in the box: estimated years are low confidence.`;
   const areaTxt = agg.canadaKm2 >= 1e6 ? `${(agg.canadaKm2 / 1e6).toFixed(2)}M` : fmt(agg.canadaKm2);
+  const dets = [["terra", "Terra"], ["aqua", "Aqua"], ["snpp", "S-NPP"], ["noaa20", "NOAA-20"]].map(([p, name]) => {
+    const v = agg.detOf(p);
+    let t = 0;
+    for (let i = a; i <= b; i++) t += v[i];
+    return [name, t];
+  }).filter(([, t]) => t > 0);
+  const detLine = dets.length ? `<div class="sub" title="Raw hotspot detections per satellite (vegetation fire, low-confidence class removed), not converted. Counted by grid cell like the cell-days (cells whose centre is in the box, local-date months), so they can differ slightly from the hotspot CSV, which uses each detection's exact position.">
+      <strong>hotspots</strong> ${dets.map(([n, t]) => `${n} ${t < 1000 ? Math.round(t).toLocaleString("en-CA") : fmtShort(t)}`).join(" · ")}</div>
+    <div class="sub dim">Hotspots count every flagged pixel on every overpass; cell-days count each ~1 km cell once a day.</div>` : "";
   $("summary").innerHTML = !inCanada ? `<p class="notice">${OUTSIDE}</p>` : agg.cells.length ? `
     <div class="big" title="Harmonised fire cell-days (VIIRS-equivalent), ${rangeLabel()}">${fmt(total)}${hi - lo > 0.005 * total ? ` <span class="rng">(${fmtShort(lo)}–${fmtShort(hi)})</span>` : ""}
       <span class="unit">fire cell-days</span></div>
     <div class="sub">${rangeLabel()} · ${agg.cells.length.toLocaleString("en-CA")} cells with fire ·
-      <span class="info" title="${areaTip}">${areaTxt} km² searched</span>${lowConfidence ? ` <span class="badge low" title="${lowTip}">low conf.</span>` : ""}</div>`
+      <span class="info" title="${areaTip}">${areaTxt} km² searched</span>${lowConfidence ? ` <span class="badge low" title="${lowTip}">low conf.</span>` : ""}</div>${detLine}`
     : `<div class="big">0 <span class="unit">fire cell-days</span></div>
     <div class="sub"><span class="info" title="${areaTip}">${areaTxt} km² searched</span> · no fire detected</div>`;
   for (const id of ["sec-calendar", "sec-compare", "sec-downloads"]) $(id).hidden = !inCanada;
@@ -192,9 +217,9 @@ function update() {
     : "Harmonised: the whole record in VIIRS-equivalent fire cell-days. Before 2012 it is estimated from MODIS.";
   state.cal = renderCalendar($("calendar"), d, agg, {
     years, medianYears, range: state.range, lowConfidence, legendEl: $("legend"),
-    mode: state.mode, values: raw ? rawRecorded(d, agg) : agg.totals,
+    mode: state.mode, values: raw ? rawRecorded(d, agg) : agg.totals, colour: state.colour,
   });
-  renderCompare($("compare"), d, agg, { yearFilter, totals: state.cal.totals, mode: state.mode, years });
+  renderCompare($("compare"), d, agg, { yearFilter, totals: state.cal.totals, mode: state.mode, years, medianYears });
   $("dl-status").textContent = "";
   refreshGrid();
 }
@@ -235,7 +260,7 @@ $("dl-hotspots").addEventListener("click", async () => {
 });
 
 // ---- start
-attachTooltip($("calendar"), $("tip"), () => ({ d: state.d, agg: state.agg, mode: state.mode }));
+attachTooltip($("calendar"), $("tip"), () => ({ d: state.d, agg: state.agg, mode: state.mode, colour: state.colour, cal: state.cal }));
 loadData("harmonised/")
   .then((d) => {
     state.d = d;
