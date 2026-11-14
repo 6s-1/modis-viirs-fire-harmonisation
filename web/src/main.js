@@ -1,7 +1,7 @@
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import "./style.css";
-import { MONTHS, aggregate, fmt, loadData, monthDays, rawRecorded } from "./data.js";
+import { MONTHS, aggregate, fmt, fmtShort, loadData, monthDays, rawRecorded, uncertaintyFactors } from "./data.js";
 import { attachTooltip, renderCalendar } from "./calendar.js";
 import { renderCompare } from "./compare.js";
 import { calendarPNG, fileStem, hotspotIndex, hotspotPlan, hotspotsCSV, monthlyCSV, saveBlob } from "./downloads.js";
@@ -16,14 +16,36 @@ const STYLE = "https://tiles.openfreemap.org/styles/positron";
 const OUTSIDE = "Harmonised history is available for Canada in this version.";
 
 const $ = (id) => document.getElementById(id);
+
+// The globe should fill its half with dark space around it: radius ~38% of the panel's smaller side.
+const START = { lng: -96, lat: 58 };
+function fitGlobe() {
+  const el = map.getContainer();
+  const target = 0.38 * Math.min(el.clientWidth, el.clientHeight);
+  map.jumpTo({ center: [START.lng, START.lat], zoom: 1.5 });
+  for (let k = 0; k < 3; k++) {
+    // a point 89 degrees from the centre sits just inside the globe's edge
+    const c = map.project([START.lng, START.lat]), e = map.project([START.lng, START.lat - 89]);
+    const r = Math.hypot(e.x - c.x, e.y - c.y);
+    if (!(r > 0)) break;
+    map.jumpTo({ center: [START.lng, START.lat], zoom: map.getZoom() + Math.log2(target / r) });
+  }
+}
+
+// Collapsible sections remember their state in this browser.
+document.querySelectorAll("details[data-remember]").forEach((el) => {
+  const key = `section:${el.id}`;
+  try { const v = localStorage.getItem(key); if (v !== null) el.open = v === "1"; } catch { /* storage unavailable */ }
+  el.addEventListener("toggle", () => { try { localStorage.setItem(key, el.open ? "1" : "0"); } catch { /* ignore */ } });
+});
 const state = { d: null, box: null, agg: null, cal: null, range: null, observedOnly: false, mode: "harmonised", mapReady: false };
 
 // ---- map: globe, north up, no rotation or pitch, starts on Canada
 const map = new maplibregl.Map({
   container: "map",
   style: STYLE,
-  center: [-96, 60],
-  zoom: 1.9,
+  center: [-96, 58],
+  zoom: 1.5,
   bearing: 0,
   pitch: 0,
   maxPitch: 0,
@@ -35,7 +57,7 @@ const map = new maplibregl.Map({
 map.touchZoomRotate.disableRotation();
 map.keyboard.disableRotation();
 map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
-map.on("style.load", () => map.setProjection({ type: "globe" }));
+map.on("style.load", () => { map.setProjection({ type: "globe" }); fitGlobe(); });
 
 // lat/lon box as a polygon with points along each edge, so it follows parallels on the globe
 function boxFeature(b) {
@@ -145,13 +167,23 @@ function update() {
   let total = 0;
   for (let i = a; i <= b; i++) total += agg.totals[i];
   const partlyOutside = agg.boxKm2 > agg.canadaKm2 * 1.1;
-  $("summary").innerHTML = !inCanada ? `<p class="notice">${OUTSIDE}</p>` : `
-    <div><span class="muted">Canada inside the box (land and lakes):</span> <strong>${fmt(agg.canadaKm2)} km²</strong>
-      ${lowConfidence ? `<span class="badge low">below ${fmt(minArea)} km²: estimates low confidence</span>` : ""}</div>
-    <div class="muted small">This is the area searched, not the area burned.${partlyOutside ? ` Part of the box is outside Canada. ${OUTSIDE}` : ""}</div>
-    <div>${agg.cells.length ? `${agg.cells.length.toLocaleString("en-CA")} grid cells with fire · <strong>${fmt(total)}</strong> fire cell-days (harmonised), ${rangeLabel()}`
-      : "No fire detected in this part of Canada."}</div>`;
-  $("results").hidden = !inCanada;
+  // range of the total: estimated months carry the yearly likely range for this area
+  let lo = 0, hi = 0;
+  for (let i = a; i <= b; i++) {
+    const q = uncertaintyFactors(d, agg.canadaKm2, "year", d.months[i].source);
+    lo += agg.totals[i] * (q ? q[0] : 1); hi += agg.totals[i] * (q ? q[2] : 1);
+  }
+  const areaTip = `Canada inside the box (land and lakes): the area searched, not the area burned.${partlyOutside ? ` Part of the box is outside Canada. ${OUTSIDE}` : ""}`;
+  const lowTip = `Less than ${fmt(minArea)} km² of Canada in the box: estimated years are low confidence.`;
+  const areaTxt = agg.canadaKm2 >= 1e6 ? `${(agg.canadaKm2 / 1e6).toFixed(2)}M` : fmt(agg.canadaKm2);
+  $("summary").innerHTML = !inCanada ? `<p class="notice">${OUTSIDE}</p>` : agg.cells.length ? `
+    <div class="big" title="Harmonised fire cell-days (VIIRS-equivalent), ${rangeLabel()}">${fmt(total)}${hi - lo > 0.005 * total ? ` <span class="rng">(${fmtShort(lo)}–${fmtShort(hi)})</span>` : ""}
+      <span class="unit">fire cell-days</span></div>
+    <div class="sub">${rangeLabel()} · ${agg.cells.length.toLocaleString("en-CA")} cells with fire ·
+      <span class="info" title="${areaTip}">${areaTxt} km² searched</span>${lowConfidence ? ` <span class="badge low" title="${lowTip}">low conf.</span>` : ""}</div>`
+    : `<div class="big">0 <span class="unit">fire cell-days</span></div>
+    <div class="sub"><span class="info" title="${areaTip}">${areaTxt} km² searched</span> · no fire detected</div>`;
+  for (const id of ["sec-calendar", "sec-compare", "sec-downloads"]) $(id).hidden = !inCanada;
   if (!inCanada) { refreshGrid(); return; }
 
   const raw = state.mode === "raw";

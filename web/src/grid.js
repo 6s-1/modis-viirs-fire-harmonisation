@@ -5,7 +5,7 @@ import { cellValues, fmt, h3Id } from "./data.js";
 import { makeScale } from "./calendar.js";
 
 const ZERO = { light: "#d9d8d3", dark: "#3a3a37" };
-const dark = () => matchMedia("(prefers-color-scheme: dark)").matches;
+const dark = () => true; // the app uses a dark space theme
 
 export function addGridLayers(map) {
   map.addSource("grid", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
@@ -34,8 +34,9 @@ export function updateGrid(map, d, agg, range) {
 
 export function gridLegend(el, scale, rangeLabel) {
   const sw = scale.colors.map((c, k) => `<li><span class="sw" style="background:${c}"></span>${k === 0 ? "> 0" : fmt(scale.edges[k - 1])}</li>`).join("");
-  el.innerHTML = `<p class="small legend-title">Grid: fire cell-days per cell, ${rangeLabel}. Brighter (yellow) means more fire. Dashed outline: includes estimated months.</p>
-    <ul class="legend"><li><span class="sw" style="background:var(--zero)"></span>0</li>${sw}</ul>`;
+  el.innerHTML = `<p class="legend-title"><span class="info" title="Harmonised fire cell-days per grid cell (~250 km²) over ${rangeLabel}. Brighter (yellow) means more fire.">Grid · ${rangeLabel}</span></p>
+    <ul class="legend"><li><span class="sw" style="background:var(--zero)"></span>0</li>${sw}
+      <li title="Includes months estimated from MODIS"><span class="sw key-est"></span>estimated</li></ul>`;
 }
 
 export function attachGridHover(map, tip, getRangeLabel) {

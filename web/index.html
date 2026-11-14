@@ -7,60 +7,78 @@
     <title>Fire activity calendar</title>
   </head>
   <body>
-    <header class="top">
-      <h1>Fire activity calendar <a class="about-link" href="./about.html">About the data</a></h1>
-      <p class="muted">Monthly fire activity for any area of Canada since November 2000, from MODIS and VIIRS satellite hotspots combined into one record. <span id="data-end"></span></p>
+    <header class="site-top">
+      <h1>Fire activity calendar</h1>
+      <span class="muted small" id="data-end"></span>
+      <a class="about-link" href="./about.html">About the data</a>
     </header>
 
     <main class="layout">
       <section class="map-panel" aria-label="Map and area selection">
         <div id="map"></div>
-        <div id="grid-legend" class="grid-legend"></div>
-        <div class="tools">
+
+        <div class="map-ui map-tools">
           <button id="draw" type="button" aria-pressed="false">Draw a box</button>
-          <button id="all-canada" type="button" class="secondary">All of Canada</button>
-          <button id="okanagan" type="button" class="secondary">Okanagan (Kelowna)</button>
+          <button id="all-canada" type="button" class="ghost">All of Canada</button>
+          <button id="okanagan" type="button" class="ghost">Okanagan (Kelowna)</button>
         </div>
-        <form id="bounds" class="bounds" aria-label="Area bounds in degrees">
-          <label>South <input id="south" type="number" step="any" inputmode="decimal" /></label>
-          <label>North <input id="north" type="number" step="any" inputmode="decimal" /></label>
-          <label>West <input id="west" type="number" step="any" inputmode="decimal" /></label>
-          <label>East <input id="east" type="number" step="any" inputmode="decimal" /></label>
-          <button type="submit" class="secondary">Apply</button>
-          <p id="bounds-error" class="error" role="alert"></p>
-        </form>
-        <fieldset class="range">
-          <legend>Date range</legend>
-          <label>From <input id="from" type="month" /></label>
-          <label>To <input id="to" type="month" /></label>
-          <p id="range-error" class="error" role="alert"></p>
-        </fieldset>
-        <label class="toggle"><input id="observed-only" type="checkbox" /> Observed years only (2012+)</label>
-        <div class="downloads">
-          <h2 class="small-h">Downloads</h2>
-          <button id="dl-monthly" type="button" class="secondary">Monthly values per cell (CSV)</button>
-          <button id="dl-hotspots" type="button" class="secondary">Hotspots in box and date range (CSV)</button>
-          <button id="dl-png" type="button" class="secondary">Calendar (PNG)</button>
-          <p id="dl-status" class="muted small" aria-live="polite"></p>
-        </div>
+
+        <details class="map-ui map-card" id="sec-area" data-remember>
+          <summary>Area and dates</summary>
+          <form id="bounds" class="bounds" aria-label="Area bounds in degrees">
+            <label>South <input id="south" type="number" step="any" inputmode="decimal" /></label>
+            <label>North <input id="north" type="number" step="any" inputmode="decimal" /></label>
+            <label>West <input id="west" type="number" step="any" inputmode="decimal" /></label>
+            <label>East <input id="east" type="number" step="any" inputmode="decimal" /></label>
+            <button type="submit" class="ghost">Apply</button>
+            <p id="bounds-error" class="error" role="alert"></p>
+          </form>
+          <fieldset class="range">
+            <legend class="sr">Date range</legend>
+            <label>From <input id="from" type="month" /></label>
+            <label>To <input id="to" type="month" /></label>
+            <p id="range-error" class="error" role="alert"></p>
+          </fieldset>
+        </details>
+
+        <div id="grid-legend" class="map-ui map-legend"></div>
       </section>
 
-      <section class="side" aria-live="polite">
-        <div id="summary">Loading data…</div>
-        <div id="results" hidden>
-          <h2>Burning activity calendar</h2>
-          <div class="viewtoggle" role="radiogroup" aria-label="Calendar values">
-            <label><input type="radio" name="view" value="harmonised" checked /> Harmonised</label>
-            <label><input type="radio" name="view" value="raw" /> Raw sensors</label>
+      <aside class="side" aria-live="polite">
+        <details class="sec" id="sec-summary" open data-remember>
+          <summary><h2>Selection</h2></summary>
+          <div id="summary">Loading data…</div>
+        </details>
+
+        <details class="sec" id="sec-calendar" open data-remember>
+          <summary><h2>Calendar</h2></summary>
+          <div class="sec-controls">
+            <div class="viewtoggle" role="radiogroup" aria-label="Calendar values">
+              <label title="Whole record in VIIRS-equivalent fire cell-days; before 2012 estimated from MODIS"><input type="radio" name="view" value="harmonised" checked /> Harmonised</label>
+              <label title="Each satellite's own fire cell-days, not converted: MODIS before 2012, VIIRS after, so the record steps up in 2012"><input type="radio" name="view" value="raw" /> Raw sensors</label>
+            </div>
+            <label class="toggle"><input id="observed-only" type="checkbox" /> Observed only (2012+)</label>
           </div>
-          <p id="view-note" class="small"></p>
-          <p class="muted small">Fire cell-days: the number of ~1 km grid cells with at least one fire detection on a day, added up over the month.</p>
+          <p id="view-note" class="sr"></p>
           <div id="legend"></div>
           <div id="calendar" class="cal-wrap"></div>
-          <p class="muted small">* Part of a year. Months outside the date range are faded.</p>
+        </details>
+
+        <details class="sec" id="sec-compare" open data-remember>
+          <summary><h2>Compared with past years</h2></summary>
           <div id="compare"></div>
-        </div>
-      </section>
+        </details>
+
+        <details class="sec" id="sec-downloads" data-remember>
+          <summary><h2>Downloads</h2></summary>
+          <div class="downloads">
+            <button id="dl-monthly" type="button" class="ghost" title="Harmonised monthly values per grid cell in the box and date range, with source flag and likely range">Monthly values per cell · CSV</button>
+            <button id="dl-hotspots" type="button" class="ghost" title="Satellite hotspots in the box and date range (vegetation fire, low-confidence class removed)">Hotspots · CSV</button>
+            <button id="dl-png" type="button" class="ghost" title="The harmonised calendar for this box as an image">Calendar · PNG</button>
+            <p id="dl-status" class="muted small" aria-live="polite"></p>
+          </div>
+        </details>
+      </aside>
     </main>
     <div id="tip" class="tip" role="tooltip" hidden></div>
     <script type="module" src="/src/main.js"></script>

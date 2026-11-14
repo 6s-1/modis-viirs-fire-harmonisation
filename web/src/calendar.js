@@ -91,7 +91,7 @@ export function renderCalendar(el, d, agg, opts) {
     <th scope="col" class="tot">Year total</th></tr></thead><tbody>`;
   for (const t of totals) {
     const badge = !harm ? `<span class="badge">${t.sensors}</span>`
-      : t.est ? `<span class="badge${lowConfidence ? " low" : ""}">${t.estLabel}${lowConfidence ? " · low confidence" : ""}</span>` : "";
+      : t.est ? `<span class="badge${lowConfidence ? " low" : ""}">${t.estLabel}${lowConfidence ? " · low conf." : ""}</span>` : "";
     html += `<tr class="${t.est ? "est-row" : ""}"><th scope="row">${t.y}${badge}</th>`;
     for (let m = 1; m <= 12; m++) {
       const c = cell(t.y, m);
@@ -104,29 +104,32 @@ export function renderCalendar(el, d, agg, opts) {
       html += `<td class="${cls}" style="--c:${scale.color(c.v)}" data-i="${c.i}" tabindex="0" aria-label="${label}"></td>`;
     }
     const w = Number.isFinite(t.s) ? (100 * t.s) / maxYear : 0;
-    const rangeTxt = t.est && t.s > 0 && t.hi - t.lo > 0.01 * t.s ? ` <span class="rng" title="Likely range ${fmt(t.lo)}–${fmt(t.hi)}">${fmtShort(t.lo)}–${fmtShort(t.hi)}</span>` : "";
+    const rangeTxt = t.est && t.s > 0 && t.hi - t.lo > 0.01 * t.s ? ` <span class="rng" title="Likely range ${fmt(t.lo)}–${fmt(t.hi)}">(${fmtShort(t.lo)}–${fmtShort(t.hi)})</span>` : "";
     html += `<td class="tot"><div class="bar" style="width:${w}%"></div><span>${fmt(t.s)}${t.partial ? "*" : ""}${rangeTxt}</span></td></tr>`;
   }
   html += `</tbody><tfoot><tr><th scope="row">Median</th>
-    ${monthMedians.map((v) => `<td class="med">${fmt(v)}</td>`).join("")}<td class="tot muted small">complete months, ${medSpan}</td></tr></tfoot></table>`;
+    ${monthMedians.map((v) => `<td class="med">${fmt(v)}</td>`).join("")}<td class="tot" title="Median of complete months">${medSpan}</td></tr></tfoot></table>`;
   el.innerHTML = html;
   renderLegend(legendEl, scale, harm && lowConfidence, harm);
   return { scale, totals, monthMedians, medSpan };
 }
 
+const DEFINITION = "Fire cell-days: ~1 km grid cells with at least one fire detection on a day, summed over the month. Brighter (yellow) means more fire.";
+
 function renderLegend(el, scale, lowConfidence, harm = true) {
   const sw = scale.colors.map((c, k) => `<li><span class="sw" style="background:${c}"></span>${k === 0 ? "> 0" : fmt(scale.edges[k - 1])}</li>`).join("");
-  el.innerHTML = `<p class="small legend-title">Fire cell-days per month. Brighter (yellow) means more fire.</p>
-    <ul class="legend" aria-label="Colour scale">
-      <li><span class="sw" style="background:var(--zero)"></span>0</li>${sw}</ul>
+  el.innerHTML = `<p class="legend-title"><span class="info" title="${DEFINITION}">${harm ? "Fire cell-days per month" : "Raw fire cell-days per month"}</span></p>
+    <ul class="legend" aria-label="Colour scale"><li><span class="sw" style="background:var(--zero)"></span>0</li>${sw}</ul>
     <ul class="legend keys">
-      ${harm ? `<li><span class="sw key-est"></span>Estimated from MODIS (before 2012)</li>` : ""}
-      <li><span class="sw key-partial"></span>Partial month</li>
-      <li><span class="sw key-nrt"></span>Near real time</li>
-      <li><span class="sw key-top"></span>Top 3 months</li>
-      <li><span class="sw key-nodata">–</span>No data</li>
-    </ul>
-    ${lowConfidence ? `<p class="small warn">There is less Canadian land in the box than the minimum area for reliable estimates, so estimated years are low confidence.</p>` : ""}`;
+      ${harm ? `<li title="Estimated from MODIS before VIIRS (2012); the year total shows the likely range"><span class="sw key-est"></span>estimated</li>` : ""}
+      <li><span class="sw key-partial"></span>partial month</li>
+      <li title="Provisional near-real-time data"><span class="sw key-nrt"></span>near real time</li>
+      <li><span class="sw key-top"></span>top 3</li>
+      <li><span class="sw key-nodata">–</span>no data</li>
+      <li><span class="sw key-out"></span>outside date range</li>
+      <li>* part of year</li>
+      ${lowConfidence ? `<li title="Less than the minimum area of Canada in the box for reliable estimates"><span class="badge low">low conf.</span></li>` : ""}
+    </ul>`;
 }
 
 export function attachTooltip(host, tip, getState) {
@@ -141,8 +144,8 @@ export function attachTooltip(host, tip, getState) {
     } else {
       const v = agg.totals[i];
       const q = uncertaintyFactors(d, agg.areaKm2, "month", info.source);
-      const rng = q && v > 0 ? `<br>Likely range ${fmt(v * q[0])}–${fmt(v * q[2])}` : "";
-      body = `${fmt(v)} fire cell-days${rng}<br><span class="muted">${SOURCE_LABEL[info.source]}${info.partial ? " · partial month" : ""}</span>`;
+      const rng = q && v > 0 ? ` <span class="muted">(${fmt(v * q[0])}–${fmt(v * q[2])})</span>` : "";
+      body = `${fmt(v)}${rng} fire cell-days<br><span class="muted">${SOURCE_LABEL[info.source]}${info.partial ? " · partial month" : ""}</span>`;
     }
     tip.innerHTML = `<strong>${MONTHS[info.m - 1]} ${info.y}</strong><br>${body}`;
     tip.hidden = false;
