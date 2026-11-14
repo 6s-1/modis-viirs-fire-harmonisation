@@ -102,6 +102,7 @@ map.on("load", () => {
   map.on("mouseenter", "grid-fill", () => { if (!drawing) map.getCanvas().style.cursor = "pointer"; });
   map.on("mouseleave", "grid-fill", () => { if (!drawing) map.getCanvas().style.cursor = ""; });
   state.mapReady = true;
+  renderExposure(); // places may have loaded before the map
   if (state.box) { drawBox(state.box); if (state.d) refreshGrid(); }
 });
 function drawBox(b) {
