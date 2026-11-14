@@ -14,6 +14,8 @@ the present and shows it as a burning activity calendar for any area of Canada.
 - The box fills with grid cells coloured by fire activity; the calendar shows years by months.
 - Compare the latest months with the historical median; switch between harmonised and raw sensor counts.
 - Download monthly values per cell (CSV), the raw hotspots in the box (CSV) or the calendar (PNG).
+- Click a grid cell to see that cell alone; see recent near-real-time hotspots; see people living in the area
+  and a list of areas with fire ranked by people exposed (exposure only, not a priority list).
 
 ## Method in short
 
@@ -63,6 +65,8 @@ python -m venv .venv && .venv/bin/pip install -r requirements.txt
 | Natural Earth admin-1, 1:50m | https://naciscdn.org/naturalearth/50m/cultural/ne_50m_admin_1_states_provinces.zip | unzip to `data/external/ne_admin1/` |
 | NBAC per-year zips 2000–2025 (for the check and experiments) | https://cwfis.cfs.nrcan.gc.ca/downloads/nbac/ | `data/external/nbac/` |
 | NFDB fire points, text (experiments only) | https://cwfis.cfs.nrcan.gc.ca/downloads/nfdb/fire_pnt/current_version/ | unzip to `data/external/nfdb/txt/` |
+| WorldPop 2020 1 km UN-adjusted population, Canada (`can_ppp_2020_1km_Aggregated_UNadj.tif`) | https://data.worldpop.org/GIS/Population/Global_2000_2020_1km_UNadj/2020/CAN/ | `data/external/worldpop/` |
+| GeoNames `cities500.zip` (place names) | https://download.geonames.org/export/dump/ | `data/external/geonames/` |
 
 ### 2. Run the pipeline
 
@@ -81,6 +85,7 @@ $P/experiments_b.py                      # stage B variants + reports/experiment
 $P/harmonise.py                          # apply the adopted model -> data/processed/harmonised_cell_month.parquet
 $P/figures.py                            # reports/figures/canada_annual_series.png
 $P/nbac_check.py                         # independent check -> reports/nbac_check/, reports/figures/nbac_check.png
+$P/population.py                         # WorldPop people per cell and in fire cells, GeoNames places
 $P/export.py                             # static files for the app -> web/public/harmonised/
 $P/hotspot_tiles.py                      # hotspot tiles -> web/public/hotspots/ (not in git)
 $P/about_data.py                         # numbers and figures for the About page -> web/public/about/
@@ -100,7 +105,24 @@ npm run build      # static site in web/dist/
 
 The app is fully static. The hotspot download reads `web/public/hotspots/`; without it, that button is hidden.
 
-### 4. Deploy
+### 4. Live fire Worker (optional)
+
+The live fire layer reads NASA FIRMS near-real-time data through a small Cloudflare Worker in `worker/`,
+which keeps the FIRMS map key as a secret. Without it the app hides that layer and everything else works.
+
+```bash
+cd worker
+npm ci
+npx wrangler login
+npx wrangler deploy                       # prints the Worker address
+npx wrangler secret put FIRMS_MAP_KEY     # paste the key when asked
+gh variable set LIVE_URL --body "https://fire-live-proxy.<your-subdomain>.workers.dev"
+```
+
+For local testing put `FIRMS_MAP_KEY=...` in `worker/.dev.vars` (not committed), run `npx wrangler dev`,
+and start the app with `VITE_LIVE_URL=http://127.0.0.1:8787 npm run dev`.
+
+### 5. Deploy
 
 Pushing to `main` builds and deploys to GitHub Pages (`.github/workflows/deploy.yml`). The hotspot
 tiles are too large for git, so they are published as an asset on the `hotspot-tiles` release and
@@ -127,6 +149,7 @@ gh release upload hotspot-tiles hotspots.tar --clobber
   Terrestrial Ecozones of Canada, Agriculture and Agri-Food Canada: contain information licensed under the
   [Open Government Licence – Canada](https://open.canada.ca/en/open-government-licence-canada).
 - © ESA WorldCover project 2021 / Contains modified Copernicus Sentinel data (2021) processed by the ESA WorldCover consortium (CC BY 4.0).
-- Natural Earth (public domain). Base map: OpenFreeMap, © OpenMapTiles, data © OpenStreetMap contributors.
+- Natural Earth (public domain). Base map and roads and towns layer: OpenFreeMap, © OpenMapTiles, data © OpenStreetMap contributors.
+- Population: WorldPop 2020 (CC BY 4.0), a modelled estimate. Place names: GeoNames (CC BY 4.0).
 
 References are listed on the app's About page.

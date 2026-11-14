@@ -91,6 +91,7 @@ map.on("load", () => {
   map.addSource("cell-sel", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
   map.addLayer({ id: "cell-sel", type: "line", source: "cell-sel", paint: { "line-color": "#2bb3a3", "line-width": 3 } });
   attachGridHover(map, $("tip"), () => rangeLabel());
+  addContextLayers();
   addLiveLayer(map);
   attachLiveHover(map, $("tip"));
   map.on("moveend", () => {
@@ -142,6 +143,85 @@ $("bounds").addEventListener("submit", (e) => {
   if (!err) select(b, true);
 });
 for (const [id, b] of Object.entries(PRESETS)) $(id).addEventListener("click", () => select(b, true));
+// ---- context layer: major roads and populated places (OpenStreetMap via the basemap's vector tiles),
+// shown only inside the selection. For orientation; not evacuation routes.
+function selectionPolygon() {
+  const b = state.box;
+  if (!b) return null;
+  return state.cell ? { type: "Polygon", coordinates: [state.cell.ring] } : boxFeature(b).geometry;
+}
+const ROAD_CLASSES = ["motorway", "trunk", "primary"];
+function addContextLayers() {
+  const vis = $("ctx").checked ? "visible" : "none";
+  map.addSource("ctx-roads", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+  map.addLayer({ id: "ctx-roads-case", type: "line", source: "ctx-roads", layout: { visibility: vis, "line-join": "round", "line-cap": "round" },
+    paint: { "line-color": "#0b0d12", "line-width": ["interpolate", ["linear"], ["zoom"], 4, 1.8, 10, 4.5] } });
+  map.addLayer({ id: "ctx-roads", type: "line", source: "ctx-roads", layout: { visibility: vis, "line-join": "round", "line-cap": "round" },
+    paint: { "line-color": "#e8eaee", "line-width": ["interpolate", ["linear"], ["zoom"], 4, 0.7, 10, 2.2] } });
+  map.addLayer({ id: "ctx-places", type: "symbol", source: "openmaptiles", "source-layer": "place",
+    filter: ["match", ["get", "class"], ["city", "town", "village"], true, false],
+    layout: { visibility: vis, "text-field": ["coalesce", ["get", "name:en"], ["get", "name"]], "text-font": ["Noto Sans Regular"],
+      "text-size": ["match", ["get", "class"], "city", 13, "town", 12, 11], "text-anchor": "top", "text-offset": [0, 0.4] },
+    paint: { "text-color": "#ffffff", "text-halo-color": "#0b0d12", "text-halo-width": 1.6 } });
+  map.on("idle", () => { if ($("ctx").checked) clipRoads(); });
+  updateContext();
+}
+
+// Clip a polyline to a lat/lon rectangle (Liang-Barsky per segment); returns the inside pieces.
+function clipLine(coords, b) {
+  const out = [];
+  let cur = [];
+  for (let k = 0; k < coords.length - 1; k++) {
+    let [x0, y0] = coords[k], [x1, y1] = coords[k + 1];
+    let t0 = 0, t1 = 1;
+    const dx = x1 - x0, dy = y1 - y0;
+    const edges = [[-dx, x0 - b.west], [dx, b.east - x0], [-dy, y0 - b.south], [dy, b.north - y0]];
+    let keep = true;
+    for (const [pp, q] of edges) {
+      if (pp === 0) { if (q < 0) { keep = false; break; } continue; }
+      const t = q / pp;
+      if (pp < 0) { if (t > t1) { keep = false; break; } if (t > t0) t0 = t; }
+      else { if (t < t0) { keep = false; break; } if (t < t1) t1 = t; }
+    }
+    if (!keep) { if (cur.length > 1) out.push(cur); cur = []; continue; }
+    const a = [x0 + t0 * dx, y0 + t0 * dy], c = [x0 + t1 * dx, y0 + t1 * dy];
+    if (!cur.length) cur.push(a);
+    cur.push(c);
+    if (t1 < 1) { out.push(cur); cur = []; }
+  }
+  if (cur.length > 1) out.push(cur);
+  return out;
+}
+
+// Major roads from the loaded basemap tiles, clipped to the selection (the cell's bounding box
+// when a single cell is selected).
+function clipRoads() {
+  const src = map.getSource("ctx-roads");
+  if (!src || !state.box) return;
+  const b = state.box;
+  const feats = map.querySourceFeatures("openmaptiles", { sourceLayer: "transportation",
+    filter: ["match", ["get", "class"], ROAD_CLASSES, true, false] });
+  const lines = [];
+  for (const f of feats) {
+    const g = f.geometry;
+    const parts = g.type === "LineString" ? [g.coordinates] : g.type === "MultiLineString" ? g.coordinates : [];
+    for (const part of parts) lines.push(...clipLine(part, b));
+  }
+  src.setData({ type: "FeatureCollection", features: [{ type: "Feature", properties: {}, geometry: { type: "MultiLineString", coordinates: lines } }] });
+}
+
+function updateContext() {
+  const poly = selectionPolygon();
+  const on = $("ctx").checked;
+  if (map.getLayer("ctx-places")) {
+    const base = ["match", ["get", "class"], ["city", "town", "village"], true, false];
+    map.setFilter("ctx-places", poly ? ["all", base, ["within", poly]] : base);
+  }
+  for (const id of ["ctx-roads-case", "ctx-roads", "ctx-places"]) if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", on ? "visible" : "none");
+  if (on) clipRoads();
+}
+$("ctx").addEventListener("change", updateContext);
+
 // Clicking a grid cell makes that cell the selection; clicking it again (or any preset, typed
 // bounds or drawn box) returns to the previous box. The grid keeps showing the box's cells.
 function clickCell(i) {
@@ -205,6 +285,7 @@ document.querySelectorAll('input[name="colour"]').forEach((r) => r.addEventListe
 
 function refreshGrid() {
   if (!state.mapReady || !state.gridAgg) return;
+  updateContext();
   const g = updateGrid(map, state.d, state.gridAgg, state.range);
   if (g.n) gridLegend($("grid-legend"), g.scale, rangeLabel());
   else $("grid-legend").innerHTML = "";

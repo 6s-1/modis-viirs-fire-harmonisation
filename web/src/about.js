@@ -145,6 +145,43 @@ function render(a) {
   </section>
 
   <section>
+    <h2>Evacuation and emergency information</h2>
+    <p>This app shows fire history and recent detections. It is not an emergency service. For evacuation orders, alerts and
+    routes, follow your provincial or territorial emergency service:</p>
+    <ul class="links">
+      <li>British Columbia: <a href="https://www.emergencyinfobc.gov.bc.ca/">EmergencyInfoBC</a></li>
+      <li>Alberta: <a href="https://www.alberta.ca/alberta-emergency-alert">Alberta Emergency Alert</a></li>
+      <li>Saskatchewan: <a href="https://www.saskpublicsafety.ca/">Saskatchewan Public Safety Agency</a></li>
+      <li>Manitoba: <a href="https://www.gov.mb.ca/emo/">Manitoba Emergency Management</a></li>
+      <li>Ontario: <a href="https://www.ontario.ca/page/forest-fires">Ontario forest fires</a></li>
+      <li>Québec: <a href="https://www.quebec.ca/securite-situations-urgence">Sécurité et situations d'urgence</a> and <a href="https://www.sopfeu.qc.ca/en/">SOPFEU</a></li>
+      <li>New Brunswick: <a href="https://www.gnb.ca/en/topic/laws-safety/emergency-preparedness-alerts.html">Emergency preparedness and alerts</a></li>
+      <li>Nova Scotia: <a href="https://novascotia.ca/alerts/">Nova Scotia alerts</a></li>
+      <li>Prince Edward Island: <a href="https://www.princeedwardisland.ca/en/topic/emergency-management">Emergency management</a></li>
+      <li>Newfoundland and Labrador: <a href="https://www.gov.nl.ca/ffa/wildfires/">Wildfires</a></li>
+      <li>Yukon: <a href="https://yukon.ca/">Government of Yukon</a></li>
+      <li>Northwest Territories: <a href="https://www.maca.gov.nt.ca/en/services/emergency-management">Emergency management</a></li>
+      <li>Nunavut: <a href="https://www.gov.nu.ca/">Government of Nunavut</a></li>
+      <li>Across Canada: <a href="https://www.alertready.ca/">Alert Ready</a></li>
+    </ul>
+    <p>The optional "roads and towns" layer shows major roads and populated places from OpenStreetMap for orientation.
+    It is not a set of evacuation routes.</p>
+  </section>
+
+  <section>
+    <h2>Live fire and people exposed</h2>
+    <ul>
+      <li><strong>Live fire</strong> shows near-real-time VIIRS hotspots from NOAA-20 and NOAA-21 (NASA FIRMS) for the last 24 hours,
+        48 hours or 7 days. These are single satellite detections: not harmonised, not checked, and not the same unit as the calendar.</li>
+      <li><strong>People</strong> are WorldPop 2020 estimates (1 km, UN-adjusted): a model of where people live, not a census count,
+        and six years old.</li>
+      <li><strong>Areas with fire, ranked by people exposed</strong> lists ~250 km² grid cells with recent fire and the people living in
+        them. It describes exposure only. It is not a ranking of need or priority; response priorities are set by emergency
+        management agencies. Hotspots in towns can be industrial heat or other sources that are not wildfire.</li>
+    </ul>
+  </section>
+
+  <section>
     <h2>Data credits</h2>
     <ul>
       <li><strong>Active fire detections:</strong> NASA Fire Information for Resource Management System (FIRMS), part of NASA's Earth
@@ -159,6 +196,11 @@ function render(a) {
       <li><strong>Land cover:</strong> © ESA WorldCover project 2021 / Contains modified Copernicus Sentinel data (2021) processed by
         the ESA WorldCover consortium, licensed under CC BY 4.0.</li>
       <li><strong>Boundaries:</strong> Natural Earth (public domain).</li>
+      <li><strong>Population:</strong> WorldPop (www.worldpop.org), 2020 1 km UN-adjusted population for Canada, licensed under CC BY 4.0.</li>
+      <li><strong>Place names:</strong> GeoNames (cities500), licensed under CC BY 4.0.</li>
+      <li><strong>Roads and towns layer:</strong> © OpenStreetMap contributors (ODbL), via OpenMapTiles and OpenFreeMap.</li>
+      <li><strong>Live fire:</strong> NASA FIRMS near-real-time VIIRS (NOAA-20, NOAA-21), served through a Cloudflare Worker that keeps
+        the FIRMS key private.</li>
       <li><strong>Base map:</strong> OpenFreeMap, © OpenMapTiles, data © OpenStreetMap contributors.</li>
       <li><strong>Software:</strong> H3 hexagonal grid (Uber), MapLibre GL JS.</li>
     </ul>
