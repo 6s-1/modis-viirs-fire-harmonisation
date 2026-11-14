@@ -4,15 +4,15 @@ import { cellToBoundary } from "h3-js";
 import { cellValues, fmt, h3Id } from "./data.js";
 import { makeScale } from "./calendar.js";
 
-const ZERO = { light: "#d9d8d3", dark: "#3a3a37" };
+const ZERO = { light: "rgba(0,0,0,0)", dark: "rgba(0,0,0,0)" }; // no fire: outline only
 const dark = () => true; // the app uses a dark space theme
 
 export function addGridLayers(map) {
   map.addSource("grid", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
   map.addLayer({ id: "grid-fill", type: "fill", source: "grid",
-    paint: { "fill-color": ["get", "color"], "fill-opacity": ["case", ["get", "zero"], 0.35, 0.85] } }, "selection-fill");
+    paint: { "fill-color": ["get", "color"], "fill-opacity": ["case", ["get", "zero"], 0, 0.9] } }, "selection-fill");
   map.addLayer({ id: "grid-line", type: "line", source: "grid",
-    paint: { "line-color": dark() ? "#1a1a19" : "#fcfcfb", "line-width": 0.4, "line-opacity": 0.6 } }, "selection-fill");
+    paint: { "line-color": "#2a2e38", "line-width": 0.5, "line-opacity": 0.7 } }, "selection-fill");
   map.addLayer({ id: "grid-est", type: "line", source: "grid", filter: ["==", ["get", "est"], true],
     paint: { "line-color": dark() ? "#f0efec" : "#0b0b0b", "line-width": 0.9, "line-dasharray": [2, 2], "line-opacity": 0.55 } }, "selection-fill");
 }
@@ -35,7 +35,7 @@ export function updateGrid(map, d, agg, range) {
 export function gridLegend(el, scale, rangeLabel) {
   const sw = scale.colors.map((c, k) => `<li><span class="sw" style="background:${c}"></span>${k === 0 ? "> 0" : fmt(scale.edges[k - 1])}</li>`).join("");
   el.innerHTML = `<p class="legend-title"><span class="info" title="Harmonised fire cell-days per grid cell (~250 km²) over ${rangeLabel}. Brighter (yellow) means more fire.">Grid · ${rangeLabel}</span></p>
-    <ul class="legend"><li><span class="sw" style="background:var(--zero)"></span>0</li>${sw}
+    <ul class="legend"><li><span class="sw key-zero"></span>0</li>${sw}
       <li title="Includes months estimated from MODIS"><span class="sw key-est"></span>estimated</li></ul>`;
 }
 

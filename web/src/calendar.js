@@ -5,8 +5,9 @@ import { MONTHS, SOURCE_LABEL, fmt, fmtShort, isEstimated, median, recordedSenso
 export const SENSOR_LABEL = { terra: "MODIS Terra", aqua: "MODIS Aqua", snpp: "VIIRS S-NPP", noaa20: "VIIRS NOAA-20", viirs: "VIIRS" };
 const SENSOR_SHORT = { terra: "Terra", aqua: "Aqua", viirs: "VIIRS" };
 
-// cividis without its darkest step; brighter (yellow) = more fire, in light and dark themes
-export const RAMP = ["#213b6e", "#4c556c", "#6c6e72", "#8e8978", "#b1a570", "#d9c55c", "#fee838"];
+// Fire scale: inferno (matplotlib), from dark purple through red and orange to pale yellow.
+// Monotonic in lightness, so it reads in order without colour vision. Brighter = more fire.
+export const RAMP = ["#420a68", "#771c6d", "#ab2f5e", "#d74b3f", "#f37819", "#fcae12", "#f2f27d"];
 
 function nice(v) {
   if (v <= 0) return 0;
@@ -16,10 +17,9 @@ function nice(v) {
 }
 
 // Diverging scale for "compared with normal": ratio to the median of the same month.
-// Built from colours already in the app: accent blues below, the cividis yellows above, neutral
-// grey at 1x. Both arms get brighter the further they are from normal.
+// Purple = below normal, orange = above, neutral grey at 1x. Both arms get stronger further from 1x.
 export const RATIO_EDGES = [0.25, 0.5, 0.8, 1.25, 2, 4];
-export const RATIO_COLORS = ["#86b6ef", "#3f8ce8", "#2b4f80", "#3a3e47", "#8e8978", "#d9c55c", "#fee838"];
+export const RATIO_COLORS = ["#c3aef0", "#8e6ccf", "#5c4887", "#4a4e57", "#8f5a2c", "#de8430", "#f8b45c"];
 export const RATIO_LABELS = ["< 0.25×", "0.25–0.5×", "0.5–0.8×", "0.8–1.25×", "1.25–2×", "2–4×", "> 4×"];
 export function ratioColor(v, med) {
   if (!(med > 0)) return v > 0 ? RATIO_COLORS[6] : RATIO_COLORS[3];
@@ -113,7 +113,7 @@ export function renderCalendar(el, d, agg, opts) {
       const c = cell(t.y, m);
       if (!c) { html += `<td class="nodata" aria-label="${MONTHS[m - 1]} ${t.y}: no data">–</td>`; continue; }
       const out = c.i < range[0] || c.i > range[1];
-      const cls = ["v", c.info.partial && "partial", c.info.source === "near_real_time" && "nrt",
+      const cls = ["v", !normal && !(c.v > 0) && "zero", c.info.partial && "partial", c.info.source === "near_real_time" && "nrt",
         harm && isEstimated(c.info.source) && "est", top.has(c.i) && "top", out && "out"].filter(Boolean).join(" ");
       const label = `${MONTHS[m - 1]} ${t.y}: ${fmt(c.v)} cell-days, ${harm ? SOURCE_LABEL[c.info.source] : `raw ${SENSOR_LABEL[recordedSensor(c.info)]}`}` +
         (c.info.partial ? ", partial month" : "") +
@@ -147,7 +147,7 @@ function marks(harm, lowConfidence) {
 
 function renderRatioLegend(el, lowConfidence, harm, medSpan) {
   el.innerHTML = `<p class="legend-title"><span class="info" title="Each month divided by the median of the same calendar month over complete months ${medSpan}. 1× = a normal month for this area.">Compared with normal · × median of the same month, ${medSpan}</span></p>
-    <ul class="legend" aria-label="Ratio colour scale">${RATIO_COLORS.map((c, k) => `<li><span class="sw" style="background:${c}"></span>${RATIO_LABELS[k]}</li>`).join("")}</ul>
+    <ul class="legend" aria-label="Ratio colour scale"><li><strong>below normal</strong></li>${RATIO_COLORS.map((c, k) => `<li><span class="sw" style="background:${c}"></span>${RATIO_LABELS[k]}</li>`).join("")}<li><strong>above normal</strong></li></ul>
     ${marks(harm, lowConfidence)}`;
 }
 
@@ -156,7 +156,7 @@ const DEFINITION = "Fire cell-days: ~1 km grid cells with at least one fire dete
 function renderLegend(el, scale, lowConfidence, harm = true) {
   const sw = scale.colors.map((c, k) => `<li><span class="sw" style="background:${c}"></span>${k === 0 ? "> 0" : fmt(scale.edges[k - 1])}</li>`).join("");
   el.innerHTML = `<p class="legend-title"><span class="info" title="${DEFINITION}">${harm ? "Fire cell-days per month" : "Raw fire cell-days per month"}</span></p>
-    <ul class="legend" aria-label="Colour scale"><li><span class="sw" style="background:var(--zero)"></span>0</li>${sw}</ul>
+    <ul class="legend" aria-label="Colour scale"><li><span class="sw key-zero"></span>0</li>${sw}</ul>
     ${marks(harm, lowConfidence)}`;
 }
 

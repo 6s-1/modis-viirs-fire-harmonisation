@@ -57,7 +57,19 @@ const map = new maplibregl.Map({
 map.touchZoomRotate.disableRotation();
 map.keyboard.disableRotation();
 map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
-map.on("style.load", () => { map.setProjection({ type: "globe" }); fitGlobe(); });
+map.on("style.load", () => { map.setProjection({ type: "globe" }); neutralBasemap(); fitGlobe(); });
+
+// Mid-grey basemap so both ends of the inferno fire scale stand out (dark purple low end,
+// pale yellow high end): land ~ rgb(160,163,168), water darker, no blue or green tints.
+function neutralBasemap() {
+  const paint = { background: ["background-color", "#a0a3a8"], water: ["fill-color", "#6f747c"], park: ["fill-color", "#9a9da2"],
+    landcover_wood: ["fill-color", "#9a9da2"], landuse_residential: ["fill-color", "#9c9fa4"], landcover_ice_shelf: ["fill-color", "#b3b6ba"],
+    landcover_glacier: ["fill-color", "#b3b6ba"], waterway: ["line-color", "#6f747c"], boundary_2: ["line-color", "#55595f"], boundary_3: ["line-color", "#6a6e74"] };
+  for (const [id, [prop, val]] of Object.entries(paint)) if (map.getLayer(id)) map.setPaintProperty(id, prop, val);
+  for (const l of map.getStyle().layers) {
+    if (l.type === "symbol" && l.id.startsWith("water_name")) map.setPaintProperty(l.id, "text-color", "#2f3238");
+  }
+}
 
 // lat/lon box as a polygon with points along each edge, so it follows parallels on the globe
 function boxFeature(b) {
@@ -70,8 +82,8 @@ function boxFeature(b) {
 }
 map.on("load", () => {
   map.addSource("selection", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
-  map.addLayer({ id: "selection-fill", type: "fill", source: "selection", paint: { "fill-color": "#2a78d6", "fill-opacity": 0.06 } });
-  map.addLayer({ id: "selection-line", type: "line", source: "selection", paint: { "line-color": "#2a78d6", "line-width": 2 } });
+  map.addLayer({ id: "selection-fill", type: "fill", source: "selection", paint: { "fill-color": "#2bb3a3", "fill-opacity": 0.05 } });
+  map.addLayer({ id: "selection-line", type: "line", source: "selection", paint: { "line-color": "#2bb3a3", "line-width": 2 } });
   addGridLayers(map);
   attachGridHover(map, $("tip"), () => rangeLabel());
   state.mapReady = true;
@@ -124,18 +136,17 @@ function select(b, fly) {
   if (fly) fitToData();
 }
 
-// Fit the camera to the cells that have data in the box (or the box itself if none), with ~5%
-// padding plus room for the floating panels, so the loaded cells fill the visible frame.
+// Fit the camera so the cells with data (or the box, if none) fill ~90% of the map's shorter side,
+// centred. Same rule for presets, typed bounds and drawn boxes.
 function fitToData() {
   const e = state.agg && state.agg.extent;
   const half = 0.12; // display cells are ~0.25 degrees across; pad centres by half a cell
   const b = e ? { south: e.south - half, north: e.north + half, west: e.west - half * 2, east: e.east + half * 2 } : state.box;
-  const el = map.getContainer();
-  const pad = Math.round(0.05 * Math.min(el.clientWidth, el.clientHeight));
-  const panel = (sel) => { const n = document.querySelector(sel); return n && getComputedStyle(n).position === "absolute" ? n.offsetHeight : 0; };
+  const el = map.getContainer(), W = el.clientWidth, H = el.clientHeight;
+  const side = 0.9 * Math.min(W, H);
+  const px = Math.max((W - side) / 2, 0), py = Math.max((H - side) / 2, 0);
   map.fitBounds([[b.west, b.south], [b.east, b.north]], {
-    padding: { top: pad + panel(".map-tools") + 12, bottom: pad + panel(".map-bottom") + 42, left: pad, right: pad + 40 },
-    duration: 800, maxZoom: 9,
+    padding: { top: py, bottom: py, left: px, right: px }, duration: 800, maxZoom: 9,
   });
 }
 
@@ -156,7 +167,7 @@ function readRange() {
   return true;
 }
 ["from", "to"].forEach((id) => $(id).addEventListener("change", () => { if (readRange()) update(); }));
-$("observed-only").addEventListener("change", (e) => { state.observedOnly = e.target.checked; update(); });
+document.querySelectorAll('input[name="years"]').forEach((r) => r.addEventListener("change", (e) => { state.observedOnly = e.target.value === "measured"; update(); }));
 document.querySelectorAll('input[name="view"]').forEach((r) => r.addEventListener("change", (e) => { state.mode = e.target.value; update(); }));
 document.querySelectorAll('input[name="colour"]').forEach((r) => r.addEventListener("change", (e) => { state.colour = e.target.value; update(); }));
 

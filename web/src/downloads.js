@@ -123,17 +123,21 @@ export function calendarPNG(d, agg, cal, opts) {
   cv.width = W * scaleK; cv.height = H * scaleK;
   const g = cv.getContext("2d");
   g.scale(scaleK, scaleK);
-  const INK = "#0b0b0b", INK2 = "#52514e", ZERO = "#ecebe7", LINE = "#e4e3df";
-  g.fillStyle = "#fcfcfb"; g.fillRect(0, 0, W, H);
+  // dark surface, as in the app, so both ends of the inferno scale stay visible
+  const INK = "#eef0f3", INK2 = "#b9bdc6", ZERO = null, LINE = "#2a2e38";
+  g.fillStyle = "#0b0d12"; g.fillRect(0, 0, W, H);
   g.fillStyle = INK; g.font = "600 18px system-ui, sans-serif"; g.fillText(title, pad, 32);
   g.fillStyle = INK2; g.font = "12px system-ui, sans-serif"; g.fillText(subtitle, pad, 52);
-  g.fillText("Fire cell-days per month. Brighter (yellow) means more fire. Dashed outline: estimated from MODIS.", pad, 70);
+  g.fillText("Fire cell-days per month. Brighter (pale yellow) means more fire. Dashed outline: estimated from MODIS.", pad, 70);
   // legend
   let x = pad;
   const legend = [["0", ZERO], ...cal.scale.colors.map((c, k) => [k === 0 ? "> 0" : fmt(cal.scale.edges[k - 1]), c])];
+  const swatch = (col, x0, y0, w, h) => {
+    if (col) { g.fillStyle = col; g.fillRect(x0, y0, w, h); } else { g.strokeStyle = LINE; g.lineWidth = 1; g.strokeRect(x0 + 0.5, y0 + 0.5, w - 1, h - 1); }
+  };
   g.font = "11px system-ui, sans-serif";
   for (const [lab, col] of legend) {
-    g.fillStyle = col; g.fillRect(x, 82, 16, 12);
+    swatch(col, x, 82, 16, 12);
     g.fillStyle = INK2; g.fillText(lab, x + 20, 92);
     x += 26 + g.measureText(lab).width;
   }
@@ -142,7 +146,7 @@ export function calendarPNG(d, agg, cal, opts) {
   MONTHS.forEach((m, k) => g.fillText(m, left + k * (cw + gap) + cw / 2, top - 6));
   g.textAlign = "left"; g.fillText("Year total", left + 12 * (cw + gap) + 6, top - 6);
   const maxT = Math.max(...cal.totals.map((t) => t.s).filter(Number.isFinite), 1);
-  const colorOf = (v) => { const c = cal.scale.color(v); return c.startsWith("var") ? ZERO : c; };
+  const colorOf = (v) => (v > 0 ? cal.scale.color(v) : null);
   cal.totals.forEach((t, r) => {
     const yy = top + r * (ch + gap);
     g.fillStyle = INK; g.textAlign = "right"; g.font = "12px system-ui, sans-serif";
@@ -153,13 +157,13 @@ export function calendarPNG(d, agg, cal, opts) {
       const i = d.monthIndex.get(t.y * 100 + m);
       if (i === undefined) { g.strokeStyle = LINE; g.setLineDash([3, 2]); g.strokeRect(xx + 0.5, yy + 0.5, cw - 1, ch - 1); g.setLineDash([]); continue; }
       const info = d.months[i];
-      g.fillStyle = colorOf(agg.totals[i]); g.fillRect(xx, yy, cw, ch);
-      if (info.partial) { g.fillStyle = "rgba(255,255,255,0.45)"; for (let s = -ch; s < cw; s += 6) { g.beginPath(); g.moveTo(xx + s, yy + ch); g.lineTo(xx + s + ch, yy); g.lineTo(xx + s + ch + 2, yy); g.lineTo(xx + s + 2, yy + ch); g.fill(); } }
-      if (isEstimated(info.source)) { g.strokeStyle = "rgba(11,11,11,0.6)"; g.setLineDash([3, 2]); g.strokeRect(xx + 2.5, yy + 2.5, cw - 5, ch - 5); g.setLineDash([]); }
+      swatch(colorOf(agg.totals[i]), xx, yy, cw, ch);
+      if (info.partial) { g.save(); g.beginPath(); g.rect(xx, yy, cw, ch); g.clip(); g.fillStyle = "rgba(255,255,255,0.45)"; for (let s = -ch; s < cw; s += 6) { g.beginPath(); g.moveTo(xx + s, yy + ch); g.lineTo(xx + s + ch, yy); g.lineTo(xx + s + ch + 2, yy); g.lineTo(xx + s + 2, yy + ch); g.fill(); } g.restore(); }
+      if (isEstimated(info.source)) { g.strokeStyle = "rgba(238,240,243,0.7)"; g.setLineDash([3, 2]); g.strokeRect(xx + 2.5, yy + 2.5, cw - 5, ch - 5); g.setLineDash([]); }
       if (info.source === "near_real_time") { g.fillStyle = INK; g.beginPath(); g.arc(xx + cw - 5, yy + 5, 2.5, 0, 7); g.fill(); }
     }
     const tx = left + 12 * (cw + gap) + 4;
-    g.fillStyle = LINE; g.fillRect(tx, yy + 3, ((totW - 10) * (t.s || 0)) / maxT, ch - 6);
+    g.fillStyle = "#1a1d25"; g.fillRect(tx, yy + 3, ((totW - 10) * (t.s || 0)) / maxT, ch - 6);
     g.fillStyle = INK; g.font = "11px system-ui, sans-serif";
     g.fillText(`${fmt(t.s)}${t.partial ? "*" : ""}${t.est && t.s > 0 ? ` (${fmt(t.lo)}–${fmt(t.hi)})` : ""}`, tx + 4, yy + 14);
   });

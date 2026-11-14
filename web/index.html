@@ -23,9 +23,13 @@
           <button id="okanagan" type="button" class="ghost">Okanagan (Kelowna)</button>
         </div>
 
-        <div class="map-ui map-bottom">
-          <div class="map-card" id="sec-area" role="group" aria-labelledby="area-h">
-            <h2 id="area-h" class="card-h">Area and dates</h2>
+        <div id="grid-legend" class="map-ui map-legend"></div>
+      </section>
+
+      <aside class="side" aria-live="polite">
+        <section class="sec" id="sec-summary" aria-labelledby="sel-h">
+          <h2 id="sel-h">Selection</h2>
+          <div class="area" id="sec-area">
             <form id="bounds" class="bounds" aria-label="Area bounds in degrees">
               <label>South <input id="south" type="number" step="any" inputmode="decimal" /></label>
               <label>North <input id="north" type="number" step="any" inputmode="decimal" /></label>
@@ -41,15 +45,8 @@
               <p id="range-error" class="error" role="alert"></p>
             </fieldset>
           </div>
-          <div id="grid-legend" class="map-legend"></div>
-        </div>
-      </section>
-
-      <aside class="side" aria-live="polite">
-        <details class="sec" id="sec-summary" open data-remember>
-          <summary><h2>Selection</h2></summary>
           <div id="summary">Loading data…</div>
-        </details>
+        </section>
 
         <section class="sec sec-static" id="sec-downloads" aria-labelledby="dl-h">
           <div class="dl-row">
@@ -72,7 +69,10 @@
               <label title="Colour = fire cell-days in the month"><input type="radio" name="colour" value="activity" checked /> Activity</label>
               <label title="Colour = the month divided by the median of the same month in other years (1× = normal)"><input type="radio" name="colour" value="normal" /> Compared with normal</label>
             </div>
-            <label class="toggle"><input id="observed-only" type="checkbox" /> Observed only (2012+)</label>
+            <div class="viewtoggle" role="radiogroup" aria-label="Years">
+              <label><input type="radio" name="years" value="all" checked /> All years (2000+)</label>
+              <label><input type="radio" name="years" value="measured" /> Measured only (2012+)</label>
+            </div>
           </div>
           <p id="view-note" class="sr"></p>
           <div id="legend"></div>
