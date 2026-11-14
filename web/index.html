@@ -58,6 +58,20 @@
           <p id="dl-status" class="muted small" aria-live="polite"></p>
         </section>
 
+        <section class="sec sec-static" id="sec-live" aria-labelledby="live-h">
+          <div class="dl-row" id="live-controls" hidden>
+            <h2 id="live-h">Live fire</h2>
+            <div class="viewtoggle" role="radiogroup" aria-label="Live fire time window"
+              title="Near-real-time hotspots from VIIRS on NOAA-20 and NOAA-21 (NASA FIRMS), not harmonised, for the part of the view inside Canada">
+              <label><input type="radio" name="live" value="0" checked /> Off</label>
+              <label><input type="radio" name="live" value="24" /> 24 h</label>
+              <label><input type="radio" name="live" value="48" /> 48 h</label>
+              <label><input type="radio" name="live" value="168" /> 7 d</label>
+            </div>
+          </div>
+          <p id="live-status" class="muted small">Checking live fire data…</p>
+        </section>
+
         <details class="sec" id="sec-calendar" open data-remember>
           <summary><h2>Calendar</h2></summary>
           <div class="sec-controls">

@@ -1,0 +1,7 @@
+name = "fire-live-proxy"
+main = "src/index.js"
+compatibility_date = "2026-10-01"
+workers_dev = true
+
+# FIRMS_MAP_KEY is a secret: set it with `npx wrangler secret put FIRMS_MAP_KEY`.
+# For local testing it is read from .dev.vars, which is not committed.

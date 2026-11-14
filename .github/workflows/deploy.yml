@@ -35,6 +35,9 @@ jobs:
           tar -xf "$RUNNER_TEMP/hotspots.tar" -C web/public
       - name: Build
         working-directory: web
+        env:
+          # public address of the live-fire Worker (repository variable); empty = live layer hidden
+          VITE_LIVE_URL: ${{ vars.LIVE_URL }}
         run: npm run build
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3

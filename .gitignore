@@ -31,3 +31,8 @@ reports/experiments/comparison_stage_*
 
 # static hotspot tiles (build artefact, published from a release asset)
 web/public/hotspots/
+
+# worker: local secrets and build output
+worker/.dev.vars
+worker/.wrangler/
+worker/node_modules/

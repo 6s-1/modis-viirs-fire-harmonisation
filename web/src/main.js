@@ -7,6 +7,7 @@ import { attachTooltip, renderCalendar } from "./calendar.js";
 import { renderCompare } from "./compare.js";
 import { calendarPNG, fileStem, hotspotIndex, hotspotPlan, hotspotsCSV, monthlyCSV, saveBlob } from "./downloads.js";
 import { addGridLayers, attachGridHover, gridLegend, updateGrid } from "./grid.js";
+import { addLiveLayer, attachLiveHover, fetchLive, liveAvailable, viewBbox } from "./live.js";
 
 const OBSERVED_FROM = 2012;
 const PRESETS = {
@@ -89,6 +90,9 @@ map.on("load", () => {
   map.addSource("cell-sel", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
   map.addLayer({ id: "cell-sel", type: "line", source: "cell-sel", paint: { "line-color": "#2bb3a3", "line-width": 3 } });
   attachGridHover(map, $("tip"), () => rangeLabel());
+  addLiveLayer(map);
+  attachLiveHover(map, $("tip"));
+  map.on("moveend", () => { if (live.hours) { clearTimeout(live.timer); live.timer = setTimeout(loadLive, 600); } });
   map.on("click", "grid-fill", (e) => { if (!drawing && e.features && e.features.length) clickCell(+e.features[0].properties.i); });
   map.on("mouseenter", "grid-fill", () => { if (!drawing) map.getCanvas().style.cursor = "pointer"; });
   map.on("mouseleave", "grid-fill", () => { if (!drawing) map.getCanvas().style.cursor = ""; });
@@ -298,6 +302,49 @@ $("dl-hotspots").addEventListener("click", async () => {
   } finally {
     btn.disabled = false;
   }
+});
+
+function renderExposure() { /* exposure list: added in the next step */ }
+
+// ---- live fire (near real time, via the Worker); every other feature works without it
+const live = { hours: 0, timer: null, seq: 0 };
+const LIVE_DOWN = "Live fire data is unavailable right now.";
+function liveUnavailable() {
+  $("live-controls").hidden = true;
+  $("live-status").textContent = LIVE_DOWN;
+  if (map.getLayer("live")) map.setLayoutProperty("live", "visibility", "none");
+  live.hours = 0;
+}
+async function loadLive() {
+  const seq = ++live.seq;
+  const bbox = viewBbox(map);
+  if (!bbox) { $("live-status").textContent = "Move the map over Canada to see live fire."; return; }
+  $("live-status").textContent = "Loading live fire…";
+  try {
+    const feats = await fetchLive(bbox, live.hours);
+    if (seq !== live.seq || !live.hours) return;
+    map.getSource("live").setData({ type: "FeatureCollection", features: feats });
+    map.setLayoutProperty("live", "visibility", "visible");
+    state.live = feats;
+    const label = { 24: "last 24 hours", 48: "last 48 hours", 168: "last 7 days" }[live.hours];
+    $("live-status").innerHTML = `<span class="sw key-live"></span> ${fmt(feats.length)} hotspots in view, ${label} ·
+      near real time, not harmonised · NOAA-20 and NOAA-21 · updated ${new Date().toISOString().slice(11, 16)} UTC`;
+    if (state.d) renderExposure();
+  } catch {
+    if (seq === live.seq) liveUnavailable();
+  }
+}
+document.querySelectorAll('input[name="live"]').forEach((r) => r.addEventListener("change", (e) => {
+  live.hours = +e.target.value;
+  if (!live.hours) {
+    map.setLayoutProperty("live", "visibility", "none");
+    state.live = null;
+    $("live-status").textContent = "";
+    if (state.d) renderExposure();
+  } else loadLive();
+}));
+liveAvailable().then((ok) => {
+  if (ok) { $("live-controls").hidden = false; $("live-status").textContent = ""; } else liveUnavailable();
 });
 
 // ---- start

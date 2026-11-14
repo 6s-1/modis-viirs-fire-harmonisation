@@ -1,0 +1,14 @@
+{
+  "name": "fire-live-proxy",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Proxy for NASA FIRMS near-real-time fire detections; keeps the map key server-side",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "4.156.0"
+  }
+}
