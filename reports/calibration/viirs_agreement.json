@@ -71,49 +71,58 @@
    "either_detect": 343672.0,
    "noaa20_over_snpp": 1.016,
    "same_cell_day_share": 0.586
+  },
+  {
+   "year": 2026,
+   "snpp_both": 116255.0,
+   "noaa20_both": 117620.0,
+   "both_detect": 84730.0,
+   "either_detect": 149145.0,
+   "noaa20_over_snpp": 1.012,
+   "same_cell_day_share": 0.568
   }
  ],
  "by_landcover": [
   {
    "lc": "cropland",
-   "snpp_both": 35522.0,
-   "noaa20_both": 36634.0,
-   "both_detect": 13003.0,
-   "either_detect": 59153.0,
-   "noaa20_over_snpp": 1.031,
-   "same_cell_day_share": 0.22
+   "snpp_both": 37452.0,
+   "noaa20_both": 38688.0,
+   "both_detect": 13794.0,
+   "either_detect": 62346.0,
+   "noaa20_over_snpp": 1.033,
+   "same_cell_day_share": 0.221
   },
   {
    "lc": "forest",
-   "snpp_both": 1173527.0,
-   "noaa20_both": 1188001.0,
-   "both_detect": 862938.0,
-   "either_detect": 1498590.0,
+   "snpp_both": 1266188.0,
+   "noaa20_both": 1281507.0,
+   "both_detect": 931545.0,
+   "either_detect": 1616150.0,
    "noaa20_over_snpp": 1.012,
    "same_cell_day_share": 0.576
   },
   {
    "lc": "grass_shrub",
-   "snpp_both": 165753.0,
-   "noaa20_both": 167688.0,
-   "both_detect": 115836.0,
-   "either_detect": 217605.0,
+   "snpp_both": 186506.0,
+   "noaa20_both": 188746.0,
+   "both_detect": 130770.0,
+   "either_detect": 244482.0,
    "noaa20_over_snpp": 1.012,
-   "same_cell_day_share": 0.532
+   "same_cell_day_share": 0.535
   },
   {
    "lc": "other",
-   "snpp_both": 6638.0,
-   "noaa20_both": 7102.0,
-   "both_detect": 2207.0,
-   "either_detect": 11533.0,
-   "noaa20_over_snpp": 1.07,
-   "same_cell_day_share": 0.191
+   "snpp_both": 7549.0,
+   "noaa20_both": 8104.0,
+   "both_detect": 2605.0,
+   "either_detect": 13048.0,
+   "noaa20_over_snpp": 1.074,
+   "same_cell_day_share": 0.2
   }
  ],
  "display_cell_month": {
-  "pairs": 84522,
-  "pearson_log1p": 0.896,
-  "median_abs_diff_pct_of_mean_when_sum_ge_40": 9.0
+  "pairs": 92355,
+  "pearson_log1p": 0.897,
+  "median_abs_diff_pct_of_mean_when_sum_ge_40": 8.9
  }
 }

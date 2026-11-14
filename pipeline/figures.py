@@ -19,6 +19,7 @@ HARM, AQUA, VIIRS = "#2a78d6", "#eb6834", "#1baf7a"
 
 def main() -> None:
     a = pd.read_csv(C.REPORTS / "calibration" / "canada_annual_series.csv", index_col="year")
+    a = a[a.index <= 2025]  # complete years only
     est = a[~a.source.str.contains("observed")]
     vi = a[a.vref > 0]
 

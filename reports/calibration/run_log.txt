@@ -1,5 +1,5 @@
-outage days: {'terra': 35, 'aqua': 11, 'snpp': 35, 'noaa20': 15}
-base table: 247,800 rows
+outage days: {'terra': 44, 'aqua': 11, 'snpp': 45, 'noaa20': 15}
+base table: 259,549 rows
 
 (a) S-NPP vs NOAA-20 on days both available
        snpp_both  noaa20_both  both_detect  either_detect  noaa20_over_snpp  same_cell_day_share
@@ -12,13 +12,14 @@ year
 2023   508291.0     508339.0     371565.0       645065.0             1.000                0.576
 2024   200012.0     206781.0     151646.0       255147.0             1.034                0.594
 2025   270363.0     274660.0     201351.0       343672.0             1.016                0.586
+2026   116255.0     117620.0      84730.0       149145.0             1.012                0.568
              snpp_both  noaa20_both  both_detect  either_detect  noaa20_over_snpp  same_cell_day_share
 lc                                                                                                    
-cropland       35522.0      36634.0      13003.0        59153.0             1.031                0.220
-forest       1173527.0    1188001.0     862938.0      1498590.0             1.012                0.576
-grass_shrub   165753.0     167688.0     115836.0       217605.0             1.012                0.532
-other           6638.0       7102.0       2207.0        11533.0             1.070                0.191
-{"pairs": 84522, "pearson_log1p": 0.896, "median_abs_diff_pct_of_mean_when_sum_ge_40": 9.0}
+cropland       37452.0      38688.0      13794.0        62346.0             1.033                0.221
+forest       1266188.0    1281507.0     931545.0      1616150.0             1.012                0.576
+grass_shrub   186506.0     188746.0     130770.0       244482.0             1.012                0.535
+other           7549.0       8104.0       2605.0        13048.0             1.074                0.200
+{"pairs": 92355, "pearson_log1p": 0.897, "median_abs_diff_pct_of_mean_when_sum_ge_40": 8.9}
 
 (c) VIIRS/Aqua table: levels used {'region x lc x season': 62, 'region x lc': 54, 'lc x season': 41, 'parent x lc': 33, 'parent x lc x season': 27, 'lc': 23}
 (c) day table levels {'region x lc x season': 59, 'region x lc': 53, 'lc x season': 47, 'lc': 29, 'parent x lc x season': 28, 'parent x lc': 24} | night table levels {'lc': 69, 'lc x season': 55, 'region x lc': 41, 'region x lc x season': 31, 'parent x lc': 23, 'parent x lc x season': 21}
@@ -99,3 +100,4 @@ year
 2023  119644.0  132310.0  525877.0    525877.0                                  observed  525877.0  525877.0         False
 2024   56216.0   57338.0  224194.0    224194.0                                  observed  224194.0  224194.0         False
 2025   58863.0   63301.0  275184.0    275184.0                                  observed  275184.0  275184.0         False
+2026   31260.0   28139.0  150250.0    150250.0                   near_real_time/observed  150250.0  150250.0         False

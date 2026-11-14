@@ -16,10 +16,10 @@ What it does
   4. Terra -> Aqua table on their overlap (TERRA_TRAIN), applied to Nov 2000 - Jul 2002.
   5. Backwards validation: fit on 2019-2025, predict 2012-2014. Leave-one-year-out over
      2012-2025 gives the uncertainty ranges by area size.
-  6. Sensitivity to 2023, zero cases, a preview harmonised series and one figure.
+  6. Sensitivity to 2023, zero cases, the harmonised cell-month table and the Canada annual series.
 
-Outputs: reports/calibration/*.csv|json, reports/figures/canada_annual_series.png,
-         data/interim/harmonised_monthly_preview.parquet
+Outputs: reports/calibration/*.csv|json (ratio tables, metrics, month_sources.csv),
+         data/processed/harmonised_cell_month.parquet
 """
 from __future__ import annotations
 
@@ -50,6 +50,7 @@ TERRA_TRAIN = ((2002, 7), (2007, 12))       # Terra/Aqua overlap used for the Te
 TERRA_TEST_TRAIN = ((2003, 7), (2007, 12))  # validation of the Terra table: fit here ...
 TERRA_TEST = ((2002, 7), (2003, 6))         # ... predict the first overlap year
 KEYS = ["cell5", "year", "month", "lc"]
+PROCESSED = C.DATA / "processed"
 
 
 def ym(df):
@@ -92,7 +93,7 @@ def build_tables(av: pd.DataFrame):
     fine["platform"] = fine["platform"].astype(str)
     lc = pd.read_parquet(C.INTERIM / "landcover_cell8.parquet")
     fine = fine.merge(lc, on="cell8", how="left")
-    fine["lc"] = fine["lc"].astype(str).replace("nan", "other")
+    fine["lc"] = fine["lc"].astype(object).where(fine["lc"].notna(), "other").astype(str)
     uniq, inv = np.unique(fine["cell8"].to_numpy(), return_inverse=True)
     par = np.fromiter((h3.api.basic_int.cell_to_parent(int(c), C.DISPLAY_RES) for c in uniq), np.uint64, len(uniq))
     fine["cell5"] = par[inv]
@@ -155,6 +156,37 @@ def build_tables(av: pd.DataFrame):
     T = T.merge(reg, on="cell5", how="left")
     T["season"] = T["month"].map(SEASON)
     return T, agreement_cells
+
+
+# ---------------------------------------------------------------- month sources
+def month_sources(cov: pd.DataFrame) -> pd.DataFrame:
+    """Source and partial flag for every month that has any coverage.
+
+    observed           VIIRS covers the full month, or covers part of it while Aqua does not
+                       cover the full month (e.g. November 2026, data to the 14th)
+    near_real_time     as observed, but the VIIRS data that month include NRT processing
+    estimated_from_aqua    Aqua covers the full month and VIIRS does not (2002-08 .. 2012-01)
+    estimated_from_terra   otherwise, if Terra has data (2000-11 .. 2002-07)
+    """
+    cw = cov.pivot_table(index=["year", "month"], columns="platform", values="coverage", aggfunc="first")
+    viirs = cw[["snpp", "noaa20"]]
+    viirs_full = (viirs == "full").any(axis=1)
+    viirs_any = (viirs != "none").any(axis=1)
+    aqua_full = cw["aqua"] == "full"
+    observed = viirs_full | (viirs_any & ~aqua_full)
+    terra = cw["terra"] != "none"
+    src = pd.Series(np.select([observed, aqua_full, terra], ["observed", "estimated_from_aqua", "estimated_from_terra"],
+                              "none"), index=cw.index)
+    partial = np.select([observed, aqua_full, terra], [~viirs_full, False, cw["terra"] == "partial"], False)
+    nrt = pd.read_parquet(C.INTERIM / "cell_days_fine.parquet", columns=["platform", "year", "month", "quality"])
+    nrt = nrt[nrt.quality.astype(str).eq("nrt") & nrt.platform.astype(str).isin(["snpp", "noaa20"])]
+    nrt_months = set(zip(nrt.year.astype(int), nrt.month.astype(int)))
+    out = pd.DataFrame({"source": src, "partial": partial}).reset_index()
+    is_nrt = [(y, m) in nrt_months for y, m in zip(out.year, out.month)]
+    out.loc[out.source.eq("observed") & pd.Series(is_nrt), "source"] = "near_real_time"
+    days = cov.pivot_table(index=["year", "month"], columns="platform", values="days_covered", aggfunc="first")
+    out = out.merge(days.add_prefix("days_").reset_index(), on=["year", "month"], how="left")
+    return out[out.source != "none"].reset_index(drop=True)
 
 
 # ---------------------------------------------------------------- ratio tables
@@ -360,23 +392,21 @@ def main() -> None:
     zero["at_12400km2_share_of_viirs_cell_days_pct"] = round(100 * v3[v3.aqua_cal == 0].vref_cal.sum() / v3.vref_cal.sum(), 1)
     (OUT / "zero_cases.json").write_text(json.dumps(zero, indent=1))
 
-    # ---- preview harmonised series (cell5 x month)
-    cw = cov.pivot_table(index=["year", "month"], columns="platform", values="coverage", aggfunc="first")
-    cw["viirs_full"] = (cw.get("snpp") == "full") | (cw.get("noaa20") == "full")
-    cw["aqua_full"] = cw["aqua"] == "full"
-    cw["terra_cov"] = cw["terra"] != "none"
-    cw["partial"] = (cw[["terra", "aqua", "snpp", "noaa20"]] == "partial").any(axis=1) & ~cw["viirs_full"] & ~cw["aqua_full"]
-    cw["source"] = np.select([cw.viirs_full, cw.aqua_full, cw.terra_cov],
-                             ["observed", "estimated_from_aqua", "estimated_from_terra"], "none")
-    src = cw[["source", "partial"]].reset_index()
-    H = T.merge(src, on=["year", "month"], how="left")
+    # ---- harmonised series (cell5 x month). Tables stay fitted on TRAIN_ALL; later years
+    # (e.g. 2026) enter as observed VIIRS data.
+    src = month_sources(cov)
+    src.to_csv(OUT / "month_sources.csv", index=False)
+    H = T.merge(src[["year", "month", "source", "partial"]], on=["year", "month"], how="left")
     H = apply(H, tab, "aqua", "est_a")
     H["aqua_eq"] = H.merge(tab_t[["region", "lc", "season", "ratio"]], on=["region", "lc", "season"], how="left")["ratio"].to_numpy() * H["terra"]
     H = apply(H, tab, "aqua_eq", "est_t")
-    H["value"] = np.select([H.source.eq("observed"), H.source.eq("estimated_from_aqua"), H.source.eq("estimated_from_terra")],
+    observed = H.source.isin(["observed", "near_real_time"])
+    H["value"] = np.select([observed, H.source.eq("estimated_from_aqua"), H.source.eq("estimated_from_terra")],
                            [H.vref, H.est_a, H.est_t], np.nan)
     Hm = (H.groupby(["cell5", "year", "month", "source", "partial"])[["value", "aqua", "terra", "vref"]].sum().reset_index())
-    Hm.to_parquet(C.INTERIM / "harmonised_monthly_preview.parquet", index=False)
+    Hm = Hm[Hm.value > 0]
+    PROCESSED.mkdir(parents=True, exist_ok=True)
+    Hm.rename(columns={"value": "cell_days"}).to_parquet(PROCESSED / "harmonised_cell_month.parquet", index=False)
 
     annual = (H.groupby("year").agg(aqua=("aqua", "sum"), terra=("terra", "sum"), vref=("vref", "sum"),
                                     harmonised=("value", "sum")))
