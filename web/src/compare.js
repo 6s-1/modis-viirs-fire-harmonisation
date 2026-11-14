@@ -21,8 +21,60 @@ function bars(title, note, v, med, medLabel) {
 
 const span = (ys) => (ys.length ? `${Math.min(...ys)}–${Math.max(...ys)}` : "");
 
+const SENSORS = [["terra", "MODIS Terra"], ["aqua", "MODIS Aqua"], ["snpp", "VIIRS S-NPP"], ["noaa20", "VIIRS NOAA-20"]];
+
+// Raw view: each satellite's own yearly cell-days, no conversion, so the 2012 step shows.
+function rawYearly(d, agg, years) {
+  const ys = [...years].sort((a, b) => a - b);
+  const series = SENSORS.map(([p, name], k) => {
+    const v = agg.rawOf(p);
+    const pts = ys.map((y) => {
+      let s = 0, any = false;
+      for (let m = 1; m <= 12; m++) {
+        const i = d.monthIndex.get(y * 100 + m);
+        if (i !== undefined && (d.months[i].days || {})[p]) { s += v[i]; any = true; }
+      }
+      return any ? s : NaN;
+    });
+    return { p, name, k, pts };
+  });
+  const W = 560, H = 210, padL = 50, padR = 96, padB = 22, padT = 12;
+  const max = Math.max(1, ...series.flatMap((s) => s.pts.filter(Number.isFinite)));
+  const x = (j) => padL + (j * (W - padL - padR)) / Math.max(ys.length - 1, 1);
+  const y = (v) => padT + (H - padT - padB) * (1 - v / max);
+  const ticks = [0, max / 2, max].map((v) => `<g><line x1="${padL}" x2="${W - padR}" y1="${y(v)}" y2="${y(v)}" class="grid"/>
+    <text x="${padL - 6}" y="${y(v) + 4}" class="tick" text-anchor="end">${fmt(v)}</text></g>`).join("");
+  const step = ys.indexOf(2012);
+  const stepLine = step > 0 ? `<line x1="${x(step)}" x2="${x(step)}" y1="${padT}" y2="${H - padB}" class="stepline"/>
+    <text x="${x(step) + 4}" y="${padT + 10}" class="tick strong">VIIRS starts</text>` : "";
+  const lines = series.map((s) => {
+    let dpath = "", pen = false, lastJ = -1;
+    s.pts.forEach((v, j) => {
+      if (!Number.isFinite(v)) { pen = false; return; }
+      dpath += `${pen ? "L" : "M"}${x(j).toFixed(1)},${y(v).toFixed(1)}`;
+      pen = true; lastJ = j;
+    });
+    s.end = lastJ >= 0 ? { x: x(lastJ) + 6, y: y(s.pts[lastJ]) + 4 } : null;
+    const dots = s.pts.map((v, j) => Number.isFinite(v) ? `<circle cx="${x(j)}" cy="${y(v)}" r="2.2" class="s${s.k}"><title>${s.name} ${ys[j]}: ${fmt(v)} cell-days</title></circle>` : "").join("");
+    return `<path d="${dpath}" class="rawline s${s.k}"/>${dots}`;
+  }).join("");
+  // end labels, nudged apart so they never overlap (min 12 px)
+  const ends = series.filter((s) => s.end).sort((a, b) => a.end.y - b.end.y);
+  for (let k = 1; k < ends.length; k++) ends[k].end.y = Math.max(ends[k].end.y, ends[k - 1].end.y + 12);
+  const over = ends.length ? ends[ends.length - 1].end.y - (H - padB) : 0;
+  if (over > 0) ends.forEach((s) => { s.end.y -= over; });
+  const labels = ends.map((s) => `<text x="${s.end.x}" y="${s.end.y}" class="tick strong">${s.name}</text>`).join("");
+  const every = ys.length > 16 ? 5 : 1;
+  const xt = ys.map((yy, j) => yy % every === 0 ? `<text x="${x(j)}" y="${H - 6}" class="tick" text-anchor="middle">${yy}</text>` : "").join("");
+  return `<h3>Yearly totals by satellite (raw)</h3>
+    <svg viewBox="0 0 ${W} ${H}" class="ychart" role="img" aria-label="Raw fire cell-days per year for each satellite">${ticks}${stepLine}${lines}${labels}${xt}</svg>
+    <ul class="legend">${SENSORS.map(([, n], k) => `<li><span class="sw s${k}-bg"></span>${n}</li>`).join("")}</ul>
+    <p class="muted small">Each satellite's own count, not converted. VIIRS sees about four times more fire cell-days than MODIS, so the record steps up in 2012. The comparison with the median is shown in the harmonised view.</p>`;
+}
+
 export function renderCompare(el, d, agg, opts) {
-  const { yearFilter, totals } = opts;
+  const { yearFilter, totals, mode = "harmonised", years } = opts;
+  if (mode === "raw") { el.innerHTML = rawYearly(d, agg, years); return; }
   const lastI = d.months.length - 1;
   const last = d.months[lastI];
   let html = `<h3>Latest months against the historical median</h3>`;

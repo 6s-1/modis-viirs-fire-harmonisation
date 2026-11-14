@@ -1,6 +1,9 @@
 // Burning activity calendar: years as rows, months as columns, colour = harmonised cell-days.
 
-import { MONTHS, SOURCE_LABEL, fmt, fmtShort, isEstimated, median, uncertaintyFactors } from "./data.js";
+import { MONTHS, SOURCE_LABEL, fmt, fmtShort, isEstimated, median, recordedSensor, uncertaintyFactors } from "./data.js";
+
+export const SENSOR_LABEL = { terra: "MODIS Terra", aqua: "MODIS Aqua", snpp: "VIIRS S-NPP", noaa20: "VIIRS NOAA-20", viirs: "VIIRS" };
+const SENSOR_SHORT = { terra: "Terra", aqua: "Aqua", viirs: "VIIRS" };
 
 // cividis without its darkest step; brighter (yellow) = more fire, in light and dark themes
 export const RAMP = ["#213b6e", "#4c556c", "#6c6e72", "#8e8978", "#b1a570", "#d9c55c", "#fee838"];
@@ -34,7 +37,7 @@ export function makeScale(values) {
 }
 
 // Year totals with the uncertainty range of their estimated part.
-export function yearTotals(d, agg, years) {
+export function yearTotals(d, agg, years, values = agg.totals, mode = "harmonised") {
   return years.map((y) => {
     let s = 0, any = false, partial = false, lo = 0, hi = 0, est = false, nMonths = 0, nEst = 0;
     const bySource = {}, estMonths = [];
@@ -42,34 +45,37 @@ export function yearTotals(d, agg, years) {
       const i = d.monthIndex.get(y * 100 + m);
       if (i === undefined) continue;
       any = true;
-      const info = d.months[i], v = agg.totals[i];
+      const info = d.months[i], v = values[i];
       nMonths++;
-      if (isEstimated(info.source)) { nEst++; estMonths.push(m); }
+      if (mode === "harmonised" && isEstimated(info.source)) { nEst++; estMonths.push(m); }
       s += v;
       if (info.partial) partial = true;
       bySource[info.source] = (bySource[info.source] || 0) + v;
     }
     for (const [src, v] of Object.entries(bySource)) {
-      const q = uncertaintyFactors(d, agg.areaKm2, "year", src);
+      const q = mode === "harmonised" ? uncertaintyFactors(d, agg.areaKm2, "year", src) : null;
       if (q) { est = true; lo += v * q[0]; hi += v * q[2]; } else { lo += v; hi += v; }
     }
     const complete = d.monthIndex.has(y * 100 + 1) && d.monthIndex.has(y * 100 + 12) && !partial;
     const estLabel = !est ? "" : nEst === nMonths ? "est." : `${estMonths.map((m) => MONTHS[m - 1]).join(", ")} est.`;
-    return { y, s: any ? s : NaN, lo, hi, est, estLabel, partial: !complete };
+    const sensors = [...new Set(Object.keys(bySource).map((src) => SENSOR_SHORT[recordedSensor({ source: src })]))].join(" + ");
+    return { y, s: any ? s : NaN, lo, hi, est, estLabel, sensors, partial: !complete };
   });
 }
 
 export function renderCalendar(el, d, agg, opts) {
-  const { years, medianYears, range, lowConfidence, legendEl } = opts;
+  const { years, medianYears, range, lowConfidence, legendEl, mode = "harmonised" } = opts;
+  const values = opts.values || agg.totals;
+  const harm = mode === "harmonised";
   const cell = (y, m) => {
     const i = d.monthIndex.get(y * 100 + m);
-    return i === undefined ? null : { i, v: agg.totals[i], info: d.months[i] };
+    return i === undefined ? null : { i, v: values[i], info: d.months[i] };
   };
   const shown = [];
   for (const y of years) for (let m = 1; m <= 12; m++) { const c = cell(y, m); if (c) shown.push(c); }
   const scale = makeScale(shown.map((c) => c.v));
   const top = new Set([...shown].filter((c) => c.v > 0).sort((a, b) => b.v - a.v).slice(0, 3).map((c) => c.i));
-  const totals = yearTotals(d, agg, years);
+  const totals = yearTotals(d, agg, years, values, mode);
   const maxYear = Math.max(...totals.map((t) => t.s).filter(Number.isFinite), 1);
   const medYearsUsed = new Set();
   const monthMedians = MONTHS.map((_, k) => median(medianYears.map((y) => {
@@ -84,15 +90,16 @@ export function renderCalendar(el, d, agg, opts) {
     <thead><tr><th scope="col">Year</th>${MONTHS.map((m, k) => `<th scope="col" data-month="${k + 1}">${m}</th>`).join("")}
     <th scope="col" class="tot">Year total</th></tr></thead><tbody>`;
   for (const t of totals) {
-    const badge = t.est ? `<span class="badge${lowConfidence ? " low" : ""}">${t.estLabel}${lowConfidence ? " · low confidence" : ""}</span>` : "";
+    const badge = !harm ? `<span class="badge">${t.sensors}</span>`
+      : t.est ? `<span class="badge${lowConfidence ? " low" : ""}">${t.estLabel}${lowConfidence ? " · low confidence" : ""}</span>` : "";
     html += `<tr class="${t.est ? "est-row" : ""}"><th scope="row">${t.y}${badge}</th>`;
     for (let m = 1; m <= 12; m++) {
       const c = cell(t.y, m);
       if (!c) { html += `<td class="nodata" aria-label="${MONTHS[m - 1]} ${t.y}: no data">–</td>`; continue; }
       const out = c.i < range[0] || c.i > range[1];
       const cls = ["v", c.info.partial && "partial", c.info.source === "near_real_time" && "nrt",
-        isEstimated(c.info.source) && "est", top.has(c.i) && "top", out && "out"].filter(Boolean).join(" ");
-      const label = `${MONTHS[m - 1]} ${t.y}: ${fmt(c.v)} cell-days, ${SOURCE_LABEL[c.info.source]}` +
+        harm && isEstimated(c.info.source) && "est", top.has(c.i) && "top", out && "out"].filter(Boolean).join(" ");
+      const label = `${MONTHS[m - 1]} ${t.y}: ${fmt(c.v)} cell-days, ${harm ? SOURCE_LABEL[c.info.source] : `raw ${SENSOR_LABEL[recordedSensor(c.info)]}`}` +
         (c.info.partial ? ", partial month" : "");
       html += `<td class="${cls}" style="--c:${scale.color(c.v)}" data-i="${c.i}" tabindex="0" aria-label="${label}"></td>`;
     }
@@ -103,33 +110,41 @@ export function renderCalendar(el, d, agg, opts) {
   html += `</tbody><tfoot><tr><th scope="row">Median</th>
     ${monthMedians.map((v) => `<td class="med">${fmt(v)}</td>`).join("")}<td class="tot muted small">complete months, ${medSpan}</td></tr></tfoot></table>`;
   el.innerHTML = html;
-  renderLegend(legendEl, scale, lowConfidence);
+  renderLegend(legendEl, scale, harm && lowConfidence, harm);
   return { scale, totals, monthMedians, medSpan };
 }
 
-function renderLegend(el, scale, lowConfidence) {
+function renderLegend(el, scale, lowConfidence, harm = true) {
   const sw = scale.colors.map((c, k) => `<li><span class="sw" style="background:${c}"></span>${k === 0 ? "> 0" : fmt(scale.edges[k - 1])}</li>`).join("");
   el.innerHTML = `<p class="small legend-title">Fire cell-days per month. Brighter (yellow) means more fire.</p>
     <ul class="legend" aria-label="Colour scale">
       <li><span class="sw" style="background:var(--zero)"></span>0</li>${sw}</ul>
     <ul class="legend keys">
-      <li><span class="sw key-est"></span>Estimated from MODIS (before 2012)</li>
+      ${harm ? `<li><span class="sw key-est"></span>Estimated from MODIS (before 2012)</li>` : ""}
       <li><span class="sw key-partial"></span>Partial month</li>
       <li><span class="sw key-nrt"></span>Near real time</li>
       <li><span class="sw key-top"></span>Top 3 months</li>
       <li><span class="sw key-nodata">–</span>No data</li>
     </ul>
-    ${lowConfidence ? `<p class="small warn">The selection box is smaller than the minimum area for reliable estimates, so estimated years are low confidence.</p>` : ""}`;
+    ${lowConfidence ? `<p class="small warn">There is less Canadian land in the box than the minimum area for reliable estimates, so estimated years are low confidence.</p>` : ""}`;
 }
 
 export function attachTooltip(host, tip, getState) {
   const show = (td, x, y) => {
-    const { d, agg } = getState();
-    const i = Number(td.dataset.i), info = d.months[i], v = agg.totals[i];
-    const q = uncertaintyFactors(d, agg.areaKm2, "month", info.source);
-    const rng = q && v > 0 ? `<br>Likely range ${fmt(v * q[0])}–${fmt(v * q[2])}` : "";
-    tip.innerHTML = `<strong>${MONTHS[info.m - 1]} ${info.y}</strong><br>${fmt(v)} fire cell-days${rng}<br>
-      <span class="muted">${SOURCE_LABEL[info.source]}${info.partial ? " · partial month" : ""}</span>`;
+    const { d, agg, mode } = getState();
+    const i = Number(td.dataset.i), info = d.months[i];
+    let body;
+    if (mode === "raw") {
+      const rows = ["terra", "aqua", "snpp", "noaa20"].map((p) => [p, agg.rawOf(p)[i]])
+        .filter(([p]) => (info.days || {})[p]).map(([p, v]) => `${SENSOR_LABEL[p]}: ${fmt(v)}`);
+      body = `Raw, no conversion<br>${rows.join("<br>")}<br><span class="muted">calendar shows ${SENSOR_LABEL[recordedSensor(info)]}</span>`;
+    } else {
+      const v = agg.totals[i];
+      const q = uncertaintyFactors(d, agg.areaKm2, "month", info.source);
+      const rng = q && v > 0 ? `<br>Likely range ${fmt(v * q[0])}–${fmt(v * q[2])}` : "";
+      body = `${fmt(v)} fire cell-days${rng}<br><span class="muted">${SOURCE_LABEL[info.source]}${info.partial ? " · partial month" : ""}</span>`;
+    }
+    tip.innerHTML = `<strong>${MONTHS[info.m - 1]} ${info.y}</strong><br>${body}`;
     tip.hidden = false;
     const r = tip.getBoundingClientRect();
     tip.style.left = `${Math.min(x + 14, innerWidth - r.width - 8)}px`;

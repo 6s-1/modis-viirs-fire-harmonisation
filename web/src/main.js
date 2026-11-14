@@ -1,24 +1,29 @@
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import "./style.css";
-import { MONTHS, aggregate, fmt, loadData, monthDays } from "./data.js";
+import { MONTHS, aggregate, fmt, loadData, monthDays, rawRecorded } from "./data.js";
 import { attachTooltip, renderCalendar } from "./calendar.js";
 import { renderCompare } from "./compare.js";
 import { calendarPNG, fileStem, hotspotIndex, hotspotPlan, hotspotsCSV, monthlyCSV, saveBlob } from "./downloads.js";
+import { addGridLayers, attachGridHover, gridLegend, updateGrid } from "./grid.js";
 
 const OBSERVED_FROM = 2012;
-const CANADA = { south: 41.5, north: 83.5, west: -141.5, east: -52.0 };
+const PRESETS = {
+  "all-canada": { south: 41.5, north: 83.5, west: -141.5, east: -52.0 },
+  okanagan: { south: 49.0, north: 50.6, west: -120.1, east: -118.9 }, // Okanagan valley, Osoyoos to Vernon, around Kelowna
+};
 const STYLE = "https://tiles.openfreemap.org/styles/positron";
+const OUTSIDE = "Harmonised history is available for Canada in this version.";
 
 const $ = (id) => document.getElementById(id);
-const state = { d: null, box: null, agg: null, cal: null, range: null, observedOnly: false };
+const state = { d: null, box: null, agg: null, cal: null, range: null, observedOnly: false, mode: "harmonised", mapReady: false };
 
-// ---- map: north up, no rotation or pitch, starts fitted to Canada
+// ---- map: globe, north up, no rotation or pitch, starts on Canada
 const map = new maplibregl.Map({
   container: "map",
   style: STYLE,
-  bounds: [[CANADA.west, 41.5], [CANADA.east, 72]],
-  fitBoundsOptions: { padding: 20 },
+  center: [-96, 60],
+  zoom: 1.9,
   bearing: 0,
   pitch: 0,
   maxPitch: 0,
@@ -30,23 +35,32 @@ const map = new maplibregl.Map({
 map.touchZoomRotate.disableRotation();
 map.keyboard.disableRotation();
 map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
+map.on("style.load", () => map.setProjection({ type: "globe" }));
 
-const boxFeature = (b) => ({
-  type: "Feature", properties: {},
-  geometry: { type: "Polygon", coordinates: [[[b.west, b.south], [b.east, b.south], [b.east, b.north], [b.west, b.north], [b.west, b.south]]] },
-});
+// lat/lon box as a polygon with points along each edge, so it follows parallels on the globe
+function boxFeature(b) {
+  const ring = [], n = 24;
+  for (let k = 0; k <= n; k++) ring.push([b.west + ((b.east - b.west) * k) / n, b.south]);
+  for (let k = 1; k <= n; k++) ring.push([b.east, b.south + ((b.north - b.south) * k) / n]);
+  for (let k = 1; k <= n; k++) ring.push([b.east - ((b.east - b.west) * k) / n, b.north]);
+  for (let k = 1; k <= n; k++) ring.push([b.west, b.north - ((b.north - b.south) * k) / n]);
+  return { type: "Feature", properties: {}, geometry: { type: "Polygon", coordinates: [ring] } };
+}
 map.on("load", () => {
   map.addSource("selection", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
-  map.addLayer({ id: "selection-fill", type: "fill", source: "selection", paint: { "fill-color": "#2a78d6", "fill-opacity": 0.12 } });
+  map.addLayer({ id: "selection-fill", type: "fill", source: "selection", paint: { "fill-color": "#2a78d6", "fill-opacity": 0.06 } });
   map.addLayer({ id: "selection-line", type: "line", source: "selection", paint: { "line-color": "#2a78d6", "line-width": 2 } });
-  if (state.box) drawBox(state.box);
+  addGridLayers(map);
+  attachGridHover(map, $("tip"), () => rangeLabel());
+  state.mapReady = true;
+  if (state.box) { drawBox(state.box); if (state.d) refreshGrid(); }
 });
 function drawBox(b) {
   const src = map.getSource("selection");
   if (src) src.setData({ type: "FeatureCollection", features: b ? [boxFeature(b)] : [] });
 }
 
-// ---- rectangle drawing
+// ---- rectangle drawing (works on the globe; panning is paused while drawing)
 let drawing = false, start = null;
 $("draw").addEventListener("click", () => setDrawing(!drawing));
 function setDrawing(on) {
@@ -65,10 +79,10 @@ map.on("mouseup", (e) => {
   start = null;
   setDrawing(false);
   if (b.north - b.south < 0.05 || b.east - b.west < 0.05) { drawBox(state.box); return; }
-  select(b);
+  select(b, false);
 });
 
-// ---- bounds inputs
+// ---- bounds inputs and presets
 const fields = ["south", "north", "west", "east"];
 $("bounds").addEventListener("submit", (e) => {
   e.preventDefault();
@@ -77,21 +91,26 @@ $("bounds").addEventListener("submit", (e) => {
     : b.south < -90 || b.north > 90 || b.south >= b.north ? "South must be below north, within −90 to 90."
     : b.west < -180 || b.east > 180 || b.west >= b.east ? "West must be less than east, within −180 to 180." : "";
   $("bounds-error").textContent = err;
-  if (!err) select(b);
+  if (!err) select(b, true);
 });
-$("all-canada").addEventListener("click", () => select(CANADA));
-function select(b) {
+for (const [id, b] of Object.entries(PRESETS)) $(id).addEventListener("click", () => select(b, true));
+function select(b, fly) {
   state.box = b;
   fields.forEach((f) => { $(f).value = Math.round(b[f] * 100) / 100; });
   drawBox(b);
+  if (fly) map.fitBounds([[b.west, b.south], [b.east, Math.min(b.north, 75)]], { padding: 30, duration: 800 });
   if (state.d) update();
 }
 
-// ---- date range and toggle
+// ---- date range, observed-only toggle, harmonised / raw view
 const monthValue = (info) => `${info.y}-${String(info.m).padStart(2, "0")}`;
+const rangeLabel = () => {
+  const d = state.d, [a, b] = state.range;
+  return `${MONTHS[d.months[a].m - 1]} ${d.months[a].y} – ${MONTHS[d.months[b].m - 1]} ${d.months[b].y}`;
+};
 function readRange() {
   const d = state.d, idx = (v) => d.monthIndex.get(+v.slice(0, 4) * 100 + +v.slice(5, 7));
-  let a = idx($("from").value), b = idx($("to").value);
+  const a = idx($("from").value), b = idx($("to").value);
   const msg = a === undefined || b === undefined ? `Choose months between ${monthValue(d.months[0])} and ${monthValue(d.lastMonth)}.`
     : a > b ? "The start month must be before the end month." : "";
   $("range-error").textContent = msg;
@@ -101,6 +120,14 @@ function readRange() {
 }
 ["from", "to"].forEach((id) => $(id).addEventListener("change", () => { if (readRange()) update(); }));
 $("observed-only").addEventListener("change", (e) => { state.observedOnly = e.target.checked; update(); });
+document.querySelectorAll('input[name="view"]').forEach((r) => r.addEventListener("change", (e) => { state.mode = e.target.value; update(); }));
+
+function refreshGrid() {
+  if (!state.mapReady || !state.agg) return;
+  const g = updateGrid(map, state.d, state.agg, state.range);
+  if (g.n) gridLegend($("grid-legend"), g.scale, rangeLabel());
+  else $("grid-legend").innerHTML = "";
+}
 
 function update() {
   const d = state.d;
@@ -111,20 +138,33 @@ function update() {
   const yearFilter = (y) => !state.observedOnly || y >= OBSERVED_FROM;
   const medianYears = years.filter((y) => y < d.lastYear);
   const minArea = d.manifest.uncertainty.low_confidence_below_km2;
-  const lowConfidence = agg.areaKm2 < minArea;
+  const lowConfidence = agg.canadaKm2 < minArea;
+  const inCanada = agg.canadaKm2 > 0 || agg.cells.length > 0;
 
   const [a, b] = state.range;
   let total = 0;
   for (let i = a; i <= b; i++) total += agg.totals[i];
-  const rangeTxt = `${MONTHS[d.months[a].m - 1]} ${d.months[a].y} – ${MONTHS[d.months[b].m - 1]} ${d.months[b].y}`;
-  $("summary").innerHTML = `<div><span class="muted">Selection box area</span> <strong>${fmt(agg.areaKm2)} km²</strong>${lowConfidence ? ` <span class="badge low">below ${fmt(minArea)} km²: estimates low confidence</span>` : ""}</div>
-    <div>${agg.cells.length ? `${agg.cells.length.toLocaleString("en-CA")} grid cells with fire · <strong>${fmt(total)}</strong> fire cell-days, ${rangeTxt}`
-      : "No fire recorded in this box. Harmonised history is available for Canada in this version."}</div>`;
+  const partlyOutside = agg.boxKm2 > agg.canadaKm2 * 1.1;
+  $("summary").innerHTML = !inCanada ? `<p class="notice">${OUTSIDE}</p>` : `
+    <div><span class="muted">Canada inside the box (land and lakes):</span> <strong>${fmt(agg.canadaKm2)} km²</strong>
+      ${lowConfidence ? `<span class="badge low">below ${fmt(minArea)} km²: estimates low confidence</span>` : ""}</div>
+    <div class="muted small">This is the area searched, not the area burned.${partlyOutside ? ` Part of the box is outside Canada. ${OUTSIDE}` : ""}</div>
+    <div>${agg.cells.length ? `${agg.cells.length.toLocaleString("en-CA")} grid cells with fire · <strong>${fmt(total)}</strong> fire cell-days (harmonised), ${rangeLabel()}`
+      : "No fire detected in this part of Canada."}</div>`;
+  $("results").hidden = !inCanada;
+  if (!inCanada) { refreshGrid(); return; }
 
-  state.cal = renderCalendar($("calendar"), d, agg, { years, medianYears, range: state.range, lowConfidence, legendEl: $("legend") });
-  renderCompare($("compare"), d, agg, { yearFilter, totals: state.cal.totals });
-  $("results").hidden = false;
+  const raw = state.mode === "raw";
+  $("view-note").textContent = raw
+    ? "Raw: each satellite's own fire cell-days, not converted. MODIS before 2012, VIIRS after, so the record steps up in 2012."
+    : "Harmonised: the whole record in VIIRS-equivalent fire cell-days. Before 2012 it is estimated from MODIS.";
+  state.cal = renderCalendar($("calendar"), d, agg, {
+    years, medianYears, range: state.range, lowConfidence, legendEl: $("legend"),
+    mode: state.mode, values: raw ? rawRecorded(d, agg) : agg.totals,
+  });
+  renderCompare($("compare"), d, agg, { yearFilter, totals: state.cal.totals, mode: state.mode, years });
   $("dl-status").textContent = "";
+  refreshGrid();
 }
 
 // ---- downloads
@@ -133,25 +173,23 @@ $("dl-monthly").addEventListener("click", () => {
 });
 $("dl-png").addEventListener("click", async () => {
   const d = state.d, b = state.box;
-  const years = state.cal.totals.map((t) => t.y);
-  const blob = await calendarPNG(d, state.agg, state.cal, {
-    years, lowConfidence: state.agg.areaKm2 < d.manifest.uncertainty.low_confidence_below_km2,
-    title: "Burning activity calendar",
-    subtitle: `Box S ${b.south.toFixed(2)}, N ${b.north.toFixed(2)}, W ${b.west.toFixed(2)}, E ${b.east.toFixed(2)} · selection box area ${fmt(state.agg.areaKm2)} km²`,
+  const cal = state.mode === "raw" ? renderCalendar(document.createElement("div"), d, state.agg, {
+    years: state.cal.totals.map((t) => t.y), medianYears: [], range: state.range, lowConfidence: false,
+    legendEl: document.createElement("div") }) : state.cal; // the PNG is always the harmonised calendar
+  const blob = await calendarPNG(d, state.agg, cal, {
+    years: cal.totals.map((t) => t.y), lowConfidence: state.agg.canadaKm2 < d.manifest.uncertainty.low_confidence_below_km2,
+    title: "Burning activity calendar (harmonised)",
+    subtitle: `Box S ${b.south.toFixed(2)}, N ${b.north.toFixed(2)}, W ${b.west.toFixed(2)}, E ${b.east.toFixed(2)} · Canada inside the box ${fmt(state.agg.canadaKm2)} km² (area searched, not burned)`,
   });
   saveBlob(blob, `fire-calendar_${fileStem(b, d, [0, d.months.length - 1])}.png`);
 });
 $("dl-hotspots").addEventListener("click", async () => {
-  const st = $("dl-status");
-  const btn = $("dl-hotspots");
+  const st = $("dl-status"), btn = $("dl-hotspots");
   try {
     btn.disabled = true;
     const plan = await hotspotPlan(state.box, state.d, state.range);
     if (!plan.tiles.length) { st.textContent = "No hotspots in this box and date range."; return; }
-    if (plan.tooBig) {
-      st.textContent = `This would read up to ${fmt(plan.rows)} hotspots. Narrow the box or the date range (limit 1.5 million).`;
-      return;
-    }
+    if (plan.tooBig) { st.textContent = `This would read up to ${fmt(plan.rows)} hotspots. Narrow the box or the date range (limit 1.5 million).`; return; }
     st.textContent = `Reading ${plan.tiles.length} tiles (${(plan.bytes / 1e6).toFixed(1)} MB)…`;
     const { blob, rows } = await hotspotsCSV(state.box, state.d, state.range, plan,
       (done, n, kept) => { st.textContent = `Reading tiles ${done}/${n} · ${fmt(kept)} hotspots so far…`; });
@@ -165,7 +203,7 @@ $("dl-hotspots").addEventListener("click", async () => {
 });
 
 // ---- start
-attachTooltip($("calendar"), $("tip"), () => ({ d: state.d, agg: state.agg }));
+attachTooltip($("calendar"), $("tip"), () => ({ d: state.d, agg: state.agg, mode: state.mode }));
 loadData("harmonised/")
   .then((d) => {
     state.d = d;
@@ -178,6 +216,6 @@ loadData("harmonised/")
       $("dl-hotspots").hidden = true;
       $("dl-status").textContent = "Hotspot download is not available on this copy of the site.";
     });
-    select(state.box || CANADA);
+    select(state.box || PRESETS["all-canada"], false);
   })
   .catch((err) => { $("summary").textContent = `Could not load the harmonised data (${err.message}).`; });

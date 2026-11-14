@@ -18,6 +18,7 @@ import json
 from datetime import date
 
 import geopandas as gpd
+import h3
 import numpy as np
 import pandas as pd
 
@@ -64,6 +65,34 @@ def uncertainty(adopted: dict, areas: dict) -> dict:
                 row[period][f"{src}_weighted_abs_error_pct"] = m["loyo"][f"{name} | {period}"]["weighted_abs_error_pct"]
         out["scales"].append(row)
     return out
+
+
+RAW_PLATFORMS = ["terra", "aqua", "snpp", "noaa20", "viirs"]
+
+
+def canada_cells() -> np.ndarray:
+    """H3 display cells whose centre lies in Canada (land and lakes, Natural Earth 1:50m)."""
+    prov = gpd.read_file(C.DATA / "external" / "ne_admin1" / "ne_50m_admin_1_states_provinces.shp")
+    g = prov[prov.admin == "Canada"].to_crs("EPSG:4326").dissolve().geometry.iloc[0]
+    out = set()
+    for poly in getattr(g, "geoms", [g]):
+        out |= {h3.str_to_int(c) for c in h3.geo_to_cells(poly.__geo_interface__, C.DISPLAY_RES)}
+    return np.array(sorted(out), dtype=np.uint64)
+
+
+def raw_rows(src: pd.DataFrame, cidx: pd.Series) -> pd.DataFrame:
+    """Each sensor's own cell-days per cell and month, no conversion (Raw view in the app).
+    'viirs' is the VIIRS reference (mean of the available S-NPP and NOAA-20)."""
+    m = pd.read_parquet(C.INTERIM / "cell_days_monthly.parquet", columns=["cell5", "year", "month", "platform", "cell_days"])
+    m["platform"] = m.platform.astype(str)
+    v = (pd.read_parquet(C.INTERIM / "calibration_base.parquet", columns=["cell5", "year", "month", "vref"])
+           .groupby(["cell5", "year", "month"]).vref.sum().rename("cell_days").reset_index().assign(platform="viirs"))
+    r = pd.concat([m, v[v.cell_days > 0]], ignore_index=True)
+    r = r.merge(src[["year", "month", "idx"]], on=["year", "month"])
+    r = r[r.cell5.isin(cidx.index)]
+    r["cidx"] = cidx.reindex(r.cell5.to_numpy()).to_numpy()
+    r["pcode"] = r.platform.map({p: i for i, p in enumerate(RAW_PLATFORMS)})
+    return r.rename(columns={"cell_days": "value"}).sort_values(["cidx", "idx", "pcode"])
 
 
 def same_days(src: pd.DataFrame, H: pd.DataFrame) -> tuple[dict | None, pd.DataFrame]:
@@ -120,10 +149,15 @@ def main() -> None:
 
     src = src.sort_values(["year", "month"]).reset_index(drop=True)
     src["idx"] = np.arange(len(src))
-    cells = np.sort(H.cell5.unique())
+    canada = canada_cells()
+    cells = np.sort(np.union1d(H.cell5.unique(), canada))
     if len(cells) > 65535 or len(src) > 65535:
         raise ValueError("indices exceed uint16")
     reg = reg.set_index("cell5").reindex(cells)
+    missing = reg.lat.isna().to_numpy()
+    ll = np.array([h3.api.basic_int.cell_to_latlng(int(c)) for c in cells[missing]]).reshape(-1, 2)
+    reg.loc[missing, "lat"], reg.loc[missing, "lon"] = ll[:, 0], ll[:, 1]
+    area = np.array([h3.cell_area(h3.int_to_str(int(c)), unit="km^2") for c in cells])
     regions = sorted(reg.region.dropna().unique())
     provinces = sorted(reg.province.dropna().unique())
 
@@ -148,9 +182,16 @@ def main() -> None:
     add("cell_lon", reg.lon.to_numpy().astype("<f4"))
     add("cell_region", reg.region.map({r: i for i, r in enumerate(regions)}).fillna(255).to_numpy().astype("u1"))
     add("cell_province", reg.province.map({p: i for i, p in enumerate(provinces)}).fillna(255).to_numpy().astype("u1"))
+    add("cell_area", area.astype("<f4"))
+    add("cell_canada", np.isin(cells, canada).astype("u1"))
     add("row_cell", H.cidx.to_numpy().astype("<u2"))
     add("row_month", H.idx.to_numpy().astype("<u2"))
     add("row_value", H.cell_days.to_numpy().astype("<f4"))
+    raw = raw_rows(src, cidx)
+    add("raw_cell", raw.cidx.to_numpy().astype("<u2"))
+    add("raw_month", raw.idx.to_numpy().astype("<u2"))
+    add("raw_platform", raw.pcode.to_numpy().astype("u1"))
+    add("raw_value", raw.value.to_numpy().astype("<f4"))
     sd_info, sd = same_days(src, H)
     sd = sd[sd.cell5.isin(cidx.index)]
     add("sd_cell", cidx.reindex(sd.cell5.to_numpy()).to_numpy().astype("<u2"))
@@ -186,6 +227,8 @@ def main() -> None:
         "provinces": provinces,
         "uncertainty": unc,
         "same_days": sd_info,
+        "raw_platforms": RAW_PLATFORMS,
+        "canada_cells_source": "Natural Earth 1:50m admin-1 (Canada), H3 res 5 cells whose centre is inside",
         "binary": {"file": "harmonised.bin", "cells": int(len(cells)), "rows": int(len(H)), "layout": layout},
     }
     WEB.mkdir(parents=True, exist_ok=True)

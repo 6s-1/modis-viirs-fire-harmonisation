@@ -28,6 +28,12 @@ export async function loadData(base = "harmonised/") {
     rowCell: view("row_cell", Uint16Array),
     rowMonth: view("row_month", Uint16Array),
     rowValue: view("row_value", Float32Array),
+    area: view("cell_area", Float32Array),
+    canada: view("cell_canada", Uint8Array),
+    rawCell: view("raw_cell", Uint16Array),
+    rawMonth: view("raw_month", Uint16Array),
+    rawPlatform: view("raw_platform", Uint8Array),
+    rawValue: view("raw_value", Float32Array),
     sdCell: L.sd_cell ? view("sd_cell", Uint16Array) : new Uint16Array(0),
     sdYear: L.sd_year ? view("sd_year", Uint16Array) : new Uint16Array(0),
     sdValue: L.sd_value ? view("sd_value", Float32Array) : new Float32Array(0),
@@ -39,6 +45,13 @@ export async function loadData(base = "harmonised/") {
     while (c <= d.rowCell[i]) d.rowStart[c++] = i;
   }
   while (c <= n) d.rowStart[c++] = d.rowCell.length;
+  d.rawStart = new Uint32Array(n + 1);
+  c = 0;
+  for (let i = 0; i < d.rawCell.length; i++) {
+    while (c <= d.rawCell[i]) d.rawStart[c++] = i;
+  }
+  while (c <= n) d.rawStart[c++] = d.rawCell.length;
+  d.platforms = manifest.raw_platforms;
   d.monthIndex = new Map(d.months.map((m, i) => [m.y * 100 + m.m, i]));
   d.lastMonth = d.months[d.months.length - 1];
   d.firstYear = d.months[0].y;
@@ -63,23 +76,53 @@ export function boxAreaKm2(b) {
     Math.abs(Math.sin(b.north * rad) - Math.sin(b.south * rad));
 }
 
-// Sum harmonised cell-days per month for display cells whose centre lies in the box.
+// Sum harmonised cell-days per month for display cells whose centre lies in the box. Also the
+// area of Canada in the box (land and lakes), raw per-sensor totals and the same-days sums.
 export function aggregate(d, b) {
-  const totals = new Float64Array(d.months.length);
-  const cells = [];
+  const nM = d.months.length, nP = d.platforms.length;
+  const totals = new Float64Array(nM);
+  const raw = new Float64Array(nM * nP);
+  const cells = [], gridCells = [];
   const mask = new Uint8Array(d.lat.length);
+  let canadaKm2 = 0;
   for (let i = 0; i < d.lat.length; i++) {
     const la = d.lat[i], lo = d.lon[i];
     if (la < b.south || la > b.north || lo < b.west || lo > b.east) continue;
-    cells.push(i);
-    mask[i] = 1;
+    gridCells.push(i);
+    if (d.canada[i]) canadaKm2 += d.area[i];
+    if (d.rowStart[i + 1] > d.rowStart[i]) { cells.push(i); mask[i] = 1; }
     for (let r = d.rowStart[i]; r < d.rowStart[i + 1]; r++) totals[d.rowMonth[r]] += d.rowValue[r];
+    for (let r = d.rawStart[i]; r < d.rawStart[i + 1]; r++) raw[d.rawPlatform[r] * nM + d.rawMonth[r]] += d.rawValue[r];
   }
   const sameDays = new Map();
   for (let r = 0; r < d.sdCell.length; r++) {
     if (mask[d.sdCell[r]]) sameDays.set(d.sdYear[r], (sameDays.get(d.sdYear[r]) || 0) + d.sdValue[r]);
   }
-  return { totals, cells, mask, sameDays, areaKm2: boxAreaKm2(b) };
+  const rawOf = (p) => raw.subarray(d.platforms.indexOf(p) * nM, (d.platforms.indexOf(p) + 1) * nM);
+  return { totals, raw, rawOf, cells, gridCells, mask, sameDays, canadaKm2, boxKm2: boxAreaKm2(b), areaKm2: canadaKm2 };
+}
+
+// "As recorded" raw series: each month in the sensor the record uses, without conversion.
+// VIIRS months: VIIRS reference; months estimated from MODIS: Aqua; Terra-only months: Terra.
+export function recordedSensor(info) {
+  return info.source === "estimated_from_terra" ? "terra" : info.source === "estimated_from_modis" ? "aqua" : "viirs";
+}
+export function rawRecorded(d, agg) {
+  return Float64Array.from(d.months, (info, i) => agg.rawOf(recordedSensor(info))[i]);
+}
+
+// Harmonised value per cell over a month range, and whether it includes estimated months.
+export function cellValues(d, cells, range) {
+  return cells.map((i) => {
+    let v = 0, est = false;
+    for (let r = d.rowStart[i]; r < d.rowStart[i + 1]; r++) {
+      const m = d.rowMonth[r];
+      if (m < range[0] || m > range[1]) continue;
+      v += d.rowValue[r];
+      if (isEstimated(d.months[m].source)) est = true;
+    }
+    return { i, v, est };
+  });
 }
 
 // Uncertainty factors (q10, q50, q90 of observed / predicted) for an area, interpolated on

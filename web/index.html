@@ -15,9 +15,11 @@
     <main class="layout">
       <section class="map-panel" aria-label="Map and area selection">
         <div id="map"></div>
+        <div id="grid-legend" class="grid-legend"></div>
         <div class="tools">
           <button id="draw" type="button" aria-pressed="false">Draw a box</button>
           <button id="all-canada" type="button" class="secondary">All of Canada</button>
+          <button id="okanagan" type="button" class="secondary">Okanagan (Kelowna)</button>
         </div>
         <form id="bounds" class="bounds" aria-label="Area bounds in degrees">
           <label>South <input id="south" type="number" step="any" inputmode="decimal" /></label>
@@ -47,7 +49,12 @@
         <div id="summary">Loading data…</div>
         <div id="results" hidden>
           <h2>Burning activity calendar</h2>
-          <p class="muted small">Fire cell-days: the number of ~1 km grid cells with at least one fire detection on a day, added up over the month. Before 2012 the values are estimated from MODIS and shown with a likely range.</p>
+          <div class="viewtoggle" role="radiogroup" aria-label="Calendar values">
+            <label><input type="radio" name="view" value="harmonised" checked /> Harmonised</label>
+            <label><input type="radio" name="view" value="raw" /> Raw sensors</label>
+          </div>
+          <p id="view-note" class="small"></p>
+          <p class="muted small">Fire cell-days: the number of ~1 km grid cells with at least one fire detection on a day, added up over the month.</p>
           <div id="legend"></div>
           <div id="calendar" class="cal-wrap"></div>
           <p class="muted small">* Part of a year. Months outside the date range are faded.</p>
