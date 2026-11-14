@@ -1,0 +1,524 @@
+{
+ "generated": "2026-11-14",
+ "data_end": {
+  "y": 2026,
+  "m": 11,
+  "source": "near_real_time",
+  "partial": true,
+  "days": {
+   "aqua": 14,
+   "noaa20": 14,
+   "snpp": 2,
+   "terra": 14
+  }
+ },
+ "detections_kept": 12546949,
+ "detections_read": 13775271,
+ "cells": 37468,
+ "comparison": [
+  {
+   "label": "Previous: VIIRS/Aqua table",
+   "loyo": {
+    "canada": 8.3,
+    "prov": 12.4,
+    "12k": 25.9,
+    "cell": 45.2
+   },
+   "back": {
+    "canada": 15.6,
+    "prov": 20.7,
+    "12k": 35.6,
+    "cell": 55.1
+   },
+   "back_2014": -29.2,
+   "loyo_2014": -29.4,
+   "zero_input_pct": 9.5,
+   "loyo_canada_range": [
+    0.877,
+    1.417
+   ]
+  },
+  {
+   "label": "Adopted from Aug 2002: Aqua or Terra + fire intensity",
+   "loyo": {
+    "canada": 5.7,
+    "prov": 8.2,
+    "12k": 19.8,
+    "cell": 36.0
+   },
+   "back": {
+    "canada": 11.1,
+    "prov": 14.5,
+    "12k": 28.1,
+    "cell": 45.1
+   },
+   "back_2014": -18.5,
+   "loyo_2014": -19.2,
+   "zero_input_pct": 6.9,
+   "loyo_canada_range": [
+    0.918,
+    1.238
+   ]
+  },
+  {
+   "label": "Previous, Terra-only months: Terra to Aqua to VIIRS",
+   "loyo": {
+    "canada": 9.6,
+    "prov": 14.0,
+    "12k": 26.5,
+    "cell": 45.1
+   },
+   "back": {
+    "canada": 12.4,
+    "prov": 16.8,
+    "12k": 32.4,
+    "cell": 51.4
+   },
+   "back_2014": -18.7,
+   "loyo_2014": -19.1,
+   "zero_input_pct": 9.5,
+   "loyo_canada_range": [
+    0.868,
+    1.235
+   ]
+  },
+  {
+   "label": "Adopted Nov 2000 to Jul 2002: Terra + fire intensity",
+   "loyo": {
+    "canada": 5.5,
+    "prov": 8.9,
+    "12k": 21.4,
+    "cell": 40.9
+   },
+   "back": {
+    "canada": 9.1,
+    "prov": 12.9,
+    "12k": 28.2,
+    "cell": 48.9
+   },
+   "back_2014": -15.2,
+   "loyo_2014": -16.6,
+   "zero_input_pct": 9.5,
+   "loyo_canada_range": [
+    0.907,
+    1.199
+   ]
+  }
+ ],
+ "rejected": [
+  {
+   "label": "Log-linear fit on fire intensity",
+   "loyo": {
+    "canada": 10.9,
+    "prov": 13.5,
+    "12k": 24.7,
+    "cell": 42.0
+   },
+   "back": {
+    "canada": 17.2,
+    "prov": 21.6,
+    "12k": 35.2,
+    "cell": 53.6
+   },
+   "back_2014": -33.0,
+   "loyo_2014": -36.3,
+   "zero_input_pct": 9.5,
+   "loyo_canada_range": [
+    1.005,
+    1.569
+   ]
+  },
+  {
+   "label": "NBAC fire-size classes (Aqua)",
+   "loyo": {
+    "canada": 10.6,
+    "prov": 14.1,
+    "12k": 27.9,
+    "cell": 47.1
+   },
+   "back": {
+    "canada": 16.5,
+    "prov": 22.5,
+    "12k": 38.0,
+    "cell": 57.5
+   },
+   "back_2014": -29.8,
+   "loyo_2014": -28.2,
+   "zero_input_pct": 9.5,
+   "loyo_canada_range": [
+    0.859,
+    1.393
+   ]
+  },
+  {
+   "label": "NBAC fire-size classes (union)",
+   "loyo": {
+    "canada": 9.2,
+    "prov": 11.8,
+    "12k": 23.9,
+    "cell": 38.9
+   },
+   "back": {
+    "canada": 13.3,
+    "prov": 17.9,
+    "12k": 32.4,
+    "cell": 48.0
+   },
+   "back_2014": -23.4,
+   "loyo_2014": -22.9,
+   "zero_input_pct": 6.9,
+   "loyo_canada_range": [
+    0.886,
+    1.296
+   ]
+  },
+  {
+   "label": "Fill from reported fires (NFDB)",
+   "loyo": {
+    "canada": 6.2,
+    "prov": 8.9,
+    "12k": 20.5,
+    "cell": 35.9
+   },
+   "back": {
+    "canada": 11.3,
+    "prov": 14.2,
+    "12k": 28.1,
+    "cell": 44.5
+   },
+   "back_2014": -19.8,
+   "loyo_2014": -20.3,
+   "zero_input_pct": 6.9,
+   "loyo_canada_range": [
+    0.914,
+    1.254
+   ]
+  }
+ ],
+ "hidden_years": [
+  {
+   "year": 2012,
+   "old": 1.6,
+   "new": 5.4
+  },
+  {
+   "year": 2013,
+   "old": 10.1,
+   "new": 4.8
+  },
+  {
+   "year": 2014,
+   "old": -29.4,
+   "new": -19.2
+  },
+  {
+   "year": 2015,
+   "old": 1.6,
+   "new": 1.9
+  },
+  {
+   "year": 2016,
+   "old": -3.8,
+   "new": 1.0
+  },
+  {
+   "year": 2017,
+   "old": 4.8,
+   "new": 4.6
+  },
+  {
+   "year": 2018,
+   "old": -11.9,
+   "new": -11.2
+  },
+  {
+   "year": 2019,
+   "old": -7.0,
+   "new": 0.5
+  },
+  {
+   "year": 2020,
+   "old": -4.7,
+   "new": 4.2
+  },
+  {
+   "year": 2021,
+   "old": 6.3,
+   "new": 8.7
+  },
+  {
+   "year": 2022,
+   "old": 1.7,
+   "new": 3.5
+  },
+  {
+   "year": 2023,
+   "old": 5.6,
+   "new": 0.9
+  },
+  {
+   "year": 2024,
+   "old": 14.0,
+   "new": 8.9
+  },
+  {
+   "year": 2025,
+   "old": -4.2,
+   "new": -5.9
+  }
+ ],
+ "adopted": {
+  "estimated_from_modis": {
+   "loyo_canada_range": [
+    0.918,
+    1.238
+   ],
+   "months": 114,
+   "frp_edges": [
+    69.78,
+    133.77
+   ]
+  },
+  "estimated_from_terra": {
+   "loyo_canada_range": [
+    0.907,
+    1.199
+   ],
+   "months": 21,
+   "frp_edges": [
+    56.2,
+    114.33
+   ]
+  }
+ },
+ "low_confidence_below_km2": 10000,
+ "uncertainty_scales": [
+  {
+   "scale": "cell",
+   "area_km2": 252.9,
+   "month": {
+    "estimated_from_modis": [
+     0.0,
+     0.608,
+     1.728
+    ],
+    "estimated_from_modis_weighted_abs_error_pct": 43.1,
+    "estimated_from_terra": [
+     0.0,
+     0.563,
+     1.686
+    ],
+    "estimated_from_terra_weighted_abs_error_pct": 49.7
+   },
+   "year": {
+    "estimated_from_modis": [
+     0.153,
+     0.764,
+     1.985
+    ],
+    "estimated_from_modis_weighted_abs_error_pct": 36.0,
+    "estimated_from_terra": [
+     0.151,
+     0.715,
+     1.862
+    ],
+    "estimated_from_terra_weighted_abs_error_pct": 40.9
+   }
+  },
+  {
+   "scale": "cell3",
+   "area_km2": 12393.4,
+   "month": {
+    "estimated_from_modis": [
+     0.178,
+     0.834,
+     2.236
+    ],
+    "estimated_from_modis_weighted_abs_error_pct": 26.5,
+    "estimated_from_terra": [
+     0.18,
+     0.795,
+     2.103
+    ],
+    "estimated_from_terra_weighted_abs_error_pct": 30.1
+   },
+   "year": {
+    "estimated_from_modis": [
+     0.333,
+     0.924,
+     1.962
+    ],
+    "estimated_from_modis_weighted_abs_error_pct": 19.8,
+    "estimated_from_terra": [
+     0.352,
+     0.93,
+     2.044
+    ],
+    "estimated_from_terra_weighted_abs_error_pct": 21.4
+   }
+  },
+  {
+   "scale": "province",
+   "area_km2": 630741.0,
+   "month": {
+    "estimated_from_modis": [
+     0.595,
+     1.038,
+     2.145
+    ],
+    "estimated_from_modis_weighted_abs_error_pct": 13.4,
+    "estimated_from_terra": [
+     0.531,
+     1.026,
+     2.11
+    ],
+    "estimated_from_terra_weighted_abs_error_pct": 15.0
+   },
+   "year": {
+    "estimated_from_modis": [
+     0.746,
+     0.986,
+     1.456
+    ],
+    "estimated_from_modis_weighted_abs_error_pct": 8.2,
+    "estimated_from_terra": [
+     0.716,
+     0.989,
+     1.664
+    ],
+    "estimated_from_terra_weighted_abs_error_pct": 8.9
+   }
+  },
+  {
+   "scale": "canada",
+   "area_km2": 9600954.0,
+   "month": {
+    "estimated_from_modis": [
+     0.862,
+     1.031,
+     1.606
+    ],
+    "estimated_from_modis_weighted_abs_error_pct": 9.5,
+    "estimated_from_terra": [
+     0.85,
+     1.076,
+     1.677
+    ],
+    "estimated_from_terra_weighted_abs_error_pct": 10.1
+   },
+   "year": {
+    "estimated_from_modis": [
+     0.918,
+     0.974,
+     1.238
+    ],
+    "estimated_from_modis_weighted_abs_error_pct": 5.7,
+    "estimated_from_terra": [
+     0.907,
+     0.968,
+     1.199
+    ],
+    "estimated_from_terra_weighted_abs_error_pct": 5.5
+   }
+  }
+ ],
+ "viirs_agreement": {
+  "noaa20_over_snpp": [
+   0.992,
+   1.022,
+   1.038,
+   1.035,
+   1.005,
+   1.0,
+   1.034,
+   1.016
+  ],
+  "pearson_log1p": 0.897
+ },
+ "zero_cases": {
+  "share_of_cell_months_pct": 68.5,
+  "share_of_viirs_pct": 9.6,
+  "at_12k_pct": 3.1
+ },
+ "outage_days": {
+  "terra": 44,
+  "aqua": 11,
+  "snpp": 45,
+  "noaa20": 15
+ },
+ "nbac": {
+  "adopted model": {
+   "est_bias_pct": -1.6,
+   "est_mlr": 0.454,
+   "early_bias_pct": -31.4
+  },
+  "old table": {
+   "est_bias_pct": -1.7,
+   "est_mlr": 0.474,
+   "early_bias_pct": -26.1
+  },
+  "raw MODIS Aqua": {
+   "est_bias_pct": 0.2,
+   "est_mlr": 0.475,
+   "early_bias_pct": null
+  },
+  "raw MODIS Terra (diagnostic)": {
+   "est_bias_pct": -3.3,
+   "est_mlr": 0.489,
+   "early_bias_pct": -30.1
+  }
+ },
+ "nbac_canada_annual_error_pct": {
+  "adopted model": {
+   "2001": -11.6,
+   "2002": -36.1,
+   "2003": 31.3,
+   "2004": 9.8,
+   "2005": -14.4,
+   "2006": -13.2,
+   "2007": -3.8,
+   "2008": 5.4,
+   "2009": 14.2,
+   "2010": -19.8,
+   "2011": -9.2
+  },
+  "old table": {
+   "2001": -12.5,
+   "2002": -29.3,
+   "2003": 38.0,
+   "2004": 6.3,
+   "2005": -17.4,
+   "2006": -12.8,
+   "2007": -0.3,
+   "2008": 9.1,
+   "2009": 12.0,
+   "2010": -21.2,
+   "2011": -10.3
+  },
+  "raw MODIS Aqua": {
+   "2003": 45.2,
+   "2004": 5.6,
+   "2005": -14.8,
+   "2006": -11.7,
+   "2007": 5.0,
+   "2008": 7.7,
+   "2009": 13.5,
+   "2010": -18.5,
+   "2011": -10.2
+  },
+  "raw MODIS Terra (diagnostic)": {
+   "2001": -22.4,
+   "2002": -31.9,
+   "2003": 25.2,
+   "2004": 8.8,
+   "2005": -16.7,
+   "2006": -16.3,
+   "2007": -4.0,
+   "2008": -1.5,
+   "2009": 7.9,
+   "2010": -19.5,
+   "2011": -4.4
+  }
+ },
+ "viirs_over_modis_2012_2025": 4.31
+}

@@ -66,10 +66,10 @@ def series() -> pd.DataFrame:
     reg = pd.read_parquet(C.INTERIM / "regions_cell5.parquet")[["cell5", "region"]]
     new = pd.read_parquet(C.DATA / "processed" / "harmonised_cell_month.parquet")
     old = pd.read_parquet(C.DATA / "processed" / "harmonised_cell_month_table.parquet")
-    base = pd.read_parquet(C.INTERIM / "calibration_base.parquet", columns=["cell5", "year", "aqua"])
+    base = pd.read_parquet(C.INTERIM / "calibration_base.parquet", columns=["cell5", "year", "aqua", "terra"])
     out = []
     for name, df, col in (("raw MODIS Aqua", base, "aqua"), ("old table", old, "cell_days"),
-                          ("adopted model", new, "cell_days")):
+                          ("adopted model", new, "cell_days"), ("raw MODIS Terra (diagnostic)", base, "terra")):
         s = df.merge(reg, on="cell5").groupby(["region", "year"])[col].sum().rename("cd").reset_index()
         out.append(s.assign(series=name))
     return pd.concat(out, ignore_index=True)
@@ -113,6 +113,9 @@ def main() -> None:
     for name, g in d.groupby("series"):
         res["series"][name] = {"fit_years_in_sample": evaluate(g, FIT), "estimated_years_2003_2011": evaluate(g, EVAL),
                                "early_2001_2002": evaluate(g, EARLY)}
+    can = d[d.year.between(2001, 2011) & d.pred.notna()].groupby(["series", "year"])[["pred", "nbac_ha"]].sum()
+    res["canada_annual_error_pct"] = {s_: {int(y): round(float(100 * (r.pred / r.nbac_ha - 1)), 1) for (ss, y), r in can.iterrows() if ss == s_}
+                                      for s_ in can.index.get_level_values(0).unique()}
     (OUT / "nbac_check.json").write_text(json.dumps(res, indent=1))
 
     # figure: three panels, predicted vs NBAC burned area per ecozone-year (log-log)

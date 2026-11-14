@@ -193,3 +193,22 @@ button:disabled { opacity: 0.5; cursor: progress; }
 .grid-legend { margin-top: 8px; }
 .notice { background: var(--warn-bg); color: var(--warn-ink); padding: 6px 10px; border-radius: 6px; font-size: 0.9rem; }
 .cal tfoot td.tot { white-space: normal; }
+
+/* about page */
+.about-link { font-size: 0.85rem; font-weight: 400; margin-left: 10px; vertical-align: 2px; color: var(--accent); }
+a { color: var(--accent); }
+.about { max-width: 860px; padding: 0 16px 40px; }
+.about section { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 4px 18px 14px; margin: 0 0 14px; }
+.about h2 { font-size: 1.15rem; margin-top: 14px; }
+.about li { margin: 6px 0; }
+.about figure { margin: 14px 0; }
+.about figure img { width: 100%; height: auto; border: 1px solid var(--line); border-radius: 8px; background: #fcfcfb; }
+.about figcaption { font-size: 0.85rem; color: var(--muted); margin-top: 4px; }
+.tablewrap { overflow-x: auto; margin: 10px 0; }
+table.data { border-collapse: collapse; font-size: 0.85rem; width: 100%; min-width: 520px; font-variant-numeric: tabular-nums; }
+table.data.narrow { min-width: 0; max-width: 520px; }
+table.data caption { text-align: left; color: var(--muted); font-size: 0.82rem; padding-bottom: 6px; caption-side: top; }
+table.data th, table.data td { padding: 5px 8px; border-bottom: 1px solid var(--line); text-align: right; }
+table.data th[scope="row"], table.data thead th:first-child { text-align: left; font-weight: 500; }
+table.data thead th { color: var(--ink-2); font-weight: 500; }
+.refs li { font-size: 0.9rem; }
