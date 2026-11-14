@@ -1,0 +1,28 @@
+{
+ "h3_res5_cells_with_fire": 20227,
+ "h3_res5_area_km2": {
+  "min": 197.2,
+  "median": 265.6,
+  "max": 305.1,
+  "max_over_min": 1.55
+ },
+ "deg025_area_km2": {
+  "at_lat": [
+   41.0,
+   83.0
+  ],
+  "values": [
+   583.2,
+   94.2
+  ],
+  "max_over_min": 6.19
+ },
+ "h3_res8_avg_area_km2": 0.737,
+ "cell_days_dropped_outside_coverage": 24,
+ "duplicates_dropped": {
+  "terra": 0,
+  "aqua": 1,
+  "snpp": 1,
+  "noaa20": 2
+ }
+}

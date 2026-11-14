@@ -1,0 +1,22 @@
+# secrets
+.env
+.env.*
+
+# all data (raw, intermediate and outputs)
+data/
+
+# original FIRMS downloads kept at the repo root
+*.zip
+*.zip.download/
+/modis/
+/modis-*/
+/viirs-*/
+
+# environments and build artefacts
+.venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+node_modules/
+dist/
+.DS_Store
