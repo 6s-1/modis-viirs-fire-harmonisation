@@ -33,9 +33,9 @@ export function updateGrid(map, d, agg, range) {
 }
 
 export function gridLegend(el, scale, rangeLabel) {
-  const sw = scale.colors.map((c, k) => `<li><span class="sw" style="background:${c}"></span>${k === 0 ? "> 0" : fmt(scale.edges[k - 1])}</li>`).join("");
+  const sw = scale.colors.map((c, k) => `<li><span class="sw" style="background:${c}"></span>${scale.label(k)}</li>`).join("");
   el.innerHTML = `<p class="legend-title"><span class="info" title="Harmonised fire cell-days per grid cell (~250 km²) over ${rangeLabel}. Brighter (yellow) means more fire.">Grid · ${rangeLabel}</span></p>
-    <ul class="legend"><li><span class="sw key-zero"></span>0</li>${sw}
+    <ul class="legend"><li class="nofire"><span class="sw key-zero"></span>no fire</li>${sw}
       <li title="Includes months estimated from MODIS"><span class="sw key-est"></span>estimated</li></ul>`;
 }
 

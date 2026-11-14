@@ -1,43 +1,23 @@
 // Burning activity calendar: years as rows, months as columns, colour = harmonised cell-days.
 
-import { MONTHS, SOURCE_LABEL, fmt, fmtShort, isEstimated, median, recordedSensor, uncertaintyFactors } from "./data.js";
+import { MONTHS, SOURCE_LABEL, fmt, fmtShort, fmtSig, isEstimated, median, recordedSensor, uncertaintyFactors } from "./data.js";
 
 export const SENSOR_LABEL = { terra: "MODIS Terra", aqua: "MODIS Aqua", snpp: "VIIRS S-NPP", noaa20: "VIIRS NOAA-20", viirs: "VIIRS" };
 const SENSOR_SHORT = { terra: "Terra", aqua: "Aqua", viirs: "VIIRS" };
 
-// Fire scale: inferno (matplotlib), from dark purple through red and orange to pale yellow.
-// Monotonic in lightness, so it reads in order without colour vision. Brighter = more fire.
-export const RAMP = ["#420a68", "#771c6d", "#ab2f5e", "#d74b3f", "#f37819", "#fcae12", "#f2f27d"];
+// Fire scale: six classes at even steps along inferno (t = 0.20 ... 0.97), dark purple to pale
+// yellow. Adjacent classes differ by 14-18 L*, so they stay distinct in greyscale; zero is not
+// a class (empty outlined cell, "no fire"). Brighter = more fire.
+export const RAMP = ["#420a68", "#801f6c", "#bf3952", "#ec6726", "#fcac11", "#f3f68a"];
 
-function nice(v) {
-  if (v <= 0) return 0;
-  const p = 10 ** Math.floor(Math.log10(v));
-  const m = v / p;
-  return (m < 1.5 ? 1 : m < 3.5 ? 2 : m < 7.5 ? 5 : 10) * p;
-}
-
-// Diverging scale for "compared with normal": ratio to the median of the same month.
-// Purple = below normal, orange = above, neutral grey at 1x. Both arms get stronger further from 1x.
-export const RATIO_EDGES = [0.25, 0.5, 0.8, 1.25, 2, 4];
-export const RATIO_COLORS = ["#c3aef0", "#8e6ccf", "#5c4887", "#4a4e57", "#8f5a2c", "#de8430", "#f8b45c"];
-export const RATIO_LABELS = ["< 0.25×", "0.25–0.5×", "0.5–0.8×", "0.8–1.25×", "1.25–2×", "2–4×", "> 4×"];
-export function ratioColor(v, med) {
-  if (!(med > 0)) return v > 0 ? RATIO_COLORS[6] : RATIO_COLORS[3];
-  const r = v / med;
-  let k = 0;
-  while (k < RATIO_EDGES.length && r >= RATIO_EDGES[k]) k++;
-  return RATIO_COLORS[k];
-}
-
-// Log-spaced bins between the smallest and largest positive value.
+// Six classes with log-even breaks between the smallest and largest positive value. The breaks
+// are not rounded: they fall where they fall, and labels show two significant figures.
 export function makeScale(values) {
   const pos = values.filter((v) => v > 0);
-  if (!pos.length) return { edges: [], colors: RAMP.slice(0, 1), color: () => "var(--zero)" };
+  if (!pos.length) return { edges: [], colors: [], color: () => "var(--zero)", label: () => "" };
   const lo = Math.max(Math.min(...pos), 0.5), hi = Math.max(...pos);
   const n = RAMP.length;
-  let edges = [];
-  for (let k = 1; k < n; k++) edges.push(nice(Math.exp(Math.log(lo) + (Math.log(hi) - Math.log(lo)) * k / n)));
-  edges = [...new Set(edges)].filter((e) => e > 0 && e < hi);
+  const edges = hi > lo ? Array.from({ length: n - 1 }, (_, k) => Math.exp(Math.log(lo) + ((Math.log(hi) - Math.log(lo)) * (k + 1)) / n)) : [];
   const colors = RAMP.slice(RAMP.length - edges.length - 1);
   return {
     edges, colors,
@@ -47,6 +27,7 @@ export function makeScale(values) {
       while (k < edges.length && v >= edges[k]) k++;
       return colors[k];
     },
+    label: (k) => (k === 0 ? "> 0" : fmtSig(edges[k - 1])),
   };
 }
 
@@ -154,9 +135,9 @@ function renderRatioLegend(el, lowConfidence, harm, medSpan) {
 const DEFINITION = "Fire cell-days: ~1 km grid cells with at least one fire detection on a day, summed over the month. Brighter (yellow) means more fire.";
 
 function renderLegend(el, scale, lowConfidence, harm = true) {
-  const sw = scale.colors.map((c, k) => `<li><span class="sw" style="background:${c}"></span>${k === 0 ? "> 0" : fmt(scale.edges[k - 1])}</li>`).join("");
+  const sw = scale.colors.map((c, k) => `<li><span class="sw" style="background:${c}"></span>${scale.label(k)}</li>`).join("");
   el.innerHTML = `<p class="legend-title"><span class="info" title="${DEFINITION}">${harm ? "Fire cell-days per month" : "Raw fire cell-days per month"}</span></p>
-    <ul class="legend" aria-label="Colour scale"><li><span class="sw key-zero"></span>0</li>${sw}</ul>
+    <ul class="legend" aria-label="Colour scale"><li class="nofire"><span class="sw key-zero"></span>no fire</li>${sw}</ul>
     ${marks(harm, lowConfidence)}`;
 }
 

@@ -174,6 +174,14 @@ export function median(values) {
 export const fmt = (v) =>
   !Number.isFinite(v) ? "–" : v === 0 ? "0" : v >= 100 ? Math.round(v).toLocaleString("en-CA") : v >= 10 ? v.toFixed(0) : v.toFixed(1);
 
+// Two significant figures, for scale breaks that fall where they fall (3.4, 27, 210, 1,700)
+export const fmtSig = (v) => {
+  if (!Number.isFinite(v)) return "–";
+  if (v < 10) return v.toFixed(1);
+  const p = 10 ** (Math.floor(Math.log10(v)) - 1);
+  return (Math.round(v / p) * p).toLocaleString("en-CA");
+};
+
 // Compact form for ranges: 86,086 -> 86k, 1,234,567 -> 1.2M
 export const fmtShort = (v) =>
   !Number.isFinite(v) ? "–" : v >= 1e6 ? `${(v / 1e6).toFixed(1)}M` : v >= 1e4 ? `${Math.round(v / 1e3)}k`

@@ -131,7 +131,7 @@ export function calendarPNG(d, agg, cal, opts) {
   g.fillText("Fire cell-days per month. Brighter (pale yellow) means more fire. Dashed outline: estimated from MODIS.", pad, 70);
   // legend
   let x = pad;
-  const legend = [["0", ZERO], ...cal.scale.colors.map((c, k) => [k === 0 ? "> 0" : fmt(cal.scale.edges[k - 1]), c])];
+  const legend = [["no fire", ZERO], ...cal.scale.colors.map((c, k) => [cal.scale.label(k), c])];
   const swatch = (col, x0, y0, w, h) => {
     if (col) { g.fillStyle = col; g.fillRect(x0, y0, w, h); } else { g.strokeStyle = LINE; g.lineWidth = 1; g.strokeRect(x0 + 0.5, y0 + 0.5, w - 1, h - 1); }
   };
@@ -139,7 +139,7 @@ export function calendarPNG(d, agg, cal, opts) {
   for (const [lab, col] of legend) {
     swatch(col, x, 82, 16, 12);
     g.fillStyle = INK2; g.fillText(lab, x + 20, 92);
-    x += 26 + g.measureText(lab).width;
+    x += 26 + g.measureText(lab).width + (lab === "no fire" ? 14 : 0); // gap: "no fire" is outside the ramp
   }
   // header
   g.fillStyle = INK2; g.font = "11px system-ui, sans-serif"; g.textAlign = "center";
