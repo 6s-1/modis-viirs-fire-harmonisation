@@ -1,0 +1,89 @@
+{
+ "ecozones": [
+  "Atlantic Maritime",
+  "Boreal Cordillera",
+  "Boreal Plain",
+  "Boreal Shield",
+  "Hudson Plain",
+  "Montane Cordillera",
+  "Pacific Maritime",
+  "Prairie",
+  "Taiga Cordillera",
+  "Taiga Plain",
+  "Taiga Shield"
+ ],
+ "fit_years": [
+  2012,
+  2025
+ ],
+ "eval_years": [
+  2003,
+  2011
+ ],
+ "unassigned_share_pct": 0.32,
+ "series": {
+  "adopted model": {
+   "fit_years_in_sample": {
+    "bias_pct": 0.0,
+    "weighted_abs_error_pct": 19.6,
+    "median_abs_log_ratio": 0.322,
+    "ecozone_years": 154,
+    "canada_annual_abs_error_pct_median": 8.5
+   },
+   "estimated_years_2003_2011": {
+    "bias_pct": -1.6,
+    "weighted_abs_error_pct": 32.9,
+    "median_abs_log_ratio": 0.454,
+    "ecozone_years": 99,
+    "canada_annual_abs_error_pct_median": 13.2
+   },
+   "early_2001_2002": {
+    "bias_pct": -31.4,
+    "weighted_abs_error_pct": 50.9,
+    "median_abs_log_ratio": 0.818,
+    "ecozone_years": 22,
+    "canada_annual_abs_error_pct_median": 23.8
+   }
+  },
+  "old table": {
+   "fit_years_in_sample": {
+    "bias_pct": 0.0,
+    "weighted_abs_error_pct": 19.6,
+    "median_abs_log_ratio": 0.322,
+    "ecozone_years": 154,
+    "canada_annual_abs_error_pct_median": 8.5
+   },
+   "estimated_years_2003_2011": {
+    "bias_pct": -1.7,
+    "weighted_abs_error_pct": 31.8,
+    "median_abs_log_ratio": 0.474,
+    "ecozone_years": 99,
+    "canada_annual_abs_error_pct_median": 12.0
+   },
+   "early_2001_2002": {
+    "bias_pct": -26.1,
+    "weighted_abs_error_pct": 45.0,
+    "median_abs_log_ratio": 0.777,
+    "ecozone_years": 22,
+    "canada_annual_abs_error_pct_median": 20.9
+   }
+  },
+  "raw MODIS Aqua": {
+   "fit_years_in_sample": {
+    "bias_pct": 0.0,
+    "weighted_abs_error_pct": 19.6,
+    "median_abs_log_ratio": 0.318,
+    "ecozone_years": 154,
+    "canada_annual_abs_error_pct_median": 5.4
+   },
+   "estimated_years_2003_2011": {
+    "bias_pct": 0.2,
+    "weighted_abs_error_pct": 31.0,
+    "median_abs_log_ratio": 0.475,
+    "ecozone_years": 99,
+    "canada_annual_abs_error_pct_median": 11.7
+   },
+   "early_2001_2002": {}
+  }
+ }
+}
