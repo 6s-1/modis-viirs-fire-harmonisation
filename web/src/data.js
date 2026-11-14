@@ -67,7 +67,7 @@ export function aggregate(d, b) {
 // Uncertainty factors (q10, q50, q90 of observed / predicted) for an area, interpolated on
 // log(area) between the validated scales. Returns null for observed sources.
 export function uncertaintyFactors(d, areaKm2, period, source) {
-  if (source !== "estimated_from_aqua" && source !== "estimated_from_terra") return null;
+  if (source !== "estimated_from_modis" && source !== "estimated_from_terra") return null;
   const scales = d.manifest.uncertainty.scales;
   const x = Math.log(Math.max(areaKm2, 1));
   const pts = scales.map((s) => ({ x: Math.log(s.area_km2), q: s[period][source] }));

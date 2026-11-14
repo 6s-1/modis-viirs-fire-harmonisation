@@ -1,7 +1,7 @@
 """Step 3: export the harmonised table and uncertainty tables as compact static files.
 
 Inputs:  data/processed/harmonised_cell_month.parquet, reports/calibration/month_sources.csv,
-         reports/calibration/validation_metrics.json, data/interim/regions_cell5.parquet
+         reports/calibration/adopted_model.json, data/interim/regions_cell5.parquet
 Outputs: data/processed/uncertainty.json
          web/public/harmonised/manifest.json   months, sources, regions, uncertainty, layout
          web/public/harmonised/harmonised.bin  little-endian typed arrays (layout in manifest)
@@ -43,35 +43,25 @@ def scale_areas() -> dict:
             "canada": round(float(a.sum()), 0)}
 
 
-def uncertainty(metrics: dict, areas: dict) -> dict:
-    """obs/pred factors (q10, q50, q90) per scale and period, from leave-one-year-out 2012-2025.
-
-    Terra-based months combine these with the Terra -> Aqua test errors in quadrature on the
-    log scale (q10 and q90 separately)."""
-    loyo, terra = metrics["leave_one_year_out_2012_2025"], metrics["terra_to_aqua_validation"]
-    out = {"method": "obs/pred quantiles over held-out years (leave-one-year-out, 2012-2025). "
-                     "Range = value x q10 .. value x q90. Interpolate on log(area) between scales.",
+def uncertainty(adopted: dict, areas: dict) -> dict:
+    """obs/pred factors (q10, q50, q90) per scale and period for each estimated source, from
+    leave-one-year-out over 2012-2025 of the adopted models (harmonise.py). For the Canada-wide
+    annual scale the full held-out range (min, max) is used, so years like 2014 are inside it."""
+    out = {"method": "obs/pred quantiles over held-out years (leave-one-year-out, 2012-2025) of the adopted "
+                     "models. Range = value x q10 .. value x q90. Interpolate on log(area) between scales.",
            "scales": [], "low_confidence_below_km2": LOW_CONFIDENCE_BELOW_KM2,
-           "canada_annual_obs_over_pred_range": metrics["leave_one_year_out_canada_obs_over_pred_range"],
-           "backwards_validation_by_year": metrics["backwards_validation_by_year"]}
+           "loyo_year_error_pct": {k: v["loyo_year_error_pct"] for k, v in adopted["models"].items()}}
     for key, name in SCALE_KEYS.items():
         row = {"scale": key, "area_km2": areas[key]}
         for period in ("month", "year"):
-            q = loyo[f"{name} | {period}"]["obs_over_pred_q10_q50_q90"]
-            if key == "canada" and period == "year":
-                # Canada-wide annual: use the full held-out range so 2014-type years are inside it
-                r = metrics["leave_one_year_out_canada_obs_over_pred_range"]
-                q = [r[0], q[1], r[1]]
-            t = terra[f"{name} | {period}"]["obs_over_pred_q10_q50_q90"]
-            # product of two independent factors: medians multiply, log spreads add in quadrature
-            t10 = max(t[0], 0.05)  # q10 of 0 (no Aqua seen) would make the log undefined
-            med = q[1] * t[1]
-            comb = [med * float(np.exp(-np.hypot(np.log(q[1] / q[0]), np.log(t[1] / t10)))),
-                    med,
-                    med * float(np.exp(np.hypot(np.log(q[2] / q[1]), np.log(t[2] / t[1]))))]
-            row[period] = {"estimated_from_aqua": [round(v, 3) for v in q],
-                           "estimated_from_terra": [round(v, 3) for v in comb],
-                           "weighted_abs_error_pct": loyo[f"{name} | {period}"]["weighted_abs_error_pct"]}
+            row[period] = {}
+            for src, m in adopted["models"].items():
+                q = m["loyo"][f"{name} | {period}"]["obs_over_pred_q10_q50_q90"]
+                if key == "canada" and period == "year":
+                    r = m["loyo_canada_obs_over_pred_range"]
+                    q = [r[0], q[1], r[1]]
+                row[period][src] = [round(v, 3) for v in q]
+                row[period][f"{src}_weighted_abs_error_pct"] = m["loyo"][f"{name} | {period}"]["weighted_abs_error_pct"]
         out["scales"].append(row)
     return out
 
@@ -79,7 +69,7 @@ def uncertainty(metrics: dict, areas: dict) -> dict:
 def main() -> None:
     H = pd.read_parquet(PROCESSED / "harmonised_cell_month.parquet")
     src = pd.read_csv(C.REPORTS / "calibration" / "month_sources.csv")
-    metrics = json.loads((C.REPORTS / "calibration" / "validation_metrics.json").read_text())
+    adopted = json.loads((C.REPORTS / "calibration" / "adopted_model.json").read_text())
     reg = pd.read_parquet(C.INTERIM / "regions_cell5.parquet")
 
     src = src.sort_values(["year", "month"]).reset_index(drop=True)
@@ -117,7 +107,7 @@ def main() -> None:
     add("row_value", H.cell_days.to_numpy().astype("<f4"))
 
     areas = scale_areas()
-    unc = uncertainty(metrics, areas)
+    unc = uncertainty(adopted, areas)
     PROCESSED.mkdir(parents=True, exist_ok=True)
     (PROCESSED / "uncertainty.json").write_text(json.dumps(unc, indent=1))
 
@@ -135,8 +125,10 @@ def main() -> None:
         "sources": {
             "observed": "VIIRS (mean of S-NPP and NOAA-20 where both available)",
             "near_real_time": "VIIRS, includes near-real-time processing (not yet final)",
-            "estimated_from_aqua": "estimated from MODIS Aqua with the VIIRS/Aqua ratio table",
-            "estimated_from_terra": "estimated from MODIS Terra via the Terra-to-Aqua and VIIRS/Aqua tables",
+            "estimated_from_modis": "estimated from MODIS (Aqua or Terra cell-days) with a VIIRS ratio table by "
+                                    "region, land cover, season and fire intensity (FRP tercile)",
+            "estimated_from_terra": "estimated from MODIS Terra with a VIIRS/Terra ratio table by region, land cover, "
+                                    "season and fire intensity (FRP tercile); Aqua not yet available",
         },
         "months": months,
         "regions": regions,

@@ -48,7 +48,7 @@ export const fmt = (v) =>
 const SOURCE_LABEL = {
   observed: "observed (VIIRS)",
   near_real_time: "near real time (VIIRS, provisional)",
-  estimated_from_aqua: "estimated from MODIS Aqua",
+  estimated_from_modis: "estimated from MODIS (Aqua and Terra)",
   estimated_from_terra: "estimated from MODIS Terra",
 };
 
