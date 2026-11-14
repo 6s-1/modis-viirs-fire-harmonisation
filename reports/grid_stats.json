@@ -1,8 +1,8 @@
 {
- "h3_res5_cells_with_fire": 20227,
+ "h3_res5_cells_with_fire": 20768,
  "h3_res5_area_km2": {
   "min": 197.2,
-  "median": 265.6,
+  "median": 266.0,
   "max": 305.1,
   "max_over_min": 1.55
  },
@@ -23,6 +23,13 @@
   "terra": 0,
   "aqua": 1,
   "snpp": 1,
-  "noaa20": 2
- }
+  "noaa20": 3
+ },
+ "nrt_rows_overlapping_archive_dropped": {
+  "terra": 0,
+  "aqua": 0,
+  "snpp": 0,
+  "noaa20": 0
+ },
+ "recent_data_end": "2026-11-14"
 }

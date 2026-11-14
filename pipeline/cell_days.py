@@ -53,11 +53,14 @@ def to_parent(cells: np.ndarray, res: int) -> np.ndarray:
 def build_coverage(info: dict) -> pd.DataFrame:
     """One row per platform-month from Jan 2000 to the last month with data.
 
-    info[platform] = {"years": set of UTC years present, "std_end": date|None, "nrt_end": date|None}
-    A standard-processing yearly file covers the whole year, even if the last fire falls before
-    31 Dec. Near-real-time data only covers up to its last acquisition date.
+    info[platform] = {"years": set of UTC years present, "std_end": date|None, "has_recent": bool}
+    A yearly summary file covers the whole year, even if the last fire falls before 31 Dec.
+    Files in a year folder (archive + NRT downloads) cover up to the download end date, which is
+    the latest acquisition date across all platforms' recent files (capped by mission windows).
     """
-    last_date = {p: max(d for d in (v["std_end"], v["nrt_end"]) if d is not None) for p, v in info.items()}
+    recent_end = max((v["recent_end"] for v in info.values() if v["recent_end"] is not None), default=None)
+    last_date = {p: max(d for d in (v["std_end"], recent_end if v["recent_end"] is not None else None)
+                         if d is not None) for p, v in info.items()}
     end_all = max(last_date.values())
     rows = []
     for plat in C.PLATFORMS:
@@ -113,11 +116,21 @@ def platform_cell_days(plat: str) -> tuple[pd.DataFrame, dict, int]:
     n_raw = len(det)
     det = det.drop_duplicates(["latitude", "longitude", "acq_date", "acq_time"])
     n_dup = n_raw - len(det)
+    # Archive vs NRT: within a year, NRT rows on or before the last archive (standard) date
+    # duplicate the archive and are dropped.
+    yr = det["acq_date"].dt.year
+    std_last = det[~det.nrt].groupby(yr[~det.nrt])["acq_date"].max()
+    cutoff = yr.map(std_last)
+    overlap = det.nrt & cutoff.notna() & (det["acq_date"] <= cutoff)
+    n_overlap = int(overlap.sum())
+    det = det[~overlap]
+    yearly = det[~det.recent]
     info = {
         "years": set(det["acq_date"].dt.year.unique().tolist()),
-        "std_end": (date(int(det.loc[~det.nrt, "acq_date"].max().year), 12, 31) if (~det.nrt).any() else None),
-        "nrt_end": (det.loc[det.nrt, "acq_date"].max().date() if det.nrt.any() else None),
-        "detections": len(det), "lat_min": float(det.latitude.min()), "lat_max": float(det.latitude.max()),
+        "std_end": (date(int(yearly["acq_date"].max().year), 12, 31) if len(yearly) else None),
+        "recent_end": (det.loc[det.recent, "acq_date"].max().date() if det.recent.any() else None),
+        "detections": len(det), "nrt_detections": int(det.nrt.sum()), "nrt_dropped_overlap": n_overlap,
+        "lat_min": float(det.latitude.min()), "lat_max": float(det.latitude.max()),
     }
     hhmm = det["acq_time"].astype("int32")
     local = (det["acq_date"] + pd.to_timedelta(hhmm // 100, "h") + pd.to_timedelta(hhmm % 100, "min")
@@ -148,8 +161,9 @@ def main() -> None:
             continue
         fine_p, info[plat], dups[plat] = platform_cell_days(plat)
         parts.append(fine_p)
-        print(f"  {plat}: {info[plat]['detections']:,} detections -> {len(fine_p):,} cell-days "
-              f"({dups[plat]} duplicates dropped)", flush=True)
+        print(f"  {plat}: {info[plat]['detections']:,} detections ({info[plat]['nrt_detections']:,} NRT) -> "
+              f"{len(fine_p):,} cell-days ({dups[plat]} duplicates, {info[plat]['nrt_dropped_overlap']} "
+              f"NRT rows overlapping archive dropped)", flush=True)
     fine = pd.concat(parts, ignore_index=True)
     del parts
     fine["platform"] = fine["platform"].astype("category")
@@ -207,6 +221,9 @@ def main() -> None:
                        max(v["lat_max"] for v in info.values()))
     stats["cell_days_dropped_outside_coverage"] = n_outside
     stats["duplicates_dropped"] = {k: int(v) for k, v in dups.items()}
+    stats["nrt_rows_overlapping_archive_dropped"] = {k: v["nrt_dropped_overlap"] for k, v in info.items()}
+    ends = [v["recent_end"] for v in info.values() if v["recent_end"] is not None]
+    stats["recent_data_end"] = str(max(ends)) if ends else None
     (C.REPORTS / "grid_stats.json").write_text(json.dumps(stats, indent=1))
 
     print(f"fine cell-days: {len(fine):,}   monthly rows (res {C.DISPLAY_RES}): {len(monthly):,}   "

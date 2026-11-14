@@ -4,45 +4,94 @@
   "modis_confidence": "keep confidence >= 30 (nominal and high; drops the low class)",
   "viirs_confidence": "keep n and h (drops l; l is only assigned to daytime detections)",
   "mission_window": "drop detections outside each platform's record window (config.MISSION_WINDOWS)",
-  "duplicates": "exact repeats are removed when cell-days are built (cell_days.py)"
+  "duplicates": "exact repeats are removed when cell-days are built (cell_days.py)",
+  "nrt_type": "NRT rows have no type column; type 2 inferred from static-source cells (typeinfer.py)",
+  "archive_vs_nrt": "NRT rows on or before a platform's last archive date in the same year are dropped (cell_days.py)"
  },
  "totals": {
   "aqua": {
-   "rows": 793477,
-   "dropped_type": 872,
-   "dropped_confidence": 114180,
+   "rows": 834649,
+   "dropped_type": 959,
+   "dropped_confidence": 121930,
    "dropped_window": 0,
-   "kept": 678425
+   "kept": 711760
   },
   "noaa20": {
-   "rows": 4611643,
-   "dropped_type": 173603,
-   "dropped_confidence": 179889,
+   "rows": 5089113,
+   "dropped_type": 192555,
+   "dropped_confidence": 200908,
    "dropped_window": 0,
-   "kept": 4258151
+   "kept": 4695650
   },
   "snpp": {
-   "rows": 6569782,
-   "dropped_type": 284286,
-   "dropped_confidence": 268657,
+   "rows": 6926040,
+   "dropped_type": 298298,
+   "dropped_confidence": 284610,
    "dropped_window": 0,
-   "kept": 6016839
+   "kept": 6343132
   },
   "terra": {
-   "rows": 888354,
-   "dropped_type": 1486,
-   "dropped_confidence": 120716,
+   "rows": 925469,
+   "dropped_type": 1634,
+   "dropped_confidence": 127428,
    "dropped_window": 0,
-   "kept": 766152
+   "kept": 796407
   }
  },
- "kept": 11719567,
+ "kept": 12546949,
+ "static_source_cells": 414,
  "by_platform_year": [
+  {
+   "platform": "aqua",
+   "year": 2026,
+   "file": "modis/2026/fire_archive_M-C61_848488.csv",
+   "rows": 39889,
+   "nrt_rows": 0,
+   "type_inferred": false,
+   "dropped_type": 66,
+   "dropped_confidence": 7652,
+   "dropped_window": 0
+  },
+  {
+   "platform": "terra",
+   "year": 2026,
+   "file": "modis/2026/fire_archive_M-C61_848488.csv",
+   "rows": 36056,
+   "nrt_rows": 0,
+   "type_inferred": false,
+   "dropped_type": 118,
+   "dropped_confidence": 6638,
+   "dropped_window": 0
+  },
+  {
+   "platform": "terra",
+   "year": 2026,
+   "file": "modis/2026/fire_nrt_M-C61_848488.csv",
+   "rows": 1059,
+   "nrt_rows": 1059,
+   "type_inferred": true,
+   "dropped_type": 30,
+   "dropped_confidence": 74,
+   "dropped_window": 0
+  },
+  {
+   "platform": "aqua",
+   "year": 2026,
+   "file": "modis/2026/fire_nrt_M-C61_848488.csv",
+   "rows": 1283,
+   "nrt_rows": 1283,
+   "type_inferred": true,
+   "dropped_type": 21,
+   "dropped_confidence": 98,
+   "dropped_window": 0
+  },
   {
    "platform": "terra",
    "year": 2000,
    "file": "modis/modis_2000_Canada.csv",
    "rows": 846,
+   "nrt_rows": 0,
+   "type_inferred": false,
    "dropped_type": 2,
    "dropped_confidence": 65,
    "dropped_window": 0
@@ -52,6 +101,8 @@
    "year": 2001,
    "file": "modis/modis_2001_Canada.csv",
    "rows": 7780,
+   "nrt_rows": 0,
+   "type_inferred": false,
    "dropped_type": 63,
    "dropped_confidence": 778,
    "dropped_window": 0
@@ -61,6 +112,8 @@
    "year": 2002,
    "file": "modis/modis_2002_Canada.csv",
    "rows": 19064,
+   "nrt_rows": 0,
+   "type_inferred": false,
    "dropped_type": 56,
    "dropped_confidence": 2964,
    "dropped_window": 0
@@ -70,6 +123,8 @@
    "year": 2002,
    "file": "modis/modis_2002_Canada.csv",
    "rows": 9986,
+   "nrt_rows": 0,
+   "type_inferred": false,
    "dropped_type": 20,
    "dropped_confidence": 1745,
    "dropped_window": 0
@@ -79,6 +134,8 @@
    "year": 2003,
    "file": "modis/modis_2003_Canada.csv",
    "rows": 25723,
+   "nrt_rows": 0,
+   "type_inferred": false,
    "dropped_type": 28,
    "dropped_confidence": 3193,
    "dropped_window": 0
@@ -88,6 +145,8 @@
    "year": 2003,
    "file": "modis/modis_2003_Canada.csv",
    "rows": 26360,
+   "nrt_rows": 0,
+   "type_inferred": false,
    "dropped_type": 19,
    "dropped_confidence": 3088,
    "dropped_window": 0
@@ -97,6 +156,8 @@
    "year": 2004,
    "file": "modis/modis_2004_Canada.csv",
    "rows": 34599,
+   "nrt_rows": 0,
+   "type_inferred": false,
    "dropped_type": 26,
    "dropped_confidence": 4134,
    "dropped_window": 0
@@ -106,6 +167,8 @@
    "year": 2004,
    "file": "modis/modis_2004_Canada.csv",
    "rows": 41493,
+   "nrt_rows": 0,
+   "type_inferred": false,
    "dropped_type": 43,
    "dropped_confidence": 5016,
    "dropped_window": 0
@@ -115,6 +178,8 @@
    "year": 2005,
    "file": "modis/modis_2005_Canada.csv",
    "rows": 16988,
+   "nrt_rows": 0,
+   "type_inferred": false,
    "dropped_type": 34,
    "dropped_confidence": 2044,
    "dropped_window": 0
@@ -124,6 +189,8 @@
    "year": 2005,
    "file": "modis/modis_2005_Canada.csv",
    "rows": 16054,
+   "nrt_rows": 0,
+   "type_inferred": false,
    "dropped_type": 23,
    "dropped_confidence": 1843,
    "dropped_window": 0
@@ -133,6 +200,8 @@
    "year": 2006,
    "file": "modis/modis_2006_Canada.csv",
    "rows": 17879,
+   "nrt_rows": 0,
+   "type_inferred": false,
    "dropped_type": 8,
    "dropped_confidence": 2603,
    "dropped_window": 0
@@ -142,6 +211,8 @@
    "year": 2006,
    "file": "modis/modis_2006_Canada.csv",
    "rows": 18161,
+   "nrt_rows": 0,
+   "type_inferred": false,
    "dropped_type": 22,
    "dropped_confidence": 2608,
    "dropped_window": 0
@@ -151,6 +222,8 @@
    "year": 2007,
    "file": "modis/modis_2007_Canada.csv",
    "rows": 17201,
+   "nrt_rows": 0,
+   "type_inferred": false,
    "dropped_type": 27,
    "dropped_confidence": 2526,
    "dropped_window": 0
@@ -160,6 +233,8 @@
    "year": 2007,
    "file": "modis/modis_2007_Canada.csv",
    "rows": 16953,
+   "nrt_rows": 0,
+   "type_inferred": false,
    "dropped_type": 10,
    "dropped_confidence": 2331,
    "dropped_window": 0
@@ -169,6 +244,8 @@
    "year": 2008,
    "file": "modis/modis_2008_Canada.csv",
    "rows": 16351,
+   "nrt_rows": 0,
+   "type_inferred": false,
    "dropped_type": 40,
    "dropped_confidence": 2937,
    "dropped_window": 0
@@ -178,6 +255,8 @@
    "year": 2008,
    "file": "modis/modis_2008_Canada.csv",
    "rows": 16397,
+   "nrt_rows": 0,
+   "type_inferred": false,
    "dropped_type": 30,
    "dropped_confidence": 3140,
    "dropped_window": 0
@@ -187,6 +266,8 @@
    "year": 2009,
    "file": "modis/modis_2009_Canada.csv",
    "rows": 14601,
+   "nrt_rows": 0,
+   "type_inferred": false,
    "dropped_type": 0,
    "dropped_confidence": 1490,
    "dropped_window": 0
@@ -196,6 +277,8 @@
    "year": 2009,
    "file": "modis/modis_2009_Canada.csv",
    "rows": 13967,
+   "nrt_rows": 0,
+   "type_inferred": false,
    "dropped_type": 0,
    "dropped_confidence": 1264,
    "dropped_window": 0
@@ -205,6 +288,8 @@
    "year": 2010,
    "file": "modis/modis_2010_Canada.csv",
    "rows": 25039,
+   "nrt_rows": 0,
+   "type_inferred": false,
    "dropped_type": 5,
    "dropped_confidence": 3776,
    "dropped_window": 0
@@ -214,6 +299,8 @@
    "year": 2010,
    "file": "modis/modis_2010_Canada.csv",
    "rows": 27665,
+   "nrt_rows": 0,
+   "type_inferred": false,
    "dropped_type": 12,
    "dropped_confidence": 3988,
    "dropped_window": 0
@@ -223,6 +310,8 @@
    "year": 2011,
    "file": "modis/modis_2011_Canada.csv",
    "rows": 20592,
+   "nrt_rows": 0,
+   "type_inferred": false,
    "dropped_type": 27,
    "dropped_confidence": 2931,
    "dropped_window": 0
@@ -232,6 +321,8 @@
    "year": 2011,
    "file": "modis/modis_2011_Canada.csv",
    "rows": 18455,
+   "nrt_rows": 0,
+   "type_inferred": false,
    "dropped_type": 19,
    "dropped_confidence": 2846,
    "dropped_window": 0
@@ -241,6 +332,8 @@
    "year": 2012,
    "file": "modis/modis_2012_Canada.csv",
    "rows": 20965,
+   "nrt_rows": 0,
+   "type_inferred": false,
    "dropped_type": 37,
    "dropped_confidence": 2723,
    "dropped_window": 0
@@ -250,6 +343,8 @@
    "year": 2012,
    "file": "modis/modis_2012_Canada.csv",
    "rows": 19203,
+   "nrt_rows": 0,
+   "type_inferred": false,
    "dropped_type": 19,
    "dropped_confidence": 2650,
    "dropped_window": 0
@@ -259,6 +354,8 @@
    "year": 2013,
    "file": "modis/modis_2013_Canada.csv",
    "rows": 35391,
+   "nrt_rows": 0,
+   "type_inferred": false,
    "dropped_type": 0,
    "dropped_confidence": 5841,
    "dropped_window": 0
@@ -268,6 +365,8 @@
    "year": 2013,
    "file": "modis/modis_2013_Canada.csv",
    "rows": 32369,
+   "nrt_rows": 0,
+   "type_inferred": false,
    "dropped_type": 0,
    "dropped_confidence": 5685,
    "dropped_window": 0
@@ -277,6 +376,8 @@
    "year": 2014,
    "file": "modis/modis_2014_Canada.csv",
    "rows": 43198,
+   "nrt_rows": 0,
+   "type_inferred": false,
    "dropped_type": 38,
    "dropped_confidence": 8565,
    "dropped_window": 0
@@ -286,6 +387,8 @@
    "year": 2014,
    "file": "modis/modis_2014_Canada.csv",
    "rows": 35990,
+   "nrt_rows": 0,
+   "type_inferred": false,
    "dropped_type": 25,
    "dropped_confidence": 8153,
    "dropped_window": 0
@@ -295,6 +398,8 @@
    "year": 2015,
    "file": "modis/modis_2015_Canada.csv",
    "rows": 38635,
+   "nrt_rows": 0,
+   "type_inferred": false,
    "dropped_type": 15,
    "dropped_confidence": 4649,
    "dropped_window": 0
@@ -304,6 +409,8 @@
    "year": 2015,
    "file": "modis/modis_2015_Canada.csv",
    "rows": 35277,
+   "nrt_rows": 0,
+   "type_inferred": false,
    "dropped_type": 9,
    "dropped_confidence": 4367,
    "dropped_window": 0
@@ -313,6 +420,8 @@
    "year": 2016,
    "file": "modis/modis_2016_Canada.csv",
    "rows": 14038,
+   "nrt_rows": 0,
+   "type_inferred": false,
    "dropped_type": 16,
    "dropped_confidence": 1787,
    "dropped_window": 0
@@ -322,6 +431,8 @@
    "year": 2016,
    "file": "modis/modis_2016_Canada.csv",
    "rows": 12922,
+   "nrt_rows": 0,
+   "type_inferred": false,
    "dropped_type": 16,
    "dropped_confidence": 1616,
    "dropped_window": 0
@@ -331,6 +442,8 @@
    "year": 2017,
    "file": "modis/modis_2017_Canada.csv",
    "rows": 50986,
+   "nrt_rows": 0,
+   "type_inferred": false,
    "dropped_type": 31,
    "dropped_confidence": 7180,
    "dropped_window": 0
@@ -340,6 +453,8 @@
    "year": 2017,
    "file": "modis/modis_2017_Canada.csv",
    "rows": 44131,
+   "nrt_rows": 0,
+   "type_inferred": false,
    "dropped_type": 22,
    "dropped_confidence": 6743,
    "dropped_window": 0
@@ -349,6 +464,8 @@
    "year": 2018,
    "file": "modis/modis_2018_Canada.csv",
    "rows": 33401,
+   "nrt_rows": 0,
+   "type_inferred": false,
    "dropped_type": 127,
    "dropped_confidence": 3470,
    "dropped_window": 0
@@ -358,6 +475,8 @@
    "year": 2018,
    "file": "modis/modis_2018_Canada.csv",
    "rows": 30306,
+   "nrt_rows": 0,
+   "type_inferred": false,
    "dropped_type": 80,
    "dropped_confidence": 3235,
    "dropped_window": 0
@@ -367,6 +486,8 @@
    "year": 2019,
    "file": "modis/modis_2019_Canada.csv",
    "rows": 22467,
+   "nrt_rows": 0,
+   "type_inferred": false,
    "dropped_type": 89,
    "dropped_confidence": 2546,
    "dropped_window": 0
@@ -376,6 +497,8 @@
    "year": 2019,
    "file": "modis/modis_2019_Canada.csv",
    "rows": 18110,
+   "nrt_rows": 0,
+   "type_inferred": false,
    "dropped_type": 67,
    "dropped_confidence": 2189,
    "dropped_window": 0
@@ -385,6 +508,8 @@
    "year": 2020,
    "file": "modis/modis_2020_Canada.csv",
    "rows": 5951,
+   "nrt_rows": 0,
+   "type_inferred": false,
    "dropped_type": 72,
    "dropped_confidence": 539,
    "dropped_window": 0
@@ -394,6 +519,8 @@
    "year": 2020,
    "file": "modis/modis_2020_Canada.csv",
    "rows": 6268,
+   "nrt_rows": 0,
+   "type_inferred": false,
    "dropped_type": 47,
    "dropped_confidence": 528,
    "dropped_window": 0
@@ -403,6 +530,8 @@
    "year": 2021,
    "file": "modis/modis_2021_Canada.csv",
    "rows": 52087,
+   "nrt_rows": 0,
+   "type_inferred": false,
    "dropped_type": 141,
    "dropped_confidence": 6875,
    "dropped_window": 0
@@ -412,6 +541,8 @@
    "year": 2021,
    "file": "modis/modis_2021_Canada.csv",
    "rows": 45013,
+   "nrt_rows": 0,
+   "type_inferred": false,
    "dropped_type": 101,
    "dropped_confidence": 6691,
    "dropped_window": 0
@@ -421,6 +552,8 @@
    "year": 2022,
    "file": "modis/modis_2022_Canada.csv",
    "rows": 17984,
+   "nrt_rows": 0,
+   "type_inferred": false,
    "dropped_type": 136,
    "dropped_confidence": 2806,
    "dropped_window": 0
@@ -430,6 +563,8 @@
    "year": 2022,
    "file": "modis/modis_2022_Canada.csv",
    "rows": 17122,
+   "nrt_rows": 0,
+   "type_inferred": false,
    "dropped_type": 74,
    "dropped_confidence": 2753,
    "dropped_window": 0
@@ -439,6 +574,8 @@
    "year": 2023,
    "file": "modis/modis_2023_Canada.csv",
    "rows": 171470,
+   "nrt_rows": 0,
+   "type_inferred": false,
    "dropped_type": 153,
    "dropped_confidence": 22654,
    "dropped_window": 0
@@ -448,6 +585,8 @@
    "year": 2023,
    "file": "modis/modis_2023_Canada.csv",
    "rows": 152533,
+   "nrt_rows": 0,
+   "type_inferred": false,
    "dropped_type": 83,
    "dropped_confidence": 20624,
    "dropped_window": 0
@@ -457,6 +596,8 @@
    "year": 2024,
    "file": "modis/modis_2024_Canada.csv",
    "rows": 72805,
+   "nrt_rows": 0,
+   "type_inferred": false,
    "dropped_type": 92,
    "dropped_confidence": 9951,
    "dropped_window": 0
@@ -466,6 +607,8 @@
    "year": 2024,
    "file": "modis/modis_2024_Canada.csv",
    "rows": 74742,
+   "nrt_rows": 0,
+   "type_inferred": false,
    "dropped_type": 152,
    "dropped_confidence": 9432,
    "dropped_window": 0
@@ -475,6 +618,8 @@
    "year": 2025,
    "file": "modis/modis_2025_Canada.csv",
    "rows": 75739,
+   "nrt_rows": 0,
+   "type_inferred": false,
    "dropped_type": 77,
    "dropped_confidence": 12225,
    "dropped_window": 0
@@ -484,8 +629,32 @@
    "year": 2025,
    "file": "modis/modis_2025_Canada.csv",
    "rows": 80574,
+   "nrt_rows": 0,
+   "type_inferred": false,
    "dropped_type": 125,
    "dropped_confidence": 11109,
+   "dropped_window": 0
+  },
+  {
+   "platform": "noaa20",
+   "year": 2026,
+   "file": "viirs-noaa20/2026/fire_archive_J1V-C2_848489.csv",
+   "rows": 374871,
+   "nrt_rows": 0,
+   "type_inferred": false,
+   "dropped_type": 15386,
+   "dropped_confidence": 18045,
+   "dropped_window": 0
+  },
+  {
+   "platform": "noaa20",
+   "year": 2026,
+   "file": "viirs-noaa20/2026/fire_nrt_J1V-C2_848489.csv",
+   "rows": 102599,
+   "nrt_rows": 102599,
+   "type_inferred": true,
+   "dropped_type": 3566,
+   "dropped_confidence": 2974,
    "dropped_window": 0
   },
   {
@@ -493,6 +662,8 @@
    "year": 2018,
    "file": "viirs-noaa20/viirs-noaa20_2018_Canada.csv",
    "rows": 313615,
+   "nrt_rows": 0,
+   "type_inferred": false,
    "dropped_type": 10980,
    "dropped_confidence": 10272,
    "dropped_window": 0
@@ -502,6 +673,8 @@
    "year": 2019,
    "file": "viirs-noaa20/viirs-noaa20_2019_Canada.csv",
    "rows": 193502,
+   "nrt_rows": 0,
+   "type_inferred": false,
    "dropped_type": 10528,
    "dropped_confidence": 6790,
    "dropped_window": 0
@@ -511,6 +684,8 @@
    "year": 2020,
    "file": "viirs-noaa20/viirs-noaa20_2020_Canada.csv",
    "rows": 47623,
+   "nrt_rows": 0,
+   "type_inferred": false,
    "dropped_type": 8309,
    "dropped_confidence": 1647,
    "dropped_window": 0
@@ -520,6 +695,8 @@
    "year": 2021,
    "file": "viirs-noaa20/viirs-noaa20_2021_Canada.csv",
    "rows": 467782,
+   "nrt_rows": 0,
+   "type_inferred": false,
    "dropped_type": 18373,
    "dropped_confidence": 17077,
    "dropped_window": 0
@@ -529,6 +706,8 @@
    "year": 2022,
    "file": "viirs-noaa20/viirs-noaa20_2022_Canada.csv",
    "rows": 176869,
+   "nrt_rows": 0,
+   "type_inferred": false,
    "dropped_type": 12626,
    "dropped_confidence": 7359,
    "dropped_window": 0
@@ -538,6 +717,8 @@
    "year": 2023,
    "file": "viirs-noaa20/viirs-noaa20_2023_Canada.csv",
    "rows": 1681190,
+   "nrt_rows": 0,
+   "type_inferred": false,
    "dropped_type": 43336,
    "dropped_confidence": 67132,
    "dropped_window": 0
@@ -547,6 +728,8 @@
    "year": 2024,
    "file": "viirs-noaa20/viirs-noaa20_2024_Canada.csv",
    "rows": 805914,
+   "nrt_rows": 0,
+   "type_inferred": false,
    "dropped_type": 28859,
    "dropped_confidence": 35077,
    "dropped_window": 0
@@ -556,8 +739,32 @@
    "year": 2025,
    "file": "viirs-noaa20/viirs-noaa20_2025_Canada.csv",
    "rows": 925148,
+   "nrt_rows": 0,
+   "type_inferred": false,
    "dropped_type": 40592,
    "dropped_confidence": 34535,
+   "dropped_window": 0
+  },
+  {
+   "platform": "snpp",
+   "year": 2026,
+   "file": "viirs-snpp/2026/fire_archive_SV-C2_848490.csv",
+   "rows": 259890,
+   "nrt_rows": 0,
+   "type_inferred": false,
+   "dropped_type": 10892,
+   "dropped_confidence": 13147,
+   "dropped_window": 0
+  },
+  {
+   "platform": "snpp",
+   "year": 2026,
+   "file": "viirs-snpp/2026/fire_nrt_SV-C2_848490.csv",
+   "rows": 96368,
+   "nrt_rows": 96368,
+   "type_inferred": true,
+   "dropped_type": 3120,
+   "dropped_confidence": 2806,
    "dropped_window": 0
   },
   {
@@ -565,6 +772,8 @@
    "year": 2012,
    "file": "viirs-snpp/viirs-snpp_2012_Canada.csv",
    "rows": 190200,
+   "nrt_rows": 0,
+   "type_inferred": false,
    "dropped_type": 12431,
    "dropped_confidence": 7723,
    "dropped_window": 0
@@ -574,6 +783,8 @@
    "year": 2013,
    "file": "viirs-snpp/viirs-snpp_2013_Canada.csv",
    "rows": 346361,
+   "nrt_rows": 0,
+   "type_inferred": false,
    "dropped_type": 16981,
    "dropped_confidence": 18242,
    "dropped_window": 0
@@ -583,6 +794,8 @@
    "year": 2014,
    "file": "viirs-snpp/viirs-snpp_2014_Canada.csv",
    "rows": 523413,
+   "nrt_rows": 0,
+   "type_inferred": false,
    "dropped_type": 39418,
    "dropped_confidence": 23467,
    "dropped_window": 0
@@ -592,6 +805,8 @@
    "year": 2015,
    "file": "viirs-snpp/viirs-snpp_2015_Canada.csv",
    "rows": 331862,
+   "nrt_rows": 0,
+   "type_inferred": false,
    "dropped_type": 14900,
    "dropped_confidence": 15517,
    "dropped_window": 0
@@ -601,6 +816,8 @@
    "year": 2016,
    "file": "viirs-snpp/viirs-snpp_2016_Canada.csv",
    "rows": 118847,
+   "nrt_rows": 0,
+   "type_inferred": false,
    "dropped_type": 11473,
    "dropped_confidence": 5807,
    "dropped_window": 0
@@ -610,6 +827,8 @@
    "year": 2017,
    "file": "viirs-snpp/viirs-snpp_2017_Canada.csv",
    "rows": 466851,
+   "nrt_rows": 0,
+   "type_inferred": false,
    "dropped_type": 21661,
    "dropped_confidence": 18948,
    "dropped_window": 0
@@ -619,6 +838,8 @@
    "year": 2018,
    "file": "viirs-snpp/viirs-snpp_2018_Canada.csv",
    "rows": 325367,
+   "nrt_rows": 0,
+   "type_inferred": false,
    "dropped_type": 11752,
    "dropped_confidence": 10788,
    "dropped_window": 0
@@ -628,6 +849,8 @@
    "year": 2019,
    "file": "viirs-snpp/viirs-snpp_2019_Canada.csv",
    "rows": 188692,
+   "nrt_rows": 0,
+   "type_inferred": false,
    "dropped_type": 10425,
    "dropped_confidence": 7408,
    "dropped_window": 0
@@ -637,6 +860,8 @@
    "year": 2020,
    "file": "viirs-snpp/viirs-snpp_2020_Canada.csv",
    "rows": 47009,
+   "nrt_rows": 0,
+   "type_inferred": false,
    "dropped_type": 7909,
    "dropped_confidence": 1838,
    "dropped_window": 0
@@ -646,6 +871,8 @@
    "year": 2021,
    "file": "viirs-snpp/viirs-snpp_2021_Canada.csv",
    "rows": 464714,
+   "nrt_rows": 0,
+   "type_inferred": false,
    "dropped_type": 17908,
    "dropped_confidence": 16074,
    "dropped_window": 0
@@ -655,6 +882,8 @@
    "year": 2022,
    "file": "viirs-snpp/viirs-snpp_2022_Canada.csv",
    "rows": 169522,
+   "nrt_rows": 0,
+   "type_inferred": false,
    "dropped_type": 11403,
    "dropped_confidence": 6704,
    "dropped_window": 0
@@ -664,6 +893,8 @@
    "year": 2023,
    "file": "viirs-snpp/viirs-snpp_2023_Canada.csv",
    "rows": 1754727,
+   "nrt_rows": 0,
+   "type_inferred": false,
    "dropped_type": 42440,
    "dropped_confidence": 70609,
    "dropped_window": 0
@@ -673,6 +904,8 @@
    "year": 2024,
    "file": "viirs-snpp/viirs-snpp_2024_Canada.csv",
    "rows": 726118,
+   "nrt_rows": 0,
+   "type_inferred": false,
    "dropped_type": 25817,
    "dropped_confidence": 30758,
    "dropped_window": 0
@@ -682,6 +915,8 @@
    "year": 2025,
    "file": "viirs-snpp/viirs-snpp_2025_Canada.csv",
    "rows": 916099,
+   "nrt_rows": 0,
+   "type_inferred": false,
    "dropped_type": 39768,
    "dropped_confidence": 34774,
    "dropped_window": 0

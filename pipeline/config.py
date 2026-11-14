@@ -14,6 +14,7 @@ COUNTRY = "Canada"
 
 # Raw sensor folders under data/raw/. Every *.csv below each folder is read,
 # including the yearly summaries and anything added later under <sensor>/2026/.
+# data/raw/viirs-noaa21/ is stored but not used yet.
 SENSOR_DIRS = ["modis", "viirs-snpp", "viirs-noaa20"]
 
 # FIRMS `satellite` codes -> platform id used in this project.
@@ -21,7 +22,7 @@ SENSOR_DIRS = ["modis", "viirs-snpp", "viirs-noaa20"]
 SATELLITE_CODES = {
     "Terra": "terra", "T": "terra",
     "Aqua": "aqua", "A": "aqua",
-    "N": "snpp", "NPP": "snpp", "Suomi NPP": "snpp",
+    "N": "snpp", "NPP": "snpp", "SNPP": "snpp", "Suomi NPP": "snpp",
     "N20": "noaa20", "J1": "noaa20", "1": "noaa20", "NOAA-20": "noaa20",
 }
 PLATFORMS = ["terra", "aqua", "snpp", "noaa20"]
