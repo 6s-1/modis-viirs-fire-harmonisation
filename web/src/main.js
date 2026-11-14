@@ -1,7 +1,8 @@
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import "./style.css";
-import { MONTHS, aggregate, fmt, fmtShort, loadData, monthDays, rawRecorded, uncertaintyFactors } from "./data.js";
+import { MONTHS, aggregate, fmt, fmtShort, h3Id, loadData, monthDays, rawRecorded, uncertaintyFactors } from "./data.js";
+import { cellToBoundary } from "h3-js";
 import { attachTooltip, renderCalendar } from "./calendar.js";
 import { renderCompare } from "./compare.js";
 import { calendarPNG, fileStem, hotspotIndex, hotspotPlan, hotspotsCSV, monthlyCSV, saveBlob } from "./downloads.js";
@@ -38,7 +39,7 @@ document.querySelectorAll("details[data-remember]").forEach((el) => {
   try { const v = localStorage.getItem(key); if (v !== null) el.open = v === "1"; } catch { /* storage unavailable */ }
   el.addEventListener("toggle", () => { try { localStorage.setItem(key, el.open ? "1" : "0"); } catch { /* ignore */ } });
 });
-const state = { d: null, box: null, agg: null, cal: null, range: null, observedOnly: false, mode: "harmonised", colour: "activity", mapReady: false };
+const state = { d: null, box: null, agg: null, gridAgg: null, cell: null, cal: null, range: null, observedOnly: false, mode: "harmonised", colour: "activity", mapReady: false };
 
 // ---- map: globe, north up, no rotation or pitch, starts on Canada
 const map = new maplibregl.Map({
@@ -85,7 +86,12 @@ map.on("load", () => {
   map.addLayer({ id: "selection-fill", type: "fill", source: "selection", paint: { "fill-color": "#2bb3a3", "fill-opacity": 0.05 } });
   map.addLayer({ id: "selection-line", type: "line", source: "selection", paint: { "line-color": "#2bb3a3", "line-width": 2 } });
   addGridLayers(map);
+  map.addSource("cell-sel", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+  map.addLayer({ id: "cell-sel", type: "line", source: "cell-sel", paint: { "line-color": "#2bb3a3", "line-width": 3 } });
   attachGridHover(map, $("tip"), () => rangeLabel());
+  map.on("click", "grid-fill", (e) => { if (!drawing && e.features && e.features.length) clickCell(+e.features[0].properties.i); });
+  map.on("mouseenter", "grid-fill", () => { if (!drawing) map.getCanvas().style.cursor = "pointer"; });
+  map.on("mouseleave", "grid-fill", () => { if (!drawing) map.getCanvas().style.cursor = ""; });
   state.mapReady = true;
   if (state.box) { drawBox(state.box); if (state.d) refreshGrid(); }
 });
@@ -128,7 +134,25 @@ $("bounds").addEventListener("submit", (e) => {
   if (!err) select(b, true);
 });
 for (const [id, b] of Object.entries(PRESETS)) $(id).addEventListener("click", () => select(b, true));
+// Clicking a grid cell makes that cell the selection; clicking it again (or any preset, typed
+// bounds or drawn box) returns to the previous box. The grid keeps showing the box's cells.
+function clickCell(i) {
+  if (state.cell && state.cell.i === i) { const prev = state.cell.prev; select(prev, false); return; }
+  const prev = state.cell ? state.cell.prev : state.box;
+  const ring = cellToBoundary(h3Id(state.d, i), true);
+  const lats = ring.map((p) => p[1]), lons = ring.map((p) => p[0]);
+  state.cell = { i, prev, ring };
+  state.box = { south: Math.min(...lats), north: Math.max(...lats), west: Math.min(...lons), east: Math.max(...lons) };
+  fields.forEach((f) => { $(f).value = Math.round(state.box[f] * 100) / 100; });
+  const src = map.getSource("cell-sel");
+  if (src) src.setData({ type: "FeatureCollection", features: [{ type: "Feature", properties: {}, geometry: { type: "Polygon", coordinates: [ring] } }] });
+  update();
+}
+
 function select(b, fly) {
+  state.cell = null;
+  const cs = map.getSource("cell-sel");
+  if (cs) cs.setData({ type: "FeatureCollection", features: [] });
   state.box = b;
   fields.forEach((f) => { $(f).value = Math.round(b[f] * 100) / 100; });
   drawBox(b);
@@ -172,15 +196,16 @@ document.querySelectorAll('input[name="view"]').forEach((r) => r.addEventListene
 document.querySelectorAll('input[name="colour"]').forEach((r) => r.addEventListener("change", (e) => { state.colour = e.target.value; update(); }));
 
 function refreshGrid() {
-  if (!state.mapReady || !state.agg) return;
-  const g = updateGrid(map, state.d, state.agg, state.range);
+  if (!state.mapReady || !state.gridAgg) return;
+  const g = updateGrid(map, state.d, state.gridAgg, state.range);
   if (g.n) gridLegend($("grid-legend"), g.scale, rangeLabel());
   else $("grid-legend").innerHTML = "";
 }
 
 function update() {
   const d = state.d;
-  const agg = (state.agg = aggregate(d, state.box));
+  const agg = (state.agg = aggregate(d, state.box, state.cell ? state.cell.i : null));
+  state.gridAgg = state.cell ? aggregate(d, state.cell.prev) : agg;
   const firstYear = state.observedOnly ? OBSERVED_FROM : d.firstYear;
   const years = [];
   for (let y = d.lastYear; y >= firstYear; y--) years.push(y);
@@ -212,13 +237,18 @@ function update() {
   const detLine = dets.length ? `<div class="sub" title="Raw hotspot detections per satellite (vegetation fire, low-confidence class removed), not converted. Counted by grid cell like the cell-days (cells whose centre is in the box, local-date months), so they can differ slightly from the hotspot CSV, which uses each detection's exact position.">
       <strong>hotspots</strong> ${dets.map(([n, t]) => `${n} ${t < 1000 ? Math.round(t).toLocaleString("en-CA") : fmtShort(t)}`).join(" · ")}</div>
     <div class="sub dim">Hotspots count every flagged pixel on every overpass; cell-days count each ~1 km cell once a day.</div>` : "";
-  $("summary").innerHTML = !inCanada ? `<p class="notice">${OUTSIDE}</p>` : agg.cells.length ? `
+  const ci = state.cell ? state.cell.i : null;
+  const cellLine = ci === null ? "" : `<p class="cell-name"><strong>Grid cell</strong> ${h3Id(d, ci)} ·
+    ${d.manifest.regions[d.region[ci]] || "outside the ecozones"}${d.manifest.provinces[d.province[ci]] ? `, ${d.manifest.provinces[d.province[ci]]}` : ""} ·
+    ${fmt(d.area[ci])} km² <button type="button" class="linkish" id="cell-back">back to the box</button></p>`;
+  $("summary").innerHTML = cellLine + (!inCanada ? `<p class="notice">${OUTSIDE}</p>` : agg.cells.length ? `
     <div class="big" title="Harmonised fire cell-days (VIIRS-equivalent), ${rangeLabel()}">${fmt(total)}${hi - lo > 0.005 * total ? ` <span class="rng">(${fmtShort(lo)}–${fmtShort(hi)})</span>` : ""}
       <span class="unit">fire cell-days</span></div>
-    <div class="sub">${rangeLabel()} · ${agg.cells.length.toLocaleString("en-CA")} cells with fire ·
+    <div class="sub">${rangeLabel()} · ${agg.cells.length.toLocaleString("en-CA")} ${agg.cells.length === 1 ? "cell" : "cells"} with fire ·
       <span class="info" title="${areaTip}">${areaTxt} km² searched</span>${lowConfidence ? ` <span class="badge low" title="${lowTip}">low conf.</span>` : ""}</div>${detLine}`
     : `<div class="big">0 <span class="unit">fire cell-days</span></div>
-    <div class="sub"><span class="info" title="${areaTip}">${areaTxt} km² searched</span> · no fire detected</div>`;
+    <div class="sub"><span class="info" title="${areaTip}">${areaTxt} km² searched</span> · no fire detected</div>`);
+  if (ci !== null) $("cell-back").addEventListener("click", () => clickCell(ci));
   for (const id of ["sec-calendar", "sec-compare", "sec-downloads"]) $(id).hidden = !inCanada;
   if (!inCanada) { refreshGrid(); return; }
 

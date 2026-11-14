@@ -24,7 +24,7 @@ export function updateGrid(map, d, agg, range) {
   const zero = dark() ? ZERO.dark : ZERO.light;
   const features = vals.map(({ i, v, est }) => {
     const ring = cellToBoundary(h3Id(d, i), true);
-    return { type: "Feature", properties: { v, est: est && v > 0, zero: !(v > 0), color: v > 0 ? scale.color(v) : zero },
+    return { type: "Feature", properties: { i, v, est: est && v > 0, zero: !(v > 0), color: v > 0 ? scale.color(v) : zero },
       geometry: { type: "Polygon", coordinates: [ring] } };
   });
   const src = map.getSource("grid");
