@@ -1,0 +1,561 @@
+{
+ "settings": {
+  "min_aqua_cell_days_per_stratum": 200,
+  "min_years_per_stratum": 3,
+  "outage_rule": "zero cell-days while another platform has >= 50",
+  "fallback_levels": [
+   "region x lc x season",
+   "region x lc",
+   "parent x lc x season",
+   "parent x lc",
+   "lc x season",
+   "lc",
+   "all Canada"
+  ],
+  "train_main": [
+   2012,
+   2025
+  ],
+  "train_back": [
+   2019,
+   2025
+  ],
+  "test_back": [
+   2012,
+   2013,
+   2014
+  ],
+  "terra_train": [
+   [
+    2002,
+    7
+   ],
+   [
+    2007,
+    12
+   ]
+  ],
+  "terra_test": [
+   [
+    2002,
+    7
+   ],
+   [
+    2003,
+    6
+   ]
+  ]
+ },
+ "backwards_validation": {
+  "display cell (~253 km2) | month": {
+   "units": 26247,
+   "obs_total": 341870.0,
+   "pred_total": 299328.1,
+   "bias_pct": -12.4,
+   "weighted_abs_error_pct": 62.0,
+   "median_abs_error_pct_obs_ge_20": 48.7,
+   "units_obs_ge_20": 2440,
+   "obs_over_pred_q10_q50_q90": [
+    0.0,
+    0.574,
+    1.925
+   ],
+   "units_pred_zero_obs_positive": 16870
+  },
+  "display cell (~253 km2) | year": {
+   "units": 14571,
+   "obs_total": 341870.0,
+   "pred_total": 299328.1,
+   "bias_pct": -12.4,
+   "weighted_abs_error_pct": 55.1,
+   "median_abs_error_pct_obs_ge_20": 47.5,
+   "units_obs_ge_20": 2271,
+   "obs_over_pred_q10_q50_q90": [
+    0.178,
+    0.73,
+    2.282
+   ],
+   "units_pred_zero_obs_positive": 7530
+  },
+  "~12,400 km2 (H3 res 3) | month": {
+   "units": 6299,
+   "obs_total": 341870.0,
+   "pred_total": 299328.1,
+   "bias_pct": -12.4,
+   "weighted_abs_error_pct": 42.7,
+   "median_abs_error_pct_obs_ge_20": 41.1,
+   "units_obs_ge_20": 1456,
+   "obs_over_pred_q10_q50_q90": [
+    0.208,
+    0.828,
+    2.511
+   ],
+   "units_pred_zero_obs_positive": 3314
+  },
+  "~12,400 km2 (H3 res 3) | year": {
+   "units": 1536,
+   "obs_total": 341870.0,
+   "pred_total": 299328.1,
+   "bias_pct": -12.4,
+   "weighted_abs_error_pct": 35.6,
+   "median_abs_error_pct_obs_ge_20": 35.1,
+   "units_obs_ge_20": 836,
+   "obs_over_pred_q10_q50_q90": [
+    0.374,
+    0.992,
+    2.657
+   ],
+   "units_pred_zero_obs_positive": 392
+  },
+  "province | month": {
+   "units": 385,
+   "obs_total": 341870.0,
+   "pred_total": 299328.1,
+   "bias_pct": -12.4,
+   "weighted_abs_error_pct": 25.0,
+   "median_abs_error_pct_obs_ge_20": 26.4,
+   "units_obs_ge_20": 209,
+   "obs_over_pred_q10_q50_q90": [
+    0.584,
+    1.099,
+    2.226
+   ],
+   "units_pred_zero_obs_positive": 141
+  },
+  "province | year": {
+   "units": 39,
+   "obs_total": 341870.0,
+   "pred_total": 299328.1,
+   "bias_pct": -12.4,
+   "weighted_abs_error_pct": 20.7,
+   "median_abs_error_pct_obs_ge_20": 12.3,
+   "units_obs_ge_20": 34,
+   "obs_over_pred_q10_q50_q90": [
+    0.669,
+    0.989,
+    1.452
+   ],
+   "units_pred_zero_obs_positive": 1
+  },
+  "all Canada | month": {
+   "units": 36,
+   "obs_total": 341870.0,
+   "pred_total": 299328.1,
+   "bias_pct": -12.4,
+   "weighted_abs_error_pct": 19.0,
+   "median_abs_error_pct_obs_ge_20": 17.0,
+   "units_obs_ge_20": 36,
+   "obs_over_pred_q10_q50_q90": [
+    0.806,
+    1.031,
+    1.761
+   ],
+   "units_pred_zero_obs_positive": 0
+  },
+  "all Canada | year": {
+   "units": 3,
+   "obs_total": 341870.0,
+   "pred_total": 299328.1,
+   "bias_pct": -12.4,
+   "weighted_abs_error_pct": 15.6,
+   "median_abs_error_pct_obs_ge_20": 4.7,
+   "units_obs_ge_20": 3,
+   "obs_over_pred_q10_q50_q90": [
+    0.966,
+    1.011,
+    1.332
+   ],
+   "units_pred_zero_obs_positive": 0
+  }
+ },
+ "backwards_validation_by_year": [
+  {
+   "year": 2012,
+   "pred": 66100.3,
+   "vref_cal": 66844.0,
+   "error_pct": -1.1
+  },
+  {
+   "year": 2013,
+   "pred": 118809.9,
+   "vref_cal": 113423.0,
+   "error_pct": 4.7
+  },
+  {
+   "year": 2014,
+   "pred": 114417.9,
+   "vref_cal": 161603.0,
+   "error_pct": -29.2
+  }
+ ],
+ "backwards_validation_train_without_2023": {
+  "display cell (~253 km2) | month": {
+   "units": 26247,
+   "obs_total": 341870.0,
+   "pred_total": 298021.1,
+   "bias_pct": -12.8,
+   "weighted_abs_error_pct": 61.8,
+   "median_abs_error_pct_obs_ge_20": 48.5,
+   "units_obs_ge_20": 2440,
+   "obs_over_pred_q10_q50_q90": [
+    0.0,
+    0.585,
+    1.949
+   ],
+   "units_pred_zero_obs_positive": 16870
+  },
+  "display cell (~253 km2) | year": {
+   "units": 14571,
+   "obs_total": 341870.0,
+   "pred_total": 298021.1,
+   "bias_pct": -12.8,
+   "weighted_abs_error_pct": 55.0,
+   "median_abs_error_pct_obs_ge_20": 47.2,
+   "units_obs_ge_20": 2271,
+   "obs_over_pred_q10_q50_q90": [
+    0.183,
+    0.746,
+    2.338
+   ],
+   "units_pred_zero_obs_positive": 7530
+  },
+  "~12,400 km2 (H3 res 3) | month": {
+   "units": 6299,
+   "obs_total": 341870.0,
+   "pred_total": 298021.1,
+   "bias_pct": -12.8,
+   "weighted_abs_error_pct": 42.3,
+   "median_abs_error_pct_obs_ge_20": 42.8,
+   "units_obs_ge_20": 1456,
+   "obs_over_pred_q10_q50_q90": [
+    0.208,
+    0.852,
+    2.643
+   ],
+   "units_pred_zero_obs_positive": 3314
+  },
+  "~12,400 km2 (H3 res 3) | year": {
+   "units": 1536,
+   "obs_total": 341870.0,
+   "pred_total": 298021.1,
+   "bias_pct": -12.8,
+   "weighted_abs_error_pct": 35.2,
+   "median_abs_error_pct_obs_ge_20": 34.7,
+   "units_obs_ge_20": 836,
+   "obs_over_pred_q10_q50_q90": [
+    0.373,
+    1.007,
+    2.828
+   ],
+   "units_pred_zero_obs_positive": 392
+  },
+  "province | month": {
+   "units": 385,
+   "obs_total": 341870.0,
+   "pred_total": 298021.1,
+   "bias_pct": -12.8,
+   "weighted_abs_error_pct": 24.1,
+   "median_abs_error_pct_obs_ge_20": 26.2,
+   "units_obs_ge_20": 209,
+   "obs_over_pred_q10_q50_q90": [
+    0.619,
+    1.121,
+    2.321
+   ],
+   "units_pred_zero_obs_positive": 141
+  },
+  "province | year": {
+   "units": 39,
+   "obs_total": 341870.0,
+   "pred_total": 298021.1,
+   "bias_pct": -12.8,
+   "weighted_abs_error_pct": 19.2,
+   "median_abs_error_pct_obs_ge_20": 14.7,
+   "units_obs_ge_20": 34,
+   "obs_over_pred_q10_q50_q90": [
+    0.677,
+    0.993,
+    1.455
+   ],
+   "units_pred_zero_obs_positive": 1
+  },
+  "all Canada | month": {
+   "units": 36,
+   "obs_total": 341870.0,
+   "pred_total": 298021.1,
+   "bias_pct": -12.8,
+   "weighted_abs_error_pct": 19.0,
+   "median_abs_error_pct_obs_ge_20": 17.4,
+   "units_obs_ge_20": 36,
+   "obs_over_pred_q10_q50_q90": [
+    0.796,
+    1.046,
+    1.717
+   ],
+   "units_pred_zero_obs_positive": 0
+  },
+  "all Canada | year": {
+   "units": 3,
+   "obs_total": 341870.0,
+   "pred_total": 298021.1,
+   "bias_pct": -12.8,
+   "weighted_abs_error_pct": 14.1,
+   "median_abs_error_pct_obs_ge_20": 1.5,
+   "units_obs_ge_20": 3,
+   "obs_over_pred_q10_q50_q90": [
+    0.987,
+    0.994,
+    1.317
+   ],
+   "units_pred_zero_obs_positive": 0
+  }
+ },
+ "leave_one_year_out_2012_2025": {
+  "display cell (~253 km2) | month": {
+   "units": 142194,
+   "obs_total": 2087905.5,
+   "pred_total": 2102302.0,
+   "bias_pct": 0.7,
+   "weighted_abs_error_pct": 52.6,
+   "median_abs_error_pct_obs_ge_20": 42.1,
+   "units_obs_ge_20": 14006,
+   "obs_over_pred_q10_q50_q90": [
+    0.09,
+    0.612,
+    1.818
+   ],
+   "units_pred_zero_obs_positive": 94613
+  },
+  "display cell (~253 km2) | year": {
+   "units": 73817,
+   "obs_total": 2087905.5,
+   "pred_total": 2102302.0,
+   "bias_pct": 0.7,
+   "weighted_abs_error_pct": 45.2,
+   "median_abs_error_pct_obs_ge_20": 40.8,
+   "units_obs_ge_20": 11965,
+   "obs_over_pred_q10_q50_q90": [
+    0.189,
+    0.748,
+    2.085
+   ],
+   "units_pred_zero_obs_positive": 39638
+  },
+  "~12,400 km2 (H3 res 3) | month": {
+   "units": 31716,
+   "obs_total": 2087905.5,
+   "pred_total": 2102302.0,
+   "bias_pct": 0.7,
+   "weighted_abs_error_pct": 33.4,
+   "median_abs_error_pct_obs_ge_20": 38.6,
+   "units_obs_ge_20": 7173,
+   "obs_over_pred_q10_q50_q90": [
+    0.232,
+    0.844,
+    2.313
+   ],
+   "units_pred_zero_obs_positive": 17489
+  },
+  "~12,400 km2 (H3 res 3) | year": {
+   "units": 7264,
+   "obs_total": 2087905.5,
+   "pred_total": 2102302.0,
+   "bias_pct": 0.7,
+   "weighted_abs_error_pct": 25.9,
+   "median_abs_error_pct_obs_ge_20": 31.7,
+   "units_obs_ge_20": 3847,
+   "obs_over_pred_q10_q50_q90": [
+    0.382,
+    0.968,
+    2.347
+   ],
+   "units_pred_zero_obs_positive": 2135
+  },
+  "province | month": {
+   "units": 1865,
+   "obs_total": 2087905.5,
+   "pred_total": 2102302.0,
+   "bias_pct": 0.7,
+   "weighted_abs_error_pct": 18.0,
+   "median_abs_error_pct_obs_ge_20": 24.7,
+   "units_obs_ge_20": 987,
+   "obs_over_pred_q10_q50_q90": [
+    0.601,
+    1.065,
+    2.266
+   ],
+   "units_pred_zero_obs_positive": 711
+  },
+  "province | year": {
+   "units": 182,
+   "obs_total": 2087905.5,
+   "pred_total": 2102302.0,
+   "bias_pct": 0.7,
+   "weighted_abs_error_pct": 12.4,
+   "median_abs_error_pct_obs_ge_20": 13.7,
+   "units_obs_ge_20": 167,
+   "obs_over_pred_q10_q50_q90": [
+    0.809,
+    1.027,
+    1.791
+   ],
+   "units_pred_zero_obs_positive": 7
+  },
+  "all Canada | month": {
+   "units": 168,
+   "obs_total": 2087905.5,
+   "pred_total": 2102302.0,
+   "bias_pct": 0.7,
+   "weighted_abs_error_pct": 12.4,
+   "median_abs_error_pct_obs_ge_20": 15.0,
+   "units_obs_ge_20": 168,
+   "obs_over_pred_q10_q50_q90": [
+    0.861,
+    1.057,
+    1.77
+   ],
+   "units_pred_zero_obs_positive": 0
+  },
+  "all Canada | year": {
+   "units": 14,
+   "obs_total": 2087905.5,
+   "pred_total": 2102302.0,
+   "bias_pct": 0.7,
+   "weighted_abs_error_pct": 8.3,
+   "median_abs_error_pct_obs_ge_20": 5.5,
+   "units_obs_ge_20": 14,
+   "obs_over_pred_q10_q50_q90": [
+    0.918,
+    0.991,
+    1.116
+   ],
+   "units_pred_zero_obs_positive": 0
+  }
+ },
+ "leave_one_year_out_canada_obs_over_pred_range": [
+  0.881,
+  1.417
+ ],
+ "terra_to_aqua_validation": {
+  "display cell (~253 km2) | month": {
+   "units": 4023,
+   "obs_total": 12608.0,
+   "pred_total": 13110.1,
+   "bias_pct": 4.0,
+   "weighted_abs_error_pct": 70.5,
+   "median_abs_error_pct_obs_ge_20": 29.3,
+   "units_obs_ge_20": 135,
+   "obs_over_pred_q10_q50_q90": [
+    0.0,
+    0.376,
+    1.779
+   ],
+   "units_pred_zero_obs_positive": 1266
+  },
+  "display cell (~253 km2) | year": {
+   "units": 3405,
+   "obs_total": 12608.0,
+   "pred_total": 13110.1,
+   "bias_pct": 4.0,
+   "weighted_abs_error_pct": 65.4,
+   "median_abs_error_pct_obs_ge_20": 28.9,
+   "units_obs_ge_20": 140,
+   "obs_over_pred_q10_q50_q90": [
+    0.0,
+    0.505,
+    1.924
+   ],
+   "units_pred_zero_obs_positive": 932
+  },
+  "~12,400 km2 (H3 res 3) | month": {
+   "units": 1212,
+   "obs_total": 12608.0,
+   "pred_total": 13110.1,
+   "bias_pct": 4.0,
+   "weighted_abs_error_pct": 40.8,
+   "median_abs_error_pct_obs_ge_20": 20.6,
+   "units_obs_ge_20": 116,
+   "obs_over_pred_q10_q50_q90": [
+    0.0,
+    0.673,
+    1.964
+   ],
+   "units_pred_zero_obs_positive": 243
+  },
+  "~12,400 km2 (H3 res 3) | year": {
+   "units": 607,
+   "obs_total": 12608.0,
+   "pred_total": 13110.1,
+   "bias_pct": 4.0,
+   "weighted_abs_error_pct": 33.1,
+   "median_abs_error_pct_obs_ge_20": 20.2,
+   "units_obs_ge_20": 134,
+   "obs_over_pred_q10_q50_q90": [
+    0.0,
+    0.786,
+    2.151
+   ],
+   "units_pred_zero_obs_positive": 86
+  },
+  "province | month": {
+   "units": 94,
+   "obs_total": 12608.0,
+   "pred_total": 13110.1,
+   "bias_pct": 4.0,
+   "weighted_abs_error_pct": 17.2,
+   "median_abs_error_pct_obs_ge_20": 20.8,
+   "units_obs_ge_20": 48,
+   "obs_over_pred_q10_q50_q90": [
+    0.236,
+    0.882,
+    1.718
+   ],
+   "units_pred_zero_obs_positive": 6
+  },
+  "province | year": {
+   "units": 24,
+   "obs_total": 12608.0,
+   "pred_total": 13110.1,
+   "bias_pct": 4.0,
+   "weighted_abs_error_pct": 10.6,
+   "median_abs_error_pct_obs_ge_20": 12.4,
+   "units_obs_ge_20": 17,
+   "obs_over_pred_q10_q50_q90": [
+    0.532,
+    0.898,
+    1.328
+   ],
+   "units_pred_zero_obs_positive": 0
+  },
+  "all Canada | month": {
+   "units": 12,
+   "obs_total": 12608.0,
+   "pred_total": 13110.1,
+   "bias_pct": 4.0,
+   "weighted_abs_error_pct": 11.2,
+   "median_abs_error_pct_obs_ge_20": 19.2,
+   "units_obs_ge_20": 12,
+   "obs_over_pred_q10_q50_q90": [
+    0.759,
+    0.884,
+    1.36
+   ],
+   "units_pred_zero_obs_positive": 0
+  },
+  "all Canada | year": {
+   "units": 2,
+   "obs_total": 12608.0,
+   "pred_total": 13110.1,
+   "bias_pct": 4.0,
+   "weighted_abs_error_pct": 4.0,
+   "median_abs_error_pct_obs_ge_20": 3.8,
+   "units_obs_ge_20": 2,
+   "obs_over_pred_q10_q50_q90": [
+    0.958,
+    0.963,
+    0.968
+   ],
+   "units_pred_zero_obs_positive": 0
+  }
+ }
+}

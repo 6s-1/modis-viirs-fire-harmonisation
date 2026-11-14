@@ -1,0 +1,119 @@
+{
+ "by_year": [
+  {
+   "year": 2018,
+   "snpp_both": 110517.0,
+   "noaa20_both": 109668.0,
+   "both_detect": 73903.0,
+   "either_detect": 146282.0,
+   "noaa20_over_snpp": 0.992,
+   "same_cell_day_share": 0.505
+  },
+  {
+   "year": 2019,
+   "snpp_both": 64004.0,
+   "noaa20_both": 65429.0,
+   "both_detect": 42705.0,
+   "either_detect": 86728.0,
+   "noaa20_over_snpp": 1.022,
+   "same_cell_day_share": 0.492
+  },
+  {
+   "year": 2020,
+   "snpp_both": 22303.0,
+   "noaa20_both": 23150.0,
+   "both_detect": 10278.0,
+   "either_detect": 35175.0,
+   "noaa20_over_snpp": 1.038,
+   "same_cell_day_share": 0.292
+  },
+  {
+   "year": 2021,
+   "snpp_both": 147022.0,
+   "noaa20_both": 152178.0,
+   "both_detect": 104146.0,
+   "either_detect": 195054.0,
+   "noaa20_over_snpp": 1.035,
+   "same_cell_day_share": 0.534
+  },
+  {
+   "year": 2022,
+   "snpp_both": 58928.0,
+   "noaa20_both": 59220.0,
+   "both_detect": 38390.0,
+   "either_detect": 79758.0,
+   "noaa20_over_snpp": 1.005,
+   "same_cell_day_share": 0.481
+  },
+  {
+   "year": 2023,
+   "snpp_both": 508291.0,
+   "noaa20_both": 508339.0,
+   "both_detect": 371565.0,
+   "either_detect": 645065.0,
+   "noaa20_over_snpp": 1.0,
+   "same_cell_day_share": 0.576
+  },
+  {
+   "year": 2024,
+   "snpp_both": 200012.0,
+   "noaa20_both": 206781.0,
+   "both_detect": 151646.0,
+   "either_detect": 255147.0,
+   "noaa20_over_snpp": 1.034,
+   "same_cell_day_share": 0.594
+  },
+  {
+   "year": 2025,
+   "snpp_both": 270363.0,
+   "noaa20_both": 274660.0,
+   "both_detect": 201351.0,
+   "either_detect": 343672.0,
+   "noaa20_over_snpp": 1.016,
+   "same_cell_day_share": 0.586
+  }
+ ],
+ "by_landcover": [
+  {
+   "lc": "cropland",
+   "snpp_both": 35522.0,
+   "noaa20_both": 36634.0,
+   "both_detect": 13003.0,
+   "either_detect": 59153.0,
+   "noaa20_over_snpp": 1.031,
+   "same_cell_day_share": 0.22
+  },
+  {
+   "lc": "forest",
+   "snpp_both": 1173527.0,
+   "noaa20_both": 1188001.0,
+   "both_detect": 862938.0,
+   "either_detect": 1498590.0,
+   "noaa20_over_snpp": 1.012,
+   "same_cell_day_share": 0.576
+  },
+  {
+   "lc": "grass_shrub",
+   "snpp_both": 165753.0,
+   "noaa20_both": 167688.0,
+   "both_detect": 115836.0,
+   "either_detect": 217605.0,
+   "noaa20_over_snpp": 1.012,
+   "same_cell_day_share": 0.532
+  },
+  {
+   "lc": "other",
+   "snpp_both": 6638.0,
+   "noaa20_both": 7102.0,
+   "both_detect": 2207.0,
+   "either_detect": 11533.0,
+   "noaa20_over_snpp": 1.07,
+   "same_cell_day_share": 0.191
+  }
+ ],
+ "display_cell_month": {
+  "pairs": 84522,
+  "pearson_log1p": 0.896,
+  "median_abs_diff_pct_of_mean_when_sum_ge_40": 9.0
+ }
+}

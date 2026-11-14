@@ -20,3 +20,8 @@ __pycache__/
 node_modules/
 dist/
 .DS_Store
+
+# FIRMS archive downloads (raw data)
+DL_FIRE_*/
+fire_archive_*
+fire_nrt_*

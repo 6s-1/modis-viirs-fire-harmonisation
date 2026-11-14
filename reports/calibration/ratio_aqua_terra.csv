@@ -1,0 +1,241 @@
+region,lc,season,parent,ratio,level,num,den,years,own_den
+Arctic Cordillera,forest,winter,north,0.8462546980159077,parent x lc,9682.0,11441.0,6.0,0.0
+Arctic Cordillera,forest,spring,north,0.8462546980159077,parent x lc,9682.0,11441.0,6.0,0.0
+Arctic Cordillera,forest,summer,north,0.8280077799388719,parent x lc x season,8940.0,10797.0,6.0,0.0
+Arctic Cordillera,forest,fall,north,1.1581196581196582,parent x lc x season,542.0,468.0,6.0,0.0
+Arctic Cordillera,grass_shrub,winter,north,0.8898362126991249,parent x lc,15864.0,17828.0,6.0,0.0
+Arctic Cordillera,grass_shrub,spring,north,0.8898362126991249,parent x lc,15864.0,17828.0,6.0,0.0
+Arctic Cordillera,grass_shrub,summer,north,0.8706725725609046,parent x lc x season,14939.0,17158.0,6.0,0.0
+Arctic Cordillera,grass_shrub,fall,north,1.465648854961832,parent x lc x season,768.0,524.0,6.0,0.0
+Arctic Cordillera,cropland,winter,north,1.421930732942124,lc,12358.0,8691.0,6.0,0.0
+Arctic Cordillera,cropland,spring,north,1.2431603170544618,lc x season,4862.0,3911.0,5.0,0.0
+Arctic Cordillera,cropland,summer,north,0.9186046511627907,lc x season,1106.0,1204.0,6.0,0.0
+Arctic Cordillera,cropland,fall,north,1.8017045454545455,lc x season,6342.0,3520.0,6.0,0.0
+Arctic Cordillera,other,winter,north,0.8473684210526315,lc,644.0,760.0,6.0,0.0
+Arctic Cordillera,other,spring,north,0.8473684210526315,lc,644.0,760.0,6.0,0.0
+Arctic Cordillera,other,summer,north,0.8414376321353065,lc x season,398.0,473.0,6.0,0.0
+Arctic Cordillera,other,fall,north,0.8473684210526315,lc,644.0,760.0,6.0,0.0
+Atlantic Maritime,forest,winter,south,1.4608879492600422,parent x lc,691.0,473.0,6.0,0.0
+Atlantic Maritime,forest,spring,south,1.8201754385964912,parent x lc x season,415.0,228.0,5.0,46.0
+Atlantic Maritime,forest,summer,south,1.4608879492600422,parent x lc,691.0,473.0,6.0,30.0
+Atlantic Maritime,forest,fall,south,1.4608879492600422,parent x lc,691.0,473.0,6.0,20.0
+Atlantic Maritime,grass_shrub,winter,south,1.4386480529022778,parent x lc,1958.0,1361.0,6.0,0.0
+Atlantic Maritime,grass_shrub,spring,south,1.4448,parent x lc x season,903.0,625.0,5.0,34.0
+Atlantic Maritime,grass_shrub,summer,south,1.1428571428571428,parent x lc x season,360.0,315.0,6.0,5.0
+Atlantic Maritime,grass_shrub,fall,south,1.661800486618005,parent x lc x season,683.0,411.0,6.0,4.0
+Atlantic Maritime,cropland,winter,south,1.5591766723842195,parent x lc,9090.0,5830.0,6.0,0.0
+Atlantic Maritime,cropland,spring,south,1.2946645109135004,parent x lc x season,3203.0,2474.0,5.0,2.0
+Atlantic Maritime,cropland,summer,south,1.0081855388813097,parent x lc x season,739.0,733.0,6.0,9.0
+Atlantic Maritime,cropland,fall,south,1.963615472998851,parent x lc x season,5127.0,2611.0,6.0,16.0
+Atlantic Maritime,other,winter,south,0.6312849162011173,parent x lc,226.0,358.0,6.0,0.0
+Atlantic Maritime,other,spring,south,0.6312849162011173,parent x lc,226.0,358.0,6.0,0.0
+Atlantic Maritime,other,summer,south,0.6312849162011173,parent x lc,226.0,358.0,6.0,4.0
+Atlantic Maritime,other,fall,south,0.6312849162011173,parent x lc,226.0,358.0,6.0,0.0
+Boreal Cordillera,forest,winter,boreal,0.8289203886957297,region x lc,9298.0,11217.0,6.0,9.0
+Boreal Cordillera,forest,spring,boreal,0.8289203886957297,region x lc,9298.0,11217.0,6.0,80.0
+Boreal Cordillera,forest,summer,boreal,0.8167359479486717,region x lc x season,9038.0,11066.0,6.0,11066.0
+Boreal Cordillera,forest,fall,boreal,0.8289203886957297,region x lc,9298.0,11217.0,6.0,62.0
+Boreal Cordillera,grass_shrub,winter,boreal,0.7948228882833788,region x lc,2917.0,3670.0,6.0,1.0
+Boreal Cordillera,grass_shrub,spring,boreal,0.7948228882833788,region x lc,2917.0,3670.0,6.0,25.0
+Boreal Cordillera,grass_shrub,summer,boreal,0.783507997793712,region x lc x season,2841.0,3626.0,6.0,3626.0
+Boreal Cordillera,grass_shrub,fall,boreal,0.7948228882833788,region x lc,2917.0,3670.0,6.0,18.0
+Boreal Cordillera,cropland,winter,boreal,1.1437609841827767,parent x lc,3254.0,2845.0,6.0,0.0
+Boreal Cordillera,cropland,spring,boreal,1.155027932960894,parent x lc x season,1654.0,1432.0,5.0,0.0
+Boreal Cordillera,cropland,summer,boreal,0.7794432548179872,parent x lc x season,364.0,467.0,6.0,0.0
+Boreal Cordillera,cropland,fall,boreal,1.3403547671840355,parent x lc x season,1209.0,902.0,6.0,0.0
+Boreal Cordillera,other,winter,boreal,0.8473684210526315,lc,644.0,760.0,6.0,0.0
+Boreal Cordillera,other,spring,boreal,0.8473684210526315,lc,644.0,760.0,6.0,1.0
+Boreal Cordillera,other,summer,boreal,0.8414376321353065,lc x season,398.0,473.0,6.0,13.0
+Boreal Cordillera,other,fall,boreal,0.8473684210526315,lc,644.0,760.0,6.0,0.0
+Boreal Plain,forest,winter,boreal,1.4101910828025477,region x lc x season,1107.0,785.0,6.0,785.0
+Boreal Plain,forest,spring,boreal,1.2642857142857142,region x lc x season,885.0,700.0,5.0,700.0
+Boreal Plain,forest,summer,boreal,0.9002967359050446,region x lc x season,3034.0,3370.0,6.0,3370.0
+Boreal Plain,forest,fall,boreal,1.2048192771084338,region x lc x season,1100.0,913.0,6.0,913.0
+Boreal Plain,grass_shrub,winter,boreal,0.9947819604919865,region x lc,2669.0,2683.0,6.0,91.0
+Boreal Plain,grass_shrub,spring,boreal,1.2495201535508638,region x lc x season,651.0,521.0,5.0,521.0
+Boreal Plain,grass_shrub,summer,boreal,0.8998321208729715,region x lc x season,1608.0,1787.0,6.0,1787.0
+Boreal Plain,grass_shrub,fall,boreal,1.073943661971831,region x lc x season,305.0,284.0,6.0,284.0
+Boreal Plain,cropland,winter,boreal,1.109178386380459,region x lc,2997.0,2702.0,6.0,44.0
+Boreal Plain,cropland,spring,boreal,1.13933236574746,region x lc x season,1570.0,1378.0,5.0,1378.0
+Boreal Plain,cropland,summer,boreal,0.7220956719817767,region x lc x season,317.0,439.0,6.0,439.0
+Boreal Plain,cropland,fall,boreal,1.2877526753864448,region x lc x season,1083.0,841.0,6.0,841.0
+Boreal Plain,other,winter,boreal,0.8473684210526315,lc,644.0,760.0,6.0,0.0
+Boreal Plain,other,spring,boreal,0.8473684210526315,lc,644.0,760.0,6.0,30.0
+Boreal Plain,other,summer,boreal,0.8414376321353065,lc x season,398.0,473.0,6.0,24.0
+Boreal Plain,other,fall,boreal,0.8473684210526315,lc,644.0,760.0,6.0,14.0
+Boreal Shield,forest,winter,boreal,0.9195574871592256,region x lc,11637.0,12655.0,6.0,1.0
+Boreal Shield,forest,spring,boreal,1.0028409090909092,region x lc x season,353.0,352.0,5.0,352.0
+Boreal Shield,forest,summer,boreal,0.9055550112667777,region x lc x season,9243.0,10207.0,6.0,10207.0
+Boreal Shield,forest,fall,boreal,0.9727923627684965,region x lc x season,2038.0,2095.0,6.0,2095.0
+Boreal Shield,grass_shrub,winter,boreal,0.9634893125361063,region x lc,8339.0,8655.0,6.0,1.0
+Boreal Shield,grass_shrub,spring,boreal,0.9634893125361063,region x lc,8339.0,8655.0,6.0,161.0
+Boreal Shield,grass_shrub,summer,boreal,0.9492717847445076,region x lc x season,7691.0,8102.0,6.0,8102.0
+Boreal Shield,grass_shrub,fall,boreal,1.2122762148337596,region x lc x season,474.0,391.0,6.0,391.0
+Boreal Shield,cropland,winter,boreal,1.1437609841827767,parent x lc,3254.0,2845.0,6.0,0.0
+Boreal Shield,cropland,spring,boreal,1.155027932960894,parent x lc x season,1654.0,1432.0,5.0,54.0
+Boreal Shield,cropland,summer,boreal,0.7794432548179872,parent x lc x season,364.0,467.0,6.0,28.0
+Boreal Shield,cropland,fall,boreal,1.3403547671840355,parent x lc x season,1209.0,902.0,6.0,61.0
+Boreal Shield,other,winter,boreal,0.8473684210526315,lc,644.0,760.0,6.0,0.0
+Boreal Shield,other,spring,boreal,0.8473684210526315,lc,644.0,760.0,6.0,10.0
+Boreal Shield,other,summer,boreal,0.8414376321353065,lc x season,398.0,473.0,6.0,46.0
+Boreal Shield,other,fall,boreal,0.8473684210526315,lc,644.0,760.0,6.0,22.0
+Hudson Plain,forest,winter,north,1.1439688715953307,region x lc,588.0,514.0,6.0,0.0
+Hudson Plain,forest,spring,north,1.1439688715953307,region x lc,588.0,514.0,6.0,8.0
+Hudson Plain,forest,summer,north,1.0897155361050328,region x lc x season,498.0,457.0,6.0,457.0
+Hudson Plain,forest,fall,north,1.1439688715953307,region x lc,588.0,514.0,6.0,49.0
+Hudson Plain,grass_shrub,winter,north,1.0859049207673062,region x lc,3906.0,3597.0,6.0,0.0
+Hudson Plain,grass_shrub,spring,north,1.0859049207673062,region x lc,3906.0,3597.0,6.0,63.0
+Hudson Plain,grass_shrub,summer,north,1.0430040511062637,region x lc x season,3347.0,3209.0,6.0,3209.0
+Hudson Plain,grass_shrub,fall,north,1.4615384615384615,region x lc x season,475.0,325.0,4.0,325.0
+Hudson Plain,cropland,winter,north,1.421930732942124,lc,12358.0,8691.0,6.0,0.0
+Hudson Plain,cropland,spring,north,1.2431603170544618,lc x season,4862.0,3911.0,5.0,0.0
+Hudson Plain,cropland,summer,north,0.9186046511627907,lc x season,1106.0,1204.0,6.0,0.0
+Hudson Plain,cropland,fall,north,1.8017045454545455,lc x season,6342.0,3520.0,6.0,0.0
+Hudson Plain,other,winter,north,0.8473684210526315,lc,644.0,760.0,6.0,0.0
+Hudson Plain,other,spring,north,0.8473684210526315,lc,644.0,760.0,6.0,0.0
+Hudson Plain,other,summer,north,0.8414376321353065,lc x season,398.0,473.0,6.0,1.0
+Hudson Plain,other,fall,north,0.8473684210526315,lc,644.0,760.0,6.0,1.0
+Mixedwood Plain,forest,winter,south,1.4608879492600422,parent x lc,691.0,473.0,6.0,2.0
+Mixedwood Plain,forest,spring,south,1.8201754385964912,parent x lc x season,415.0,228.0,5.0,32.0
+Mixedwood Plain,forest,summer,south,1.4608879492600422,parent x lc,691.0,473.0,6.0,19.0
+Mixedwood Plain,forest,fall,south,1.4608879492600422,parent x lc,691.0,473.0,6.0,25.0
+Mixedwood Plain,grass_shrub,winter,south,1.4386480529022778,parent x lc,1958.0,1361.0,6.0,1.0
+Mixedwood Plain,grass_shrub,spring,south,1.4448,parent x lc x season,903.0,625.0,5.0,10.0
+Mixedwood Plain,grass_shrub,summer,south,1.1428571428571428,parent x lc x season,360.0,315.0,6.0,5.0
+Mixedwood Plain,grass_shrub,fall,south,1.661800486618005,parent x lc x season,683.0,411.0,6.0,8.0
+Mixedwood Plain,cropland,winter,south,0.9399141630901288,region x lc,219.0,233.0,6.0,4.0
+Mixedwood Plain,cropland,spring,south,0.9399141630901288,region x lc,219.0,233.0,6.0,104.0
+Mixedwood Plain,cropland,summer,south,0.9399141630901288,region x lc,219.0,233.0,6.0,51.0
+Mixedwood Plain,cropland,fall,south,0.9399141630901288,region x lc,219.0,233.0,6.0,74.0
+Mixedwood Plain,other,winter,south,0.6271929824561403,region x lc,143.0,228.0,6.0,7.0
+Mixedwood Plain,other,spring,south,0.6271929824561403,region x lc,143.0,228.0,6.0,40.0
+Mixedwood Plain,other,summer,south,0.6271929824561403,region x lc,143.0,228.0,6.0,120.0
+Mixedwood Plain,other,fall,south,0.6271929824561403,region x lc,143.0,228.0,6.0,61.0
+Montane Cordillera,forest,winter,west,1.4086021505376345,region x lc x season,655.0,465.0,6.0,465.0
+Montane Cordillera,forest,spring,west,0.9740458015267176,region x lc x season,638.0,655.0,5.0,655.0
+Montane Cordillera,forest,summer,west,0.8594629709831095,region x lc x season,3969.0,4618.0,6.0,4618.0
+Montane Cordillera,forest,fall,west,1.0036213140196586,region x lc x season,7760.0,7732.0,6.0,7732.0
+Montane Cordillera,grass_shrub,winter,west,0.8853445681613,region x lc,2942.0,3323.0,6.0,80.0
+Montane Cordillera,grass_shrub,spring,west,0.8853445681613,region x lc,2942.0,3323.0,6.0,103.0
+Montane Cordillera,grass_shrub,summer,west,0.8623271889400922,region x lc x season,1497.0,1736.0,6.0,1736.0
+Montane Cordillera,grass_shrub,fall,west,0.8561253561253561,region x lc x season,1202.0,1404.0,6.0,1404.0
+Montane Cordillera,cropland,winter,west,1.421930732942124,lc,12358.0,8691.0,6.0,0.0
+Montane Cordillera,cropland,spring,west,1.2431603170544618,lc x season,4862.0,3911.0,5.0,5.0
+Montane Cordillera,cropland,summer,west,0.9186046511627907,lc x season,1106.0,1204.0,6.0,4.0
+Montane Cordillera,cropland,fall,west,1.8017045454545455,lc x season,6342.0,3520.0,6.0,7.0
+Montane Cordillera,other,winter,west,1.1592920353982301,parent x lc,262.0,226.0,6.0,0.0
+Montane Cordillera,other,spring,west,1.1592920353982301,parent x lc,262.0,226.0,6.0,9.0
+Montane Cordillera,other,summer,west,1.1592920353982301,parent x lc,262.0,226.0,6.0,165.0
+Montane Cordillera,other,fall,west,1.1592920353982301,parent x lc,262.0,226.0,6.0,20.0
+Northern Arctic,forest,winter,north,0.8462546980159077,parent x lc,9682.0,11441.0,6.0,0.0
+Northern Arctic,forest,spring,north,0.8462546980159077,parent x lc,9682.0,11441.0,6.0,0.0
+Northern Arctic,forest,summer,north,0.8280077799388719,parent x lc x season,8940.0,10797.0,6.0,0.0
+Northern Arctic,forest,fall,north,1.1581196581196582,parent x lc x season,542.0,468.0,6.0,0.0
+Northern Arctic,grass_shrub,winter,north,0.8898362126991249,parent x lc,15864.0,17828.0,6.0,0.0
+Northern Arctic,grass_shrub,spring,north,0.8898362126991249,parent x lc,15864.0,17828.0,6.0,0.0
+Northern Arctic,grass_shrub,summer,north,0.8706725725609046,parent x lc x season,14939.0,17158.0,6.0,19.0
+Northern Arctic,grass_shrub,fall,north,1.465648854961832,parent x lc x season,768.0,524.0,6.0,0.0
+Northern Arctic,cropland,winter,north,1.421930732942124,lc,12358.0,8691.0,6.0,0.0
+Northern Arctic,cropland,spring,north,1.2431603170544618,lc x season,4862.0,3911.0,5.0,0.0
+Northern Arctic,cropland,summer,north,0.9186046511627907,lc x season,1106.0,1204.0,6.0,0.0
+Northern Arctic,cropland,fall,north,1.8017045454545455,lc x season,6342.0,3520.0,6.0,0.0
+Northern Arctic,other,winter,north,0.8473684210526315,lc,644.0,760.0,6.0,0.0
+Northern Arctic,other,spring,north,0.8473684210526315,lc,644.0,760.0,6.0,0.0
+Northern Arctic,other,summer,north,0.8414376321353065,lc x season,398.0,473.0,6.0,1.0
+Northern Arctic,other,fall,north,0.8473684210526315,lc,644.0,760.0,6.0,0.0
+Pacific Maritime,forest,winter,west,0.956575682382134,region x lc,771.0,806.0,6.0,16.0
+Pacific Maritime,forest,spring,west,0.956575682382134,region x lc,771.0,806.0,6.0,33.0
+Pacific Maritime,forest,summer,west,0.956575682382134,region x lc,771.0,806.0,6.0,188.0
+Pacific Maritime,forest,fall,west,0.9648506151142355,region x lc x season,549.0,569.0,6.0,569.0
+Pacific Maritime,grass_shrub,winter,west,0.883006727113191,parent x lc,3019.0,3419.0,6.0,0.0
+Pacific Maritime,grass_shrub,spring,west,0.883006727113191,parent x lc,3019.0,3419.0,6.0,7.0
+Pacific Maritime,grass_shrub,summer,west,0.8635857461024499,parent x lc x season,1551.0,1796.0,6.0,60.0
+Pacific Maritime,grass_shrub,fall,west,0.854152128401954,parent x lc x season,1224.0,1433.0,6.0,29.0
+Pacific Maritime,cropland,winter,west,1.421930732942124,lc,12358.0,8691.0,6.0,0.0
+Pacific Maritime,cropland,spring,west,1.2431603170544618,lc x season,4862.0,3911.0,5.0,0.0
+Pacific Maritime,cropland,summer,west,0.9186046511627907,lc x season,1106.0,1204.0,6.0,0.0
+Pacific Maritime,cropland,fall,west,1.8017045454545455,lc x season,6342.0,3520.0,6.0,0.0
+Pacific Maritime,other,winter,west,1.1592920353982301,parent x lc,262.0,226.0,6.0,0.0
+Pacific Maritime,other,spring,west,1.1592920353982301,parent x lc,262.0,226.0,6.0,4.0
+Pacific Maritime,other,summer,west,1.1592920353982301,parent x lc,262.0,226.0,6.0,24.0
+Pacific Maritime,other,fall,west,1.1592920353982301,parent x lc,262.0,226.0,6.0,4.0
+Prairie,forest,winter,south,1.4648829431438126,region x lc,438.0,299.0,6.0,0.0
+Prairie,forest,spring,south,1.4648829431438126,region x lc,438.0,299.0,6.0,150.0
+Prairie,forest,summer,south,1.4648829431438126,region x lc,438.0,299.0,6.0,53.0
+Prairie,forest,fall,south,1.4648829431438126,region x lc,438.0,299.0,6.0,96.0
+Prairie,grass_shrub,winter,south,1.4010819165378672,region x lc,1813.0,1294.0,6.0,9.0
+Prairie,grass_shrub,spring,south,1.3580034423407918,region x lc x season,789.0,581.0,5.0,581.0
+Prairie,grass_shrub,summer,south,1.1475409836065573,region x lc x season,350.0,305.0,6.0,305.0
+Prairie,grass_shrub,fall,south,1.6666666666666667,region x lc x season,665.0,399.0,6.0,399.0
+Prairie,cropland,winter,south,1.5897666068222622,region x lc,8855.0,5570.0,6.0,8.0
+Prairie,cropland,spring,south,1.3057432432432432,region x lc x season,3092.0,2368.0,5.0,2368.0
+Prairie,cropland,summer,south,1.0237741456166418,region x lc x season,689.0,673.0,6.0,673.0
+Prairie,cropland,fall,south,2.0047600158667196,region x lc x season,5054.0,2521.0,6.0,2521.0
+Prairie,other,winter,south,0.6312849162011173,parent x lc,226.0,358.0,6.0,0.0
+Prairie,other,spring,south,0.6312849162011173,parent x lc,226.0,358.0,6.0,28.0
+Prairie,other,summer,south,0.6312849162011173,parent x lc,226.0,358.0,6.0,64.0
+Prairie,other,fall,south,0.6312849162011173,parent x lc,226.0,358.0,6.0,34.0
+Southern Arctic,forest,winter,north,0.8462546980159077,parent x lc,9682.0,11441.0,6.0,0.0
+Southern Arctic,forest,spring,north,0.8462546980159077,parent x lc,9682.0,11441.0,6.0,0.0
+Southern Arctic,forest,summer,north,0.8280077799388719,parent x lc x season,8940.0,10797.0,6.0,13.0
+Southern Arctic,forest,fall,north,1.1581196581196582,parent x lc x season,542.0,468.0,6.0,0.0
+Southern Arctic,grass_shrub,winter,north,0.8898362126991249,parent x lc,15864.0,17828.0,6.0,0.0
+Southern Arctic,grass_shrub,spring,north,0.8898362126991249,parent x lc,15864.0,17828.0,6.0,0.0
+Southern Arctic,grass_shrub,summer,north,0.8706725725609046,parent x lc x season,14939.0,17158.0,6.0,37.0
+Southern Arctic,grass_shrub,fall,north,1.465648854961832,parent x lc x season,768.0,524.0,6.0,0.0
+Southern Arctic,cropland,winter,north,1.421930732942124,lc,12358.0,8691.0,6.0,0.0
+Southern Arctic,cropland,spring,north,1.2431603170544618,lc x season,4862.0,3911.0,5.0,0.0
+Southern Arctic,cropland,summer,north,0.9186046511627907,lc x season,1106.0,1204.0,6.0,0.0
+Southern Arctic,cropland,fall,north,1.8017045454545455,lc x season,6342.0,3520.0,6.0,0.0
+Southern Arctic,other,winter,north,0.8473684210526315,lc,644.0,760.0,6.0,0.0
+Southern Arctic,other,spring,north,0.8473684210526315,lc,644.0,760.0,6.0,0.0
+Southern Arctic,other,summer,north,0.8414376321353065,lc x season,398.0,473.0,6.0,0.0
+Southern Arctic,other,fall,north,0.8473684210526315,lc,644.0,760.0,6.0,0.0
+Taiga Cordillera,forest,winter,north,0.7974917004795279,region x lc,2162.0,2711.0,6.0,0.0
+Taiga Cordillera,forest,spring,north,0.7974917004795279,region x lc,2162.0,2711.0,6.0,0.0
+Taiga Cordillera,forest,summer,north,0.7971175166297118,region x lc x season,2157.0,2706.0,6.0,2706.0
+Taiga Cordillera,forest,fall,north,0.7974917004795279,region x lc,2162.0,2711.0,6.0,5.0
+Taiga Cordillera,grass_shrub,winter,north,0.7446924333151878,region x lc,4104.0,5511.0,5.0,0.0
+Taiga Cordillera,grass_shrub,spring,north,0.7446924333151878,region x lc,4104.0,5511.0,5.0,0.0
+Taiga Cordillera,grass_shrub,summer,north,0.7439068752273554,region x lc x season,4090.0,5498.0,5.0,5498.0
+Taiga Cordillera,grass_shrub,fall,north,0.7446924333151878,region x lc,4104.0,5511.0,5.0,13.0
+Taiga Cordillera,cropland,winter,north,1.421930732942124,lc,12358.0,8691.0,6.0,0.0
+Taiga Cordillera,cropland,spring,north,1.2431603170544618,lc x season,4862.0,3911.0,5.0,0.0
+Taiga Cordillera,cropland,summer,north,0.9186046511627907,lc x season,1106.0,1204.0,6.0,0.0
+Taiga Cordillera,cropland,fall,north,1.8017045454545455,lc x season,6342.0,3520.0,6.0,0.0
+Taiga Cordillera,other,winter,north,0.8473684210526315,lc,644.0,760.0,6.0,0.0
+Taiga Cordillera,other,spring,north,0.8473684210526315,lc,644.0,760.0,6.0,0.0
+Taiga Cordillera,other,summer,north,0.8414376321353065,lc x season,398.0,473.0,6.0,4.0
+Taiga Cordillera,other,fall,north,0.8473684210526315,lc,644.0,760.0,6.0,0.0
+Taiga Plain,forest,winter,north,0.8725133689839573,region x lc,4079.0,4675.0,6.0,68.0
+Taiga Plain,forest,spring,north,0.8725133689839573,region x lc,4079.0,4675.0,6.0,89.0
+Taiga Plain,forest,summer,north,0.8412736995624697,region x lc x season,3461.0,4114.0,6.0,4114.0
+Taiga Plain,forest,fall,north,1.1014851485148516,region x lc x season,445.0,404.0,6.0,404.0
+Taiga Plain,grass_shrub,winter,north,0.8686541369626269,region x lc,4021.0,4629.0,6.0,0.0
+Taiga Plain,grass_shrub,spring,north,0.8686541369626269,region x lc,4021.0,4629.0,6.0,36.0
+Taiga Plain,grass_shrub,summer,north,0.853345348051363,region x lc x season,3788.0,4439.0,6.0,4439.0
+Taiga Plain,grass_shrub,fall,north,0.8686541369626269,region x lc,4021.0,4629.0,6.0,154.0
+Taiga Plain,cropland,winter,north,1.421930732942124,lc,12358.0,8691.0,6.0,0.0
+Taiga Plain,cropland,spring,north,1.2431603170544618,lc x season,4862.0,3911.0,5.0,0.0
+Taiga Plain,cropland,summer,north,0.9186046511627907,lc x season,1106.0,1204.0,6.0,0.0
+Taiga Plain,cropland,fall,north,1.8017045454545455,lc x season,6342.0,3520.0,6.0,0.0
+Taiga Plain,other,winter,north,0.8473684210526315,lc,644.0,760.0,6.0,0.0
+Taiga Plain,other,spring,north,0.8473684210526315,lc,644.0,760.0,6.0,2.0
+Taiga Plain,other,summer,north,0.8414376321353065,lc x season,398.0,473.0,6.0,7.0
+Taiga Plain,other,fall,north,0.8473684210526315,lc,644.0,760.0,6.0,0.0
+Taiga Shield,forest,winter,north,0.80640589569161,region x lc,2845.0,3528.0,6.0,0.0
+Taiga Shield,forest,spring,north,0.80640589569161,region x lc,2845.0,3528.0,6.0,11.0
+Taiga Shield,forest,summer,north,0.802965497576276,region x lc x season,2816.0,3507.0,6.0,3507.0
+Taiga Shield,forest,fall,north,0.80640589569161,region x lc,2845.0,3528.0,6.0,10.0
+Taiga Shield,grass_shrub,winter,north,0.9407682775712516,region x lc,3796.0,4035.0,6.0,0.0
+Taiga Shield,grass_shrub,spring,north,0.9407682775712516,region x lc,3796.0,4035.0,6.0,47.0
+Taiga Shield,grass_shrub,summer,north,0.929474216380182,region x lc x season,3677.0,3956.0,6.0,3956.0
+Taiga Shield,grass_shrub,fall,north,0.9407682775712516,region x lc,3796.0,4035.0,6.0,32.0
+Taiga Shield,cropland,winter,north,1.421930732942124,lc,12358.0,8691.0,6.0,0.0
+Taiga Shield,cropland,spring,north,1.2431603170544618,lc x season,4862.0,3911.0,5.0,0.0
+Taiga Shield,cropland,summer,north,0.9186046511627907,lc x season,1106.0,1204.0,6.0,0.0
+Taiga Shield,cropland,fall,north,1.8017045454545455,lc x season,6342.0,3520.0,6.0,0.0
+Taiga Shield,other,winter,north,0.8473684210526315,lc,644.0,760.0,6.0,0.0
+Taiga Shield,other,spring,north,0.8473684210526315,lc,644.0,760.0,6.0,0.0
+Taiga Shield,other,summer,north,0.8414376321353065,lc x season,398.0,473.0,6.0,0.0
+Taiga Shield,other,fall,north,0.8473684210526315,lc,644.0,760.0,6.0,0.0

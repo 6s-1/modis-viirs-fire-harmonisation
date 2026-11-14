@@ -1,0 +1,26 @@
+{
+ "display_cell_months_with_viirs": 138216,
+ "of_which_aqua_zero": 94613,
+ "share_of_cell_months_pct": 68.5,
+ "viirs_cell_days_in_them": 199676.5,
+ "share_of_viirs_cell_days_pct": 9.6,
+ "viirs_cell_days_per_case_q50_q90_max": [
+  1.0,
+  4.0,
+  311.0
+ ],
+ "reverse_aqua_positive_viirs_zero": 3978,
+ "by_season": {
+  "fall": 22.0,
+  "spring": 16.5,
+  "summer": 5.1,
+  "winter": 57.4
+ },
+ "by_parent_region": {
+  "boreal": 9.2,
+  "north": 3.7,
+  "south": 53.7,
+  "west": 12.6
+ },
+ "at_12400km2_share_of_viirs_cell_days_pct": 3.1
+}

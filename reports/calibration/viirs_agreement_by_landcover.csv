@@ -1,0 +1,5 @@
+lc,snpp_both,noaa20_both,both_detect,either_detect,noaa20_over_snpp,same_cell_day_share
+cropland,35522.0,36634.0,13003.0,59153.0,1.031,0.22
+forest,1173527.0,1188001.0,862938.0,1498590.0,1.012,0.576
+grass_shrub,165753.0,167688.0,115836.0,217605.0,1.012,0.532
+other,6638.0,7102.0,2207.0,11533.0,1.07,0.191
