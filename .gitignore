@@ -25,3 +25,6 @@ dist/
 DL_FIRE_*/
 fire_archive_*
 fire_nrt_*
+
+# intermediate experiment outputs (comparison_all.csv is kept)
+reports/experiments/comparison_stage_*
