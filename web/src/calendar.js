@@ -10,6 +10,19 @@ const SENSOR_SHORT = { terra: "Terra", aqua: "Aqua", viirs: "VIIRS" };
 // a class (empty outlined cell, "no fire"). Brighter = more fire.
 export const RAMP = ["#420a68", "#801f6c", "#bf3952", "#ec6726", "#fcac11", "#f3f68a"];
 
+// Diverging scale for "compared with normal": ratio to the median of the same month.
+// Purple = below normal, orange = above, neutral grey at 1x. Both arms get stronger further from 1x.
+export const RATIO_EDGES = [0.25, 0.5, 0.8, 1.25, 2, 4];
+export const RATIO_COLORS = ["#c3aef0", "#8e6ccf", "#5c4887", "#4a4e57", "#8f5a2c", "#de8430", "#f8b45c"];
+export const RATIO_LABELS = ["< 0.25×", "0.25–0.5×", "0.5–0.8×", "0.8–1.25×", "1.25–2×", "2–4×", "> 4×"];
+export function ratioColor(v, med) {
+  if (!(med > 0)) return v > 0 ? RATIO_COLORS[6] : RATIO_COLORS[3];
+  const r = v / med;
+  let k = 0;
+  while (k < RATIO_EDGES.length && r >= RATIO_EDGES[k]) k++;
+  return RATIO_COLORS[k];
+}
+
 // Six classes with log-even breaks between the smallest and largest positive value. The breaks
 // are not rounded: they fall where they fall, and labels show two significant figures.
 export function makeScale(values) {
