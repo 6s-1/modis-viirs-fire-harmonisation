@@ -2,14 +2,14 @@ import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import "./fonts.js";
 import "./style.css";
-import { MONTHS, aggregate, fmt, fmtShort, h3Id, loadData, monthDays, population, rawRecorded, uncertaintyFactors } from "./data.js";
+import { MONTHS, aggregate, cellIndexOf, fmt, fmtShort, h3Id, loadData, monthDays, population, rawRecorded, uncertaintyFactors } from "./data.js";
 import { renderExposureList, loadPlaces } from "./exposure.js";
-import { cellToBoundary } from "h3-js";
+import { cellToBoundary, latLngToCell } from "h3-js";
 import { attachTooltip, renderCalendar } from "./calendar.js";
 import { renderCompare } from "./compare.js";
 import { attachInfoTips, infoIcon } from "./info.js";
 import { calendarPNG, coverage, fileTime, hotspotIndex, hotspotPlan, hotspotsCSV, liveCSV, monthlyCSV, saveBlob, utcStamp } from "./downloads.js";
-import { addGridLayers, attachGridHover, buildGrid, gridLegendHTML, setGrid } from "./grid.js";
+import { addGridLayers, attachGridHover, buildGrid, buildLiveGrid, gridLegendHTML, setGrid } from "./grid.js";
 import { initLayersControl, overlays, setLiveMode } from "./layers.js";
 import { addLiveLayer, attachLiveHover, fetchLive, liveAvailable } from "./live.js";
 import { liveWindow, renderLiveChart } from "./livechart.js";
@@ -308,9 +308,12 @@ document.querySelectorAll('input[name="colour"]').forEach((r) => r.addEventListe
 
 function refreshGrid() {
   if (!state.mapReady || !state.agg) return;
-  const g = (state.grid = state.app === "live" ? { features: [], scale: null, n: 0 } : buildGrid(state.d, state.agg, state.range));
+  const isLive = state.app === "live";
+  const g = (state.grid = isLive ? state.liveGrid || { features: [], scale: null, n: 0 } : buildGrid(state.d, state.agg, state.range));
   for (const m of maps) setGrid(m, g.features);
-  state.fireLegend = g.n && g.scale ? gridLegendHTML(g.scale, { rangeLabel: rangeLabel() }) : "";
+  state.fireLegend = !g.n || !g.scale ? ""
+    : isLive ? gridLegendHTML(g.scale, { live: true, windowLabel: WINDOW_LABEL[live.hours] })
+    : gridLegendHTML(g.scale, { rangeLabel: rangeLabel() });
   updatePop();
   applyLayers();
   renderLegends();
@@ -319,7 +322,7 @@ function refreshGrid() {
 function update() {
   const d = state.d;
   const agg = (state.agg = aggregate(d, selBox()));
-  if (state.app === "live") { refreshGrid(); loadLive(); return; }
+  if (state.app === "live") { state.liveGrid = null; refreshGrid(); loadLive(); return; }
   const firstYear = state.observedOnly ? OBSERVED_FROM : d.firstYear;
   const years = [];
   for (let y = d.lastYear; y >= firstYear; y--) years.push(y);
@@ -523,7 +526,8 @@ const popLegendHTML = () => `<p class="legend-title">People per grid cell${infoI
 function renderLegends() {
   const show = layersFor(maps[0]);
   const parts = [];
-  parts.push(state.app === "live" ? state.liveLegend || "" : state.fireLegend || "");
+  parts.push(state.fireLegend || "");
+  if (show.detections) parts.push(`<ul class="legend"><li><span class="sw key-live"></span>individual detection</li></ul>`);
   if (show.people) parts.push(popLegendHTML());
   $("grid-legend").innerHTML = parts.filter(Boolean).join("");
 }
@@ -537,6 +541,8 @@ const inBox = (f, b) => { const [x, y] = f.geometry.coordinates; return x >= b.w
 
 function liveDown() {
   document.body.classList.add("live-down");
+  state.liveGrid = null;
+  refreshGrid();
   $("summary").innerHTML = `<p class="notice">${LIVE_DOWN}</p>`;
   for (const m of maps) if (m.getSource("live")) m.getSource("live").setData({ type: "FeatureCollection", features: [] });
   $("grid-legend").innerHTML = "";
@@ -565,7 +571,15 @@ async function loadLive() {
 function renderLive() {
   const d = state.d, agg = state.agg, feats = live.feats;
   for (const m of maps) if (m.getSource("live")) m.getSource("live").setData({ type: "FeatureCollection", features: feats });
-  applyLayers();
+  // the same ~250 km² cells as Historical, coloured with the fire ramp by hotspot count
+  const counts = new Map();
+  for (const f of feats) {
+    const [lon, lat] = f.geometry.coordinates;
+    const i = cellIndexOf(d, latLngToCell(lat, lon, 5));
+    if (i !== undefined) counts.set(i, (counts.get(i) || 0) + 1);
+  }
+  state.liveGrid = buildLiveGrid(d, counts);
+  refreshGrid();
   const n20 = feats.filter((f) => f.properties.sat !== "NOAA-21").length, n21 = feats.length - n20;
   const win = liveWindow(live.hours);
   const t = (ms) => new Date(ms).toISOString().slice(0, 16).replace("T", " ");
@@ -584,7 +598,6 @@ function renderLive() {
   live.meta = renderLiveChart($("livechart"), feats, live.hours);
   live.span = { start: startMs, end: Date.now() };
   $("dl-live").disabled = false;
-  state.liveLegend = `<ul class="legend"><li><span class="sw key-live"></span>live hotspot${infoIcon(`Near real time, not harmonised: VIIRS on NOAA-20 and NOAA-21, ${WINDOW_LABEL[live.hours]}.`)}</li></ul>`;
   updatePop();
   renderLegends();
   renderExposure();

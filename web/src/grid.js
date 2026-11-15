@@ -33,7 +33,7 @@ export function buildGrid(d, agg, range) {
 
 // Live: hotspot counts per cell. counts is a Map of cell index -> hotspots.
 export function buildLiveGrid(d, counts) {
-  const scale = makeScale([...counts.values()]);
+  const scale = makeScale([...counts.values()], { integer: true });
   const features = [...counts].map(([i, v]) => cellFeature(d, i, { v, est: false, zero: false, color: scale.color(v) }));
   return { features, scale, n: features.length, unit: "hotspots" };
 }
