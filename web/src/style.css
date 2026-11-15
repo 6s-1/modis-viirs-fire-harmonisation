@@ -701,3 +701,12 @@ table.cal { table-layout: fixed; width: 100%; min-width: 440px; }
 .fps-meter[data-level="good"] b { color: #7ddc9a; }
 .fps-meter[data-level="ok"] b { color: #f2d27a; }
 .fps-meter[data-level="bad"] b { color: #f97066; }
+
+/* Compared with past years: each chart a separated block, subject heading above,
+   one muted reading below the legend */
+.cblock { padding: 18px 0; border-top: 0; }
+.cblock + .cblock { border-top: 1px solid var(--card-line); padding-top: 18px; }
+.cblock:first-child { padding-top: 2px; }
+.cb-title { margin: 0 0 10px; font-size: var(--fs-l); font-weight: 600; letter-spacing: -0.01em; color: var(--ink); line-height: 1.3; }
+.reading { margin: 8px 0 0; font-size: var(--fs-s); line-height: 1.45; color: var(--muted); }
+.reading .info-i { vertical-align: 1px; }

@@ -165,8 +165,7 @@ function trendBlock(d, totals, yearFilter, observedOnly) {
       <input type="checkbox" id="trend-est"${useEst ? " checked" : ""}${observedOnly ? " disabled" : ""}/> Include estimated years (${span(estYears.filter((yr) => !rows.find((t) => t.y === yr).partial))})</label>` : "";
 
   return `<section class="cblock" data-b="trend">
-    <p class="kicker">Trend</p>
-    <p class="headline">${headline}${infoIcon(sub)}</p>
+    <h3 class="cb-title">Yearly totals, ${rows.length ? `${rows[0].y} to ${rows[rows.length - 1].y}` : ""}</h3>
     ${estToggle}
     <svg viewBox="0 0 ${W} ${H}" class="ychart" role="img" aria-label="Fire cell-days per year with the trend line. ${headline}.">
       <defs><pattern id="hatch" width="4" height="4" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
@@ -180,6 +179,7 @@ function trendBlock(d, totals, yearFilter, observedOnly) {
       <li><span class="sw key-light"></span>${d.lastYear} to date</li>
       ${fit ? `<li><span class="sw key-trend${sig ? "" : " dash"}"></span>trend ${y0}–${y1}</li><li><span class="sw key-tband"></span>likely range of the trend</li>` : ""}
     </ul>
+    <p class="reading">${headline}${infoIcon(sub)}</p>
   </section>`;
 }
 
@@ -234,13 +234,12 @@ function anomalyBlock(d, agg, years) {
       <span class="ar">${r.med < 1 ? `<span class="muted">usually ~0</span>` : `${times(r)} typical <span class="muted">(${fmt(r.med)})</span>`}</span></li>`).join("")}</ol>` : "";
 
   return `<section class="cblock" data-b="anom">
-    <p class="kicker">Unusual months</p>
-    <p class="headline">${headline}${infoIcon(`A month counts as unusually high when it is above the 90th percentile and above twice the median of the same month in the other years shown, and at least ${ANOM_MIN} cell-days. Partial months are left out.`)}</p>
-    ${sub ? `<p class="subcap">${sub}</p>` : ""}
+    <h3 class="cb-title">Month by month, ${years.length ? `${Math.min(...years)} to ${Math.max(...years)}` : ""}</h3>
     <svg viewBox="0 0 ${W} ${H}" class="ychart" role="img" aria-label="Fire cell-days per month, unusually high months highlighted. ${headline}.">
       ${estZone}${axis(max, y, padL, W - padR)}${bars}${rug}${xt}
       <path d="M0,0" class="xh" hidden/><rect x="${padL}" y="${padT}" width="${W - padL - padR}" height="${H - padT - padB + 6}" class="hit" data-xh="anom"/></svg>
     <ul class="legend"><li><span class="sw key-mbar"></span>month</li><li><span class="sw key-anom"></span>unusually high</li></ul>
+    <p class="reading">${headline}${infoIcon(`A month counts as unusually high when it is above the 90th percentile and above twice the median of the same month in the other years shown, and at least ${ANOM_MIN} cell-days. Partial months are left out.`)}</p>
     ${list}
   </section>`;
 }
@@ -346,14 +345,14 @@ function cumulative(d, agg, yearsShown, yearFilter) {
       ${vals.length ? `<br>${fmt(median(vals.map((v) => v[1])))} typical<br>${fmt(hiY[1])} highest <span class="muted">(${hiY[0]})</span>` : ""}`;
   });
   crosshair("ytd", MONTHS.map((_, k) => x(k + 1)), rows, padT, H - padB);
-  return `<div class="sub-chart" data-c="ytd">
-    <p class="ctitle">Year to date</p>
-    <p class="headline sm">${headline}${sub ? infoIcon(sub) : ""}</p>
+  return `<section class="cblock" data-b="ytd">
+    <h3 class="cb-title">Fire so far this year, against every past year</h3>
     <svg viewBox="0 0 ${W} ${H}" class="ychart" role="img" aria-label="Cumulative fire cell-days through the year for every year, ${Y} highlighted. ${headline}.">
       ${axis(max, yy, padL, W - padR)}${back}${front}${xt}
       <path d="M0,0" class="xh" hidden/><rect x="${padL}" y="${padT}" width="${W - padL - padR}" height="${H - padT - padB}" class="hit" data-xh="ytd"/></svg>
     <ul class="legend"><li><span class="sw key-cumnow"></span>${Y}</li><li><span class="sw key-cum"></span>other years</li>
-      <li><span class="sw key-cum dash"></span>estimated years</li></ul></div>`;
+      <li><span class="sw key-cum dash"></span>estimated years</li></ul>
+    <p class="reading">${headline}${sub ? infoIcon(sub) : ""}</p></section>`;
 }
 
 function seasonal(d, agg, medianYears) {
@@ -392,9 +391,8 @@ function seasonal(d, agg, medianYears) {
     return `<span class="muted">${LONG[k]}</span>${c ? `<br><strong>${fmt(c.v)}</strong> in ${Y}${c.partial ? ` <span class="muted">(partial)</span>` : ""}${c.nrt ? ` <span class="muted">· provisional</span>` : ""}` : ""}
       <br>${fmt(med[k])} typical<br><span class="muted">middle half ${fmt(q1[k])}–${fmt(q3[k])}</span>`;
   }), padT, H - padB);
-  return `<div class="sub-chart" data-c="season">
-    <p class="ctitle">Seasonal profile</p>
-    <p class="headline sm">${headline}${sub ? infoIcon(sub) : ""}</p>
+  return `<section class="cblock" data-b="season">
+    <h3 class="cb-title">Each month of ${Y} against a typical year</h3>
     <svg viewBox="0 0 ${W} ${H}" class="ychart" role="img" aria-label="Typical fire cell-days by month with ${Y} overlaid. ${headline}.">
       ${axis(max, y, padL, W - padR)}<path d="${band}" class="iqr"/><path d="${medPath}" class="medcurve"/><path d="${curPath}" class="nowcurve"/>${dots}${endLab}${xt}
       <path d="M0,0" class="xh" hidden/><rect x="${padL}" y="${padT}" width="${W - padL - padR}" height="${H - padT - padB}" class="hit" data-xh="season"/></svg>
@@ -403,7 +401,8 @@ function seasonal(d, agg, medianYears) {
       <li><span class="sw key-medcurve"></span>typical (median ${span(medianYears)})</li>
       <li><span class="sw key-iqr"></span>middle half of years</li>
       <li><span class="sw key-hollow"></span>partial month</li>
-    </ul></div>`;
+    </ul>
+    <p class="reading">${headline}${sub ? infoIcon(sub) : ""}</p></section>`;
 }
 
 function thisYearBlock(d, agg, years, yearFilter, medianYears) {
@@ -423,15 +422,15 @@ function thisYearBlock(d, agg, years, yearFilter, medianYears) {
   while (j > 0 && d.months[j].partial) j--;
   if (j !== lastI) html += monthBullet(d, agg, j, yearFilter, false);
   return `<section class="cblock" data-b="now">
-    <p class="kicker">This year vs typical</p>
+    <h3 class="cb-title">The latest months against past years</h3>
     ${html}
     <ul class="legend">
       <li><span class="sw key-bbar"></span>this year</li>
       <li><span class="sw key-bmed"></span>typical (median)</li>
       <li><span class="sw key-bband"></span>middle half of past years</li></ul>
-    ${cumulative(d, agg, years, yearFilter)}
-    ${seasonal(d, agg, medianYears)}
-  </section>`;
+  </section>`
+    + cumulative(d, agg, years, yearFilter)
+    + seasonal(d, agg, medianYears);
 }
 
 // ---------- raw view: each satellite's own yearly cell-days
