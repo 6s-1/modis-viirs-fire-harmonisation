@@ -13,9 +13,10 @@ import { addGridLayers, attachGridHover, buildGrid, buildLiveGrid, gridLegendHTM
 import { initLayersControl, overlays, setLiveMode } from "./layers.js";
 import { raisePlaces, setPlacesVisible } from "./places.js";
 import { addTrendLayers, attachTrendHover, buildTrend, setTrend, trendLegendHTML } from "./trend.js";
+import { addHoverLayers, footprint, raiseHover, scheduleHover, setHover } from "./hover.js";
 import { fixPair, lockCameras, layerPicker, repaintPickers, view } from "./views.js";
 import { readUrl, writeUrl } from "./urlstate.js";
-import { addLiveLayer, attachLiveHover, fetchLive, liveAvailable } from "./live.js";
+import { addLiveLayer, attachLiveHover, fetchLive, liveAvailable, liveReason } from "./live.js";
 import { liveWindow, renderLiveChart, setLivePlaceNamer } from "./livechart.js";
 
 const OBSERVED_FROM = 2012;
@@ -98,7 +99,7 @@ function setupMap(map) {
   addGridLayers(map);
   attachGridHover(map, $("tip"), () => ({ unit: state.app === "live" ? "hotspots" : "cell-days",
     label: state.app === "live" ? WINDOW_LABEL[live.hours] : rangeLabel(),
-    place: (i) => (state.d && i !== undefined && state.d.lat[i] !== undefined ? placeName(state.d.lat[i], state.d.lon[i]) : "") }), () => maps);
+    place: (i) => (state.d && i !== undefined && state.d.lat[i] !== undefined ? placeName(state.d.lat[i], state.d.lon[i]) : "") }), linkHover);
   map.addSource("exp", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
   map.addLayer({ id: "exp-fill", type: "fill", source: "exp", paint: { "fill-color": "#ffffff", "fill-opacity": 0.01 } });
   map.addLayer({ id: "exp-line", type: "line", source: "exp", paint: { "line-color": "#ffffff", "line-width": 1.6 } });
@@ -127,6 +128,15 @@ function setupMap(map) {
   addLiveLayer(map);
   attachLiveHover(map, $("tip"));
   raisePlaces(map); // borders and labels above the fire grid
+  addHoverLayers(map); // added last: the outline sits above every fill, trend, population and Places
+  // population and the trend layer are hoverable too, not just the fire grid
+  for (const layer of ["pop-fill", "trend-fill"]) {
+    map.on("mousemove", layer, (e) => {
+      const f = e.features && e.features[0];
+      if (f) linkHover(map, f.properties.h3 || null);
+    });
+    map.on("mouseleave", layer, () => linkHover(map, null));
+  }
   map._ready = true;
   // bring this map up to date with whatever has been computed so far
   drawBox(state.box);
@@ -302,6 +312,22 @@ function flyToCamera(cam) {
   map.flyTo({ center: cam.center, zoom: cam.zoom, duration, curve: 1.42, easing: easeInOutCubic, essential: true });
 }
 
+// ---- linked hover: the hovered ground is outlined on every globe, translated to the resolution
+// each one draws at. The resolution a globe shows depends on its layer and the view mode.
+function hoverResOf(m) {
+  const show = layersFor(m);
+  if (show.trend || show.people) return 5;          // both are drawn on the display grid
+  return state.grid && state.grid.coarse ? 4 : 5;   // the fire grid is rolled up in compare
+}
+function linkHover(from, h3id) {
+  scheduleHover(() => {
+    for (const m of maps) {
+      if (!m._ready) continue;
+      setHover(m, h3id ? footprint(h3id, hoverResOf(m)) : []);
+    }
+  });
+}
+
 // ---- views: one globe, or two locked globes (compare). On a narrow window the two globes stack
 // as the layout already does, still locked together.
 const narrow = window.matchMedia("(max-width: 960px)");
@@ -380,7 +406,7 @@ function refreshGrid() {
   const isLive = state.app === "live";
   const coarse = view.mode === "compare"; // two globes: fewer, larger cells so both stay smooth
   const g = (state.grid = isLive ? state.liveGrid || { features: [], scale: null, n: 0 } : buildGrid(state.d, state.agg, state.range, { coarse }));
-  for (const m of maps) setGrid(m, g.features);
+  for (const m of maps) { setGrid(m, g.features); raiseHover(m); }
   state.fireLegend = !g.n || !g.scale ? ""
     : isLive ? gridLegendHTML(g.scale, { live: true, windowLabel: WINDOW_LABEL[live.hours] })
     : gridLegendHTML(g.scale, { rangeLabel: rangeLabel(), coarse: g.coarse });
@@ -575,8 +601,8 @@ function renderExposure() {
 const live = { hours: 24, seq: 0, feats: [], earlier: [], reachFrom: 0 };
 const LIVE_DOWN = "Live fire data is unavailable right now.";
 const WINDOW_LABEL = { 24: "last 24 hours", 48: "last 48 hours", 168: "last 7 days" };
-let liveOk = null; // null = not checked yet
-const liveReady = liveAvailable().then((ok) => (liveOk = ok));
+// No cached verdict: liveAvailable() checks again on each attempt, so one dropped request no
+// longer wedges live mode off until a reload.
 
 // Which layers each map shows. The fire grid is the base and always on; overlays follow their
 // toggles in the Layers control. Nothing else appears unless it is turned on.
@@ -627,7 +653,7 @@ function popColor(v) { let k = 0; while (k < POP_EDGES.length && v >= POP_EDGES[
 function updatePop() {
   const d = state.d;
   state.popFeatures = !wantsPeople() || !d || !state.agg ? [] : state.agg.gridCells.filter((i) => d.pop[i] > 0).map((i) => ({ type: "Feature",
-    properties: { color: popColor(d.pop[i]), p: d.pop[i] },
+    properties: { color: popColor(d.pop[i]), p: d.pop[i], h3: h3Id(d, i) },
     geometry: { type: "Polygon", coordinates: [cellToBoundary(h3Id(d, i), true)] } }));
   for (const m of maps) { const src = m.getSource("pop"); if (src) src.setData({ type: "FeatureCollection", features: state.popFeatures }); }
 }
@@ -657,16 +683,19 @@ function liveDown() {
   document.body.classList.add("live-down");
   state.liveGrid = null;
   refreshGrid();
-  $("summary").innerHTML = `<p class="notice">${LIVE_DOWN}</p>`;
+  // in dev the banner names the failure; the published site keeps the plain sentence
+  const why = import.meta.env.DEV && liveReason ? ` <span class="muted">(${liveReason})</span>` : "";
+  $("summary").innerHTML = `<p class="notice">${LIVE_DOWN}${why}</p>`;
   for (const m of maps) if (m.getSource("live")) m.getSource("live").setData({ type: "FeatureCollection", features: [] });
   $("grid-legend").innerHTML = "";
 }
 
 async function loadLive() {
   const seq = ++live.seq;
-  if (liveOk === null) await liveReady;
+  $("summary").innerHTML = `<p class="muted small">Loading live hotspots…</p>`;
+  const ok = await liveAvailable();
   if (seq !== live.seq || state.app !== "live") return;
-  if (!liveOk) { liveDown(); return; }
+  if (!ok) { liveDown(); return; }
   document.body.classList.remove("live-down");
   $("summary").innerHTML = `<p class="muted small">Loading live hotspots…</p>`;
   $("dl-live").disabled = true; $("dl-status").textContent = "";
