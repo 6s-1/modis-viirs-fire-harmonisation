@@ -213,8 +213,8 @@ function anomalyBlock(d, agg, years) {
   const times = (r) => (r.med < 1 ? "" : r.r >= 10 ? `${Math.round(r.r)}×` : `${r.r.toFixed(1)}×`);
   const vsTyp = (r) => (r.med < 1 ? "where there is usually almost none" : `${times(r)} typical`);
   const headline = anoms.length
-    ? `${anoms.length === 1 ? "One month was" : `${anoms.length} months were`} unusually high for the time of year; the biggest was ${label(top[0])}${top[0].med < 1 ? ` (${fmt(top[0].v)} cell-days ${vsTyp(top[0])})` : ` at ${vsTyp(top[0])}`}`
-    : "No month stood out as unusually high for its time of year";
+    ? `${anoms.length === 1 ? "One month was" : `${anoms.length} months were`} unusually high for the time of year.`
+    : "No month stood out as unusually high for its time of year.";
 
   const W = 560, H = 150, padL = 44, padR = 10, padT = 14, padB = 22;
   const n = Math.max(rows.length, 1);
@@ -325,8 +325,8 @@ function cumulative(d, agg, yearsShown, yearFilter) {
   const rank = others.filter((y) => sameDay(y) > cur).length + 1;
   const dateTxt = `${nDays} ${MONTHS[last.m - 1]}`;
   const headline = others.length
-    ? `${Y} to ${dateTxt}: ${rank === 1 ? "the highest" : `the ${ordinal(rank)} highest`} of ${others.length + 1} years at this date`
-    : `${Y} to ${dateTxt}`;
+    ? `${rank === 1 ? "The highest" : `The ${ordinal(rank)} highest`} of ${others.length + 1} years at this date.`
+    : `${Y} to ${dateTxt}.`;
   const sub = others.length ? `${fmt(cur)} cell-days so far against a typical ${fmt(median(others.map(sameDay)))} by this date (median ${span(others)}).` : "";
 
   const W = 560, H = 190, padL = 44, padR = 40, padB = 22, padT = 10;
