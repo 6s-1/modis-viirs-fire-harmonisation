@@ -57,7 +57,7 @@ map.on("style.load", () => {
   if (cam) map.jumpTo(cam);
 });
 
-// Mid-grey basemap so both ends of the fire scale stand out (pale yellow low end, dark red
+// Mid-grey basemap so both ends of the fire scale stand out (light orange low end, dark red
 // high end): land ~ rgb(160,163,168), water darker, no blue or green tints.
 function neutralBasemap() {
   const paint = { background: ["background-color", "#a0a3a8"], water: ["fill-color", "#6f747c"], park: ["fill-color", "#9a9da2"],

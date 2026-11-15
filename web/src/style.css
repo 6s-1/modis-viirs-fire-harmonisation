@@ -19,7 +19,7 @@
   --error: #f97066;
   --warn-bg: #3a3017;
   --warn-ink: #f2d27a;
-  --modis: #9aa0aa; --viirs: #e8a33d; /* raw series: colour = instrument, dashes = satellite */
+  --modis: #9aa0aa; --viirs: #f59450; /* raw series: colour = instrument, dashes = satellite */
   color-scheme: dark;
 }
 
@@ -404,11 +404,11 @@ body.mode-live.live-down #live-window { display: none !important; }
 .ychart .tline.weak { stroke-dasharray: 5 4; opacity: 0.75; }
 .ychart .tband { fill: var(--viirs); opacity: 0.16; }
 .ychart .mbar { fill: #6a6f7a; }
-.ychart .mbar.anom { fill: #ec5527; }
+.ychart .mbar.anom { fill: #df4531; }
 .ychart .mbar.partial { opacity: 0.5; }
 .ychart .mbar.hl { fill: var(--ink); }
 .ychart .rug { fill: transparent; }
-.ychart .rug.on { fill: #ec5527; }
+.ychart .rug.on { fill: #df4531; }
 .ychart .hit { fill: transparent; outline: none; }
 .ychart .hit:focus-visible { fill: rgba(255, 255, 255, 0.06); }
 .ychart .nohit, .ychart .nohit * { pointer-events: none; }
@@ -416,9 +416,9 @@ body.mode-live.live-down #live-window { display: none !important; }
 .ychart .xh[hidden] { display: none; }
 .key-trend { width: 16px; height: 0; border-top: 2px solid var(--viirs); border-radius: 0; }
 .key-trend.dash { border-top-style: dashed; }
-.key-tband { background: rgba(232, 163, 61, 0.28); }
+.key-tband { background: rgba(245, 148, 80, 0.28); }
 .key-mbar { background: #6a6f7a; }
-.key-anom { background: #ec5527; }
+.key-anom { background: #df4531; }
 .anoms { list-style: none; counter-reset: a; margin: 10px 0 0; padding: 0; font-size: 0.8rem; font-variant-numeric: tabular-nums; }
 .anoms li { counter-increment: a; display: grid; grid-template-columns: 18px 1fr auto auto; gap: 10px; align-items: baseline;
   padding: 5px 4px; border-top: 1px solid var(--line); border-radius: 4px; outline: none; }

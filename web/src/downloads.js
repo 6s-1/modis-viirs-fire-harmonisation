@@ -162,7 +162,7 @@ export async function calendarPNG(d, agg, cal, opts) {
   g.fillStyle = "#0b0d12"; g.fillRect(0, 0, W, H);
   g.fillStyle = INK; g.font = "600 18px 'IBM Plex Sans', system-ui, sans-serif"; g.fillText(title, pad, 32);
   g.fillStyle = INK2; g.font = "12px 'IBM Plex Sans', system-ui, sans-serif"; g.fillText(subtitle, pad, 52);
-  g.fillText("Fire cell-days per month. Pale yellow = least fire, dark red = most. Dashed outline: estimated from MODIS.", pad, 70);
+  g.fillText("Fire cell-days per month. Light orange = least fire, dark red = most. Dashed outline: estimated from MODIS.", pad, 70);
   // legend
   let x = pad;
   const legend = [["no fire", ZERO], ...cal.scale.colors.map((c, k) => [cal.scale.label(k), c])];

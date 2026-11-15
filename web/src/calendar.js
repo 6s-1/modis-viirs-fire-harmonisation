@@ -6,10 +6,11 @@ import { MONTHS, SOURCE_LABEL, fmt, fmtShort, fmtSig, isEstimated, median, recor
 export const SENSOR_LABEL = { terra: "MODIS Terra", aqua: "MODIS Aqua", snpp: "VIIRS S-NPP", noaa20: "VIIRS NOAA-20", viirs: "VIIRS" };
 const SENSOR_SHORT = { terra: "Terra", aqua: "Aqua", viirs: "VIIRS" };
 
-// Fire scale: six classes from pale yellow (least) through orange and red to dark red (most).
-// Lightness falls steadily (OKLab L 95 -> 36), so the order also reads in greyscale; zero is not
-// a class (empty outlined cell, "no fire"). Darker red = more fire.
-export const RAMP = ["#fff1a8", "#fecb5c", "#fd9638", "#ec5527", "#c81e1f", "#8c0d18"];
+// Fire scale: six classes in one warm family that only darkens, light orange (least) through orange,
+// red-orange and red to dark red (most); no yellow. CIELAB L* falls in even steps of ~12
+// (88, 76, 64, 52, 40, 28) while hue runs 62 -> 28 degrees, so the order also reads in greyscale and
+// with red-green colour blindness. Zero is not a class (empty outlined cell, "no fire").
+export const RAMP = ["#ffd5b8", "#ffa67d", "#fb7146", "#df4531", "#b2292a", "#7d1e23"];
 
 // Diverging scale for "compared with normal": ratio to the median of the same month.
 // Purple = below normal, orange = above, neutral grey at 1x. Both arms get stronger further from 1x.

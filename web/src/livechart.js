@@ -4,7 +4,7 @@
 import { fmt } from "./data.js";
 import { infoIcon } from "./info.js";
 
-const SATS = [["NOAA-20", "#e8a33d"], ["NOAA-21", "#c9cdd4"]];
+const SATS = [["NOAA-20", "#f59450"], ["NOAA-21", "#c9cdd4"]];
 const H = 3600e3, D = 24 * H;
 
 export function liveWindow(hours, now = Date.now()) {
