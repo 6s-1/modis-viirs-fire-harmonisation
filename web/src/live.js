@@ -2,7 +2,9 @@
 // through the Cloudflare Worker that holds the FIRMS key. Unharmonised; shown as points.
 
 const LIVE_URL = (import.meta.env.VITE_LIVE_URL || "").replace(/\/$/, "");
-const WINDOWS = { 24: 2, 48: 3, 168: 7 }; // hours -> FIRMS day range to request
+// hours -> FIRMS day range to request. Each covers the window twice over where FIRMS allows it,
+// so "new and continuing" can see the equally long window before this one. 7 days is the cap.
+const WINDOWS = { 24: 2, 48: 4, 168: 7 };
 const SAT = { N20: "NOAA-20", N21: "NOAA-21", "1": "NOAA-20", "2": "NOAA-21" };
 
 export async function liveAvailable() {
@@ -36,16 +38,21 @@ function parse(csv, sinceMs) {
   return out;
 }
 
+// Returns { feats, earlier, reach }: the hotspots inside the window, those from before it that
+// the feed still covers, and how far back the feed actually reached (ms).
 export async function fetchLive(bbox, hours) {
   const days = WINDOWS[hours];
-  const since = Date.now() - hours * 3600 * 1000;
+  const now = Date.now();
+  const since = now - hours * 3600 * 1000;
+  const reachFrom = now - days * 86400 * 1000;
   const q = `days=${days}&bbox=${bbox.map((v) => v.toFixed(2)).join(",")}`;
   const res = await Promise.all(["noaa20", "noaa21"].map(async (src) => {
     const r = await fetch(`${LIVE_URL}/fires?source=${src}&${q}`, { signal: AbortSignal.timeout(15000) });
     if (!r.ok) throw new Error(`live ${src}: ${r.status}`);
-    return parse(await r.text(), since);
+    return parse(await r.text(), reachFrom); // keep the earlier rows too
   }));
-  return res.flat();
+  const all = res.flat();
+  return { feats: all.filter((f) => f.properties.t >= since), earlier: all.filter((f) => f.properties.t < since), reachFrom };
 }
 
 export function addLiveLayer(map) {

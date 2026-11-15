@@ -47,10 +47,10 @@ h3 { font-size: 0.8rem; font-weight: 500; margin: 0 0 4px; color: var(--ink-2); 
 .site-top { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; padding: 14px 20px 10px; }
 .about-link { margin-left: auto; font-size: 0.82rem; }
 
-/* layout: globe half and panel half */
+/* layout: map panel 60%, side panel 40% */
 .layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); /* map 60%, side panel 40%: set here only */
   gap: 24px;
   padding: 0 20px 28px;
 }
@@ -84,7 +84,7 @@ body.app .side { min-height: 0; overflow-y: auto; overscroll-behavior: contain; 
 
 
 /* floating controls on the map */
-.map-ui { position: absolute; z-index: 2; }
+.map-ui { position: absolute; z-index: 2; width: max-content; max-width: calc(100% - 24px); }
 .map-tools { top: 12px; left: 12px; display: flex; gap: 6px; flex-wrap: wrap; max-width: calc(100% - 70px); }
 .map-legend {
   right: 12px; bottom: 36px; max-width: min(300px, calc(100% - 24px));
@@ -270,7 +270,6 @@ table.data thead th { color: var(--ink-2); font-weight: 500; }
 
 /* phones: smaller floating legend over the map */
 @media (max-width: 640px) {
-  .map-legend { bottom: 30px; right: 8px; padding: 6px 8px; max-width: calc(100% - 16px); }
 }
 
 .sub.dim { font-size: 0.72rem; color: var(--muted); opacity: 0.85; }
@@ -342,7 +341,7 @@ table.data thead th { color: var(--ink-2); font-weight: 500; }
 .brow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin: 0 0 6px; border: 0; padding: 0; }
 .brow-h { width: 72px; flex: none; font-size: 0.74rem; color: var(--ink-2); }
 .brow label { display: flex; flex-direction: row; align-items: center; gap: 6px; font-size: 0.74rem; color: var(--muted); }
-.area .brow input[type="number"] { width: 104px; }
+.area .brow input[inputmode="decimal"] { width: 104px; }
 .area .brow input[type="month"] { width: 150px; }
 @media (max-width: 420px) { .brow-h { width: 100%; } }
 
@@ -570,7 +569,162 @@ table.data thead th { font-family: var(--mono); font-size: var(--fs-2xs); font-w
 .map-legend { background: rgba(15, 17, 24, 0.88); border-color: var(--card-line); padding: 9px 11px; }
 @media (max-width: 480px) {
   .brow-h { width: 100%; }
-  .area .brow input[type="number"] { width: 96px; }
+  .area .brow input[inputmode="decimal"] { width: 96px; }
   .site-top { gap: 8px 12px; padding: 12px 16px 10px; }
 }
 .exp-show { margin: 0 0 8px; }
+/* Apply spans the form, below the dates, shaped like the inputs */
+.apply-row { display: block; margin: 4px 0 0; }
+.apply-row button { width: 100%; height: 32px; padding: 0 12px; border-radius: 7px; background: var(--raise); border-color: var(--card-line); }
+.apply-row button:hover { border-color: #3a3f4b; background: #20242d; }
+
+/* Layers control: a button that opens the layer toggles in a small panel */
+.layers { position: relative; }
+.layers-panel {
+  position: absolute; top: calc(100% + 6px); left: 0; z-index: 5; min-width: 230px;
+  background: rgba(15, 17, 24, 0.96); border: 1px solid var(--card-line); border-radius: 10px; padding: 10px 12px 8px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45); backdrop-filter: blur(6px);
+}
+.lp-title { margin: 0 0 6px; font-family: var(--mono); font-size: var(--fs-2xs); letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); }
+.lp-row { display: flex; align-items: center; gap: 8px; padding: 5px 0; font-size: var(--fs-s); color: var(--ink); cursor: pointer; white-space: nowrap; }
+.lp-row input { accent-color: var(--accent); margin: 0; }
+.lp-row.off, .lp-base { color: var(--muted); cursor: default; }
+.lp-note { margin-left: auto; padding-left: 10px; font-size: var(--fs-2xs); color: var(--muted); }
+#layers-btn[aria-expanded="true"] { border-color: var(--accent); }
+
+/* map controls in the four corners: layers top left, zoom top right, legend bottom left,
+   selection tools bottom right. The centre of the globe stays clear. */
+.corner-tl { top: 12px; left: 12px; }
+.corner-br { right: 12px; bottom: 12px; }
+.corner-bl { left: 12px; bottom: 12px; right: auto; }
+.map-tools { top: auto; left: auto; display: flex; gap: 4px; flex-wrap: nowrap; max-width: none; padding: 4px;
+  background: rgba(15, 17, 24, 0.88); border: 1px solid var(--card-line); border-radius: 999px; backdrop-filter: blur(6px); }
+.map-tools button { padding: 5px 12px; }
+.map-tools button.ghost { background: transparent; border-color: transparent; }
+.map-tools button.ghost:hover { border-color: var(--card-line); }
+.map-legend { max-width: min(320px, calc(100% - 24px)); }
+.maplibregl-ctrl-top-right .maplibregl-ctrl-attrib { margin-top: 6px; }
+@media (max-width: 640px) {
+  .map-legend { left: 8px; bottom: 8px; right: auto; max-width: calc(100% - 16px); }
+  .corner-br { right: 8px; bottom: auto; top: 8px; margin-right: 44px; } /* phones: tools move up beside zoom so the legend has the bottom */
+  .corner-tl { top: 8px; left: 8px; }
+  .map-tools button { padding: 4px 10px; }
+}
+/* calendar fits the 40% side panel: narrower total column */
+table.cal { min-width: 480px; border-spacing: 1.5px; }
+.cal td.tot { min-width: 72px; }
+.cal td.tot .rng { display: none; }
+@media (max-width: 640px) { .map-legend .legend { font-size: 10.5px; gap: 2px 8px; } .map-legend { padding: 6px 8px; } }
+table.cal { table-layout: fixed; width: 100%; min-width: 440px; }
+.cal thead th:first-child { width: 78px; }
+.cal thead th:last-child { width: 66px; }
+.cal td.tot { min-width: 0; overflow: hidden; text-overflow: clip; }
+.map-ui.layers { position: absolute; }
+
+/* map views: one globe, two stacked and locked (compare), or one split by a divider (swipe) */
+.map-stack { position: absolute; inset: 0; display: grid; grid-template-rows: 1fr; }
+.map-stack[data-view="compare"] { grid-template-rows: 1fr 1fr; gap: 2px; }
+.map-slot { position: relative; min-height: 0; overflow: hidden; border-radius: 12px; }
+.map-slot > #map, .map-slot > #map-b { position: absolute; inset: 0; }
+.map-stack[data-view="swipe"] { grid-template-rows: 1fr; }
+.map-stack[data-view="swipe"] .map-slot { grid-area: 1 / 1; }
+.map-stack[data-view="swipe"] #map-slot-b { z-index: 1; }
+
+/* the layer picker on each globe, centred at the top so it clears the corners */
+.corner-tc { top: 10px; left: 50%; transform: translateX(-50%); width: max-content; max-width: calc(100% - 120px); }
+.view-pick select {
+  font: inherit; font-size: var(--fs-s); color: var(--ink); background: rgba(15, 17, 24, 0.92);
+  border: 1px solid var(--card-line); border-radius: 999px; padding: 5px 10px; cursor: pointer;
+}
+.view-pick select:hover { border-color: var(--muted); }
+
+/* swipe divider */
+.swipe-handle { position: absolute; top: 0; bottom: 0; width: 28px; margin-left: -14px; z-index: 3; cursor: ew-resize; touch-action: none; }
+.swipe-handle::before { content: ""; position: absolute; top: 0; bottom: 0; left: 13px; width: 2px; background: var(--ink); opacity: 0.9; }
+.swipe-grip {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 28px; height: 28px; border-radius: 50%;
+  background: var(--ink); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+.swipe-grip::before, .swipe-grip::after {
+  content: ""; position: absolute; top: 50%; width: 0; height: 0; margin-top: -4px;
+  border-top: 4px solid transparent; border-bottom: 4px solid transparent;
+}
+.swipe-grip::before { left: 5px; border-right: 5px solid #0b0d12; }
+.swipe-grip::after { right: 5px; border-left: 5px solid #0b0d12; }
+.swipe-handle:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+#compare-btn[aria-pressed="true"], #swipe-btn[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+/* compact legends and pickers when two globes share the panel */
+.map-stack[data-view="compare"] .map-legend { font-size: var(--fs-2xs); padding: 7px 9px; max-width: min(280px, calc(100% - 20px)); }
+.map-stack[data-view="compare"] .map-legend .legend { gap: 2px 8px; }
+/* the map canvas fills its slot; controls layered above it */
+.map-slot > #map, .map-slot > #map-b { position: absolute; inset: 0; z-index: 0; }
+.map-slot > .map-ui { z-index: 4; }
+/* swipe: the two pickers label their own side instead of stacking in the middle */
+.map-stack[data-view="swipe"] #map-slot-a .view-pick { left: 12px; transform: none; }
+.map-stack[data-view="swipe"] #map-slot-b .view-pick { left: auto; right: 12px; transform: none; }
+.map-stack[data-view="swipe"] .view-pick { top: 46px; }
+.map-stack[data-view="swipe"] #map-slot-b .map-legend { left: auto; right: 12px; }
+@media (max-width: 640px) {
+  .view-pick select { font-size: var(--fs-2xs); padding: 4px 8px; max-width: 42vw; }
+  .map-stack[data-view="swipe"] .view-pick { top: 42px; }
+  .map-stack[data-view="swipe"] #map-slot-a .view-pick { left: 8px; }
+  .map-stack[data-view="swipe"] #map-slot-b .view-pick { right: 8px; }
+  .map-stack[data-view="compare"] .view-pick, .map-stack[data-view="swipe"] .map-legend { font-size: var(--fs-2xs); }
+}
+@media (max-width: 640px) {
+  /* tools return to the bottom right; the legend sits above them so nothing collides */
+  .corner-br { right: 8px; bottom: 8px; top: auto; margin-right: 0; }
+  .map-legend { bottom: 48px; }
+  .map-stack[data-view="swipe"] #map-slot-b .map-legend { bottom: 48px; }
+}
+@media (max-width: 640px) {
+  /* swipe on a phone: right picker clears the zoom buttons, legends sit on their own side */
+  .map-stack[data-view="swipe"] #map-slot-b .view-pick { top: 84px; }
+  .map-stack[data-view="swipe"] #grid-legend { right: auto; max-width: 48%; }
+  .map-stack[data-view="swipe"] #grid-legend-b { left: auto; right: 8px; max-width: 48%; }
+}
+@media (max-width: 640px) {
+  .map-stack[data-view="swipe"] #grid-legend { left: 8px; right: auto; max-width: calc(50% - 14px); }
+  .map-stack[data-view="swipe"] #grid-legend-b { left: auto; right: 8px; max-width: calc(50% - 14px); }
+}
+/* swipe on wide screens: the right legend clears the tools row */
+.map-stack[data-view="swipe"] #grid-legend-b { bottom: 54px; }
+
+/* dev-only frame-rate readout (?fps=1) */
+.fps-meter {
+  position: fixed; left: 10px; bottom: 10px; z-index: 50; cursor: pointer; user-select: none;
+  font-family: var(--mono); font-size: 11px; line-height: 1.3; padding: 6px 9px; border-radius: 8px;
+  background: rgba(10, 12, 17, 0.92); border: 1px solid var(--card-line); color: var(--ink);
+}
+.fps-meter b { font-size: 16px; font-weight: 600; }
+.fps-meter .fps-sub { display: block; color: var(--muted); }
+.fps-meter[data-level="good"] b { color: #7ddc9a; }
+.fps-meter[data-level="ok"] b { color: #f2d27a; }
+.fps-meter[data-level="bad"] b { color: #f97066; }
+
+/* Compared with past years: each chart a separated block, subject heading above,
+   one muted reading below the legend */
+.cblock { padding: 18px 0; border-top: 0; }
+.cblock + .cblock { border-top: 1px solid var(--card-line); padding-top: 18px; }
+.cblock:first-child { padding-top: 2px; }
+.cb-title { margin: 0 0 10px; font-size: var(--fs-l); font-weight: 600; letter-spacing: -0.01em; color: var(--ink); line-height: 1.3; }
+.reading { margin: 8px 0 0; font-size: var(--fs-s); line-height: 1.45; color: var(--muted); }
+.reading .info-i { vertical-align: 1px; }
+/* when the fire season runs */
+.sb-bar.est { stroke: rgba(238, 240, 243, 0.55); stroke-width: 0.8; stroke-dasharray: 2 2; }
+.sb-peak { fill: var(--card); stroke: #11131a; stroke-width: 0.8; }
+.key-peak { width: 9px; height: 9px; border-radius: 50%; background: var(--card); box-shadow: inset 0 0 0 1px var(--muted); }
+.legend li .sw + .sw { margin-left: -3px; }
+/* distribution strip: dots are past periods, the big dot is now; marks labelled directly */
+.strip { margin-top: 2px; }
+.strip .sd-axis { stroke: #3a3f4a; stroke-width: 1; shape-rendering: crispEdges; }
+.strip .sd-past { fill: #8a8f99; opacity: 0.8; }
+.strip .sd-med { stroke: var(--ink-2); stroke-width: 2; }
+.strip .sd-now { fill: #df4531; stroke: var(--card); stroke-width: 2; }
+.strip .sd-lab { fill: var(--muted); font-size: 11px; }
+.strip .sd-lab.strong { fill: var(--ink); font-weight: 600; }
+.strip .sd-axis-title { fill: var(--muted); font-size: 10.5px; letter-spacing: 0.03em; }
+/* live mode: new and continuing cells */
+.lv-new { fill: #df4531; }
+.lv-cont { fill: #6a6f7a; }
+.reading .lead { color: var(--ink); font-size: var(--fs-m); font-weight: 600; }
