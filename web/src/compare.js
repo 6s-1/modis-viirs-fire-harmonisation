@@ -8,7 +8,7 @@
 // one muted line below the chart, with the statistics behind an info icon.
 // Blocks are patched in place on a new selection, so bars and lines glide to their new values.
 
-import { MONTHS, fmt, fmtShort, fmtSig, median, monthDays, quantile } from "./data.js";
+import { MONTHS, fmt, fmtShort, fmtSig, isEstimated, median, monthDays, quantile } from "./data.js";
 import { infoIcon } from "./info.js";
 import { distributionStrip, rankSentence } from "./strip.js";
 import { RAMP, makeScale } from "./calendar.js";
@@ -22,7 +22,6 @@ const sg = (v) => `${v < 0 ? "−" : ""}${fmtSig(Math.abs(v))}`;
 // Anomaly rule: above the 90th percentile AND above twice the median of the same month in the
 // other years, and at least this many cell-days.
 const ANOM_MIN = 10, ANOM_MIN_YEARS = 5, ANOM_TOP = 5;
-const isEstimatedSource = (src) => src === "estimated_from_modis" || src === "estimated_from_terra";
 
 // ---------- statistics
 
@@ -427,7 +426,7 @@ function seasonBlock(d, agg, years, yearFilter) {
       if (i !== undefined) {
         months++;
         if (d.months[i].partial) anyPartial = true;
-        if (isEstimatedSource(d.months[i].source)) est = true;
+        if (isEstimated(d.months[i].source)) est = true;
       }
       vs.push(v);
       total += v;
