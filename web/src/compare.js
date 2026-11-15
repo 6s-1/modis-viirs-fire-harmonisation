@@ -482,26 +482,33 @@ function seasonBlock(d, agg, years, yearFilter) {
   }).join("");
   const xt = MONTHS.map((m, k) => (k % 2 === 0 ? `<text x="${f1(x(k + 1.5))}" y="${H - 6}" class="tick" text-anchor="middle">${m}</text>` : "")).join("");
 
-  // How the season edges have moved. Measured years only: estimated years sit about three weeks
-  // wider at both ends, and MODIS and VIIRS agree to 0.2 weeks over the same years, so that step
-  // is an artefact of the estimation rather than a real shift. With too few measured years, say
-  // nothing rather than compare across the step.
-  const solid = rows.filter((r) => !r.partial && !r.est && r.y >= MEASURED_FROM);
+  // How the season edges have moved, tested rather than asserted. The same Theil-Sen slope and
+  // Mann-Kendall test as the trend layer, on measured years only. Raw MODIS across the whole
+  // record shows the same narrowing as the harmonised series (start +2.2 vs +2.5 weeks, end -2.5
+  // vs -2.6), so the pre-2012 step is real rather than an estimation artefact; but since 2012
+  // neither edge moves significantly, so the reading says so instead of quoting a shift.
+  const solid = rows.filter((r) => !r.partial && r.y >= MEASURED_FROM);
   const weeks = (months) => { const w = Math.abs(months * 4.35); return `${w.toFixed(w < 2 ? 1 : 0)} week${w >= 1.5 ? "s" : ""}`; };
-  let reading = "";
-  if (solid.length >= 9) {
-    const third = Math.max(3, Math.floor(solid.length / 3));
-    const early = solid.slice(0, third), late = solid.slice(-third);
-    const mean = (arr, key) => arr.reduce((a, r) => a + r[key], 0) / arr.length;
-    const dStart = mean(late, "first") - mean(early, "first");
-    const dEnd = mean(late, "last") - mean(early, "last");
-    const part = [];
-    if (Math.abs(dStart) >= 0.25) part.push(`starts about ${weeks(dStart)} ${dStart < 0 ? "earlier" : "later"}`);
-    if (Math.abs(dEnd) >= 0.25) part.push(`ends about ${weeks(dEnd)} ${dEnd > 0 ? "later" : "earlier"}`);
-    const early1 = `${early[0].y}–${early[early.length - 1].y}`;
-    reading = part.length
-      ? `Against ${early1}, the season now ${part.join(" and ")}.`
-      : `The season runs at about the same time as in ${early1}.`;
+  let reading = "", stats = "";
+  if (solid.length >= 8) {
+    const ys = solid.map((r) => r.y);
+    const test = (key) => {
+      const vs = solid.map((r) => r[key]);
+      const mk = mannKendall(vs);
+      return { fit: theilSen(ys, vs, mk.varS), p: mk.p };
+    };
+    const a = test("first"), b = test("last");
+    const span = `${ys[0]}–${ys[ys.length - 1]}`;
+    const moved = [];
+    if (a.p <= 0.05 && a.fit.b !== 0) moved.push(`starts about ${weeks(a.fit.b * solid.length)} ${a.fit.b < 0 ? "earlier" : "later"}`);
+    if (b.p <= 0.05 && b.fit.b !== 0) moved.push(`ends about ${weeks(b.fit.b * solid.length)} ${b.fit.b > 0 ? "later" : "earlier"}`);
+    reading = moved.length ? `Since ${MEASURED_FROM} the season ${moved.join(" and ")}.`
+      : `No clear shift in season timing since ${MEASURED_FROM}.`;
+    const pf = (v) => (v < 0.001 ? "p < 0.001" : `p = ${v.toFixed(v < 0.01 ? 3 : 2)}`);
+    stats = `Start ${a.fit.b >= 0 ? "+" : "−"}${weeks(a.fit.b)} a year (Mann–Kendall ${pf(a.p)}).<br>`
+      + `End ${b.fit.b >= 0 ? "+" : "−"}${weeks(b.fit.b)} a year (${pf(b.p)}).<br>`
+      + `Theil–Sen slope over ${solid.length} measured years, ${span}; a shift is stated only at p ≤ 0.05.<br>`
+      + `<span class="muted">Seasons before 2012 run wider at both ends. Raw MODIS alone shows the same narrowing across the record, so that is a real change, not an effect of estimating those years.</span>`;
   }
 
   return `<section class="cblock" data-b="season-timing">
@@ -514,7 +521,7 @@ function seasonBlock(d, agg, years, yearFilter) {
     </ul>
     <p class="reading">${reading}${infoIcon(`Each bar spans the months holding the middle 80% of that year's fire cell-days in the current selection, so a few early or late detections do not stretch it. The dot marks the month with the most fire.<br>
       Years without twelve complete months are left out; the current year is shown to date.<br>
-      ${reading ? `The comparison uses measured years only (${MEASURED_FROM} onwards): estimated years run about three weeks wider at both ends, which is an artefact of the estimation, not a real shift.<br>` : ""}
+      ${stats}
       <span class="muted">Years estimated from MODIS are outlined.</span>`)}</p>
   </section>`;
 }
