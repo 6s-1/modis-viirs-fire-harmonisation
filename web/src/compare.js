@@ -409,6 +409,57 @@ function seasonal(d, agg, medianYears) {
     <p class="reading">${headline}${sub ? infoIcon(sub) : ""}</p></section>`;
 }
 
+// ---------- 1b) people living where fire burned, by year
+// WorldPop is fixed at 2020, so a change between years is a change in where fire burned, not in
+// how many people live there. Same fire threshold as "Areas ranked by people exposed": a ~1 km
+// cell counts if it had any fire that year.
+
+function peopleBurnedBlock(d, agg, totals, yearFilter) {
+  if (!d.pfPop || !d.pfPop.length) return "";
+  const rows = totals.filter((t) => Number.isFinite(t.s) && !t.partial && yearFilter(t.y)).sort((a, b) => a.y - b.y);
+  if (rows.length < 3) return "";
+  const byYear = new Map(rows.map((t) => [t.y, 0]));
+  for (const i of agg.gridCells) {
+    for (let r2 = d.pfStart[i]; r2 < d.pfStart[i + 1]; r2++) {
+      const mask = d.pfMask[r2], pop = d.pfPop[r2];
+      if (!(pop > 0)) continue;
+      for (const [y] of byYear) if (mask & (1 << (y - 2000))) byYear.set(y, byYear.get(y) + pop);
+    }
+  }
+  const vals = rows.map((t) => byYear.get(t.y) || 0);
+  if (!vals.some((v) => v > 0)) return "";
+
+  const W = 560, H = 190, padL = 48, padR = 14, padT = 16, padB = 22;
+  const max = niceMax(Math.max(1, ...vals));
+  const y = (v) => padT + (H - padT - padB) * (1 - Math.max(v, 0) / max);
+  const bw = (W - padL - padR) / rows.length;
+  const cw = Math.min(24, Math.max(2, bw * 0.62));
+  const cx = (k) => padL + k * bw + bw / 2;
+  const every = rows.length > 16 ? 5 : rows.length > 8 ? 2 : 1;
+  const bars = rows.map((t, k) => {
+    const v = vals[k], x = cx(k) - cw / 2;
+    const html = `<strong>${fmt(Math.round(v))}</strong> people<br><span class="muted">${t.y}${t.est ? " · estimated from MODIS" : ""}</span>`;
+    return `<path d="${col(x, cw, y(v), y(0))}" class="tbar${t.est ? " est" : ""}"/>
+      ${t.y % every === 0 ? `<text x="${f1(cx(k))}" y="${H - 7}" class="tick" text-anchor="middle">${t.y}</text>` : ""}
+      <rect x="${f1(padL + k * bw)}" y="${padT}" width="${f1(bw)}" height="${H - padT - padB}" class="hit" tabindex="0"
+        aria-label="${t.y}: ${fmt(Math.round(v))} people in cells that had fire" ${tip(html)}/>`;
+  }).join("");
+  const peak = vals.indexOf(Math.max(...vals));
+  return `<section class="cblock" data-b="people-burned">
+    <h3 class="cb-title">People living where fire burned, ${rows[0].y} to ${rows[rows.length - 1].y}</h3>
+    <svg viewBox="0 0 ${W} ${H}" class="ychart" role="img" aria-label="People living in cells that had fire, by year">
+      <defs><pattern id="hatch-pb" width="4" height="4" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
+        <rect width="4" height="4" class="hatch-bg"/><line x1="0" y1="0" x2="0" y2="4" class="hatch-line"/></pattern></defs>
+      ${axis(max, y, padL, W - padR)}${bars}</svg>
+    <ul class="legend"><li><span class="sw key-bar"></span>measured</li>
+      ${rows.some((t) => t.est) ? `<li><span class="sw key-hatch"></span>estimated</li>` : ""}</ul>
+    <p class="reading">Most in ${rows[peak].y}: ${fmt(Math.round(vals[peak]))} people.${infoIcon(
+      `People living in ~1 km cells that had any fire that year, in the current selection.<br>
+       Population is fixed at WorldPop 2020, so a change between years is a change in where fire burned, not population growth.<br>
+       <span class="muted">Years without twelve complete months are left out. Estimated years are hatched.</span>`)}</p>
+  </section>`;
+}
+
 // ---------- 2) when the fire season runs, by year
 // One bar per year from the first month with fire to the last, a dot on the peak month, and the
 // bar coloured by that year's total on the fire ramp. Oldest year at the top, so reading down the
@@ -673,6 +724,7 @@ export function renderCompare(el, d, agg, opts) {
   const observedOnly = !yearFilter(MEASURED_FROM - 1);
   // widest timescale first, narrowing: years, then the season's shape, then this year, then months
   morph(el, trendBlock(d, totals, yearFilter, observedOnly)
+    + peopleBurnedBlock(d, agg, totals, yearFilter)
     + seasonBlock(d, agg, years, yearFilter)
     + nowVsPast(d, agg, yearFilter)
     + cumulative(d, agg, years, yearFilter)

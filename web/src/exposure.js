@@ -44,7 +44,7 @@ export function placeName(lat, lon) {
 
 // Renders the list for the selection box and returns the top areas [{ i, rank }] so the map can
 // outline and number them. onPick(i) zooms to an area; onHover(rank|null) links row and map.
-export function renderExposureList(el, d, box, liveFeats, liveHours, onPick, onHover) {
+export function renderExposureList(el, d, box, liveFeats, liveHours, onPick, onHover, range) {
   const { west: w, south: s, east: e, north: n } = box;
   const counts = new Map();
   let basis;
@@ -57,15 +57,23 @@ export function renderExposureList(el, d, box, liveFeats, liveHours, onPick, onH
     }
     basis = `live hotspots, ${{ 24: "last 24 hours", 48: "last 48 hours", 168: "last 7 days" }[liveHours]}`;
   } else {
-    const mi = d.months.length - 1, last = d.lastMonth;
+    // The selected date range, not just the latest month: the list used to answer for whatever
+    // month the record ended on, however far that was from the dates the reader had chosen.
+    const [a, b] = range && range.length === 2 ? range : [d.months.length - 1, d.months.length - 1];
     for (let i = 0; i < d.lat.length; i++) {
       const la = d.lat[i], lo = d.lon[i];
       if (la < s || la > n || lo < w || lo > e) continue;
       let c = 0;
-      for (let r = d.rawStart[i]; r < d.rawStart[i + 1]; r++) if (d.rawMonth[r] === mi && d.rawDet) c += d.rawDet[r];
+      for (let r = d.rawStart[i]; r < d.rawStart[i + 1]; r++) {
+        const mi = d.rawMonth[r];
+        if (mi >= a && mi <= b && d.rawDet) c += d.rawDet[r];
+      }
       if (c > 0) counts.set(i, c);
     }
-    basis = `hotspots 1–${monthDays(last)} ${MONTHS[last.m - 1]} ${last.y} (latest month in the record)`;
+    const first = d.months[a], last = d.months[b];
+    basis = a === b
+      ? `hotspots in ${MONTHS[first.m - 1]} ${first.y}${last.partial ? ` (1–${monthDays(last)})` : ""}`
+      : `hotspots, ${MONTHS[first.m - 1]} ${first.y} to ${MONTHS[last.m - 1]} ${last.y}`;
   }
   const rows = [...counts].map(([i, c]) => ({ i, c, people: d.pop ? d.pop[i] : 0 }))
     .sort((a, b) => b.people - a.people || b.c - a.c);

@@ -4,7 +4,7 @@ import "./fonts.js";
 import "./style.css";
 import { MONTHS, aggregate, cellIndexOf, fmt, fmtShort, h3Id, loadData, monthDays, population, rawRecorded, uncertaintyFactors } from "./data.js";
 import { renderExposureList, loadPlaces, placeName } from "./exposure.js";
-import { cellToBoundary, latLngToCell } from "h3-js";
+import { cellToBoundary, cellToChildren, cellToParent, latLngToCell } from "h3-js";
 import { attachTooltip, renderCalendar } from "./calendar.js";
 import { renderCompare } from "./compare.js";
 import { attachInfoTips, infoIcon } from "./info.js";
@@ -13,7 +13,10 @@ import { addGridLayers, attachGridHover, buildGrid, buildLiveGrid, gridLegendHTM
 import { initLayersControl, overlays, setLiveMode } from "./layers.js";
 import { raisePlaces, setPlacesVisible } from "./places.js";
 import { addTrendLayers, attachTrendHover, buildTrend, setTrend, trendLegendHTML } from "./trend.js";
-import { addHoverLayers, footprint, raiseHover, scheduleHover, setHover } from "./hover.js";
+import { addHoverLayers, footprint, raiseHover, scheduleHover, setHover, setPicked } from "./hover.js";
+import { closeWhyCard, renderWhyCard } from "./whycard.js";
+import { initTextSize } from "./textsize.js";
+import { initTour } from "./tour.js";
 import { fixPair, lockCameras, layerPicker, repaintPickers, view } from "./views.js";
 import { readUrl, writeUrl } from "./urlstate.js";
 import { addLiveLayer, attachLiveHover, fetchLive, liveAvailable, liveReason } from "./live.js";
@@ -99,6 +102,7 @@ function setupMap(map) {
   addGridLayers(map);
   attachGridHover(map, $("tip"), () => ({ unit: state.app === "live" ? "hotspots" : "cell-days",
     label: state.app === "live" ? WINDOW_LABEL[live.hours] : rangeLabel(),
+    paired: view.mode !== "single",
     place: (i) => (state.d && i !== undefined && state.d.lat[i] !== undefined ? placeName(state.d.lat[i], state.d.lon[i]) : "") }), linkHover);
   map.addSource("exp", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
   map.addLayer({ id: "exp-fill", type: "fill", source: "exp", paint: { "fill-color": "#ffffff", "fill-opacity": 0.01 } });
@@ -113,10 +117,10 @@ function setupMap(map) {
     paint: { "line-color": "#2a2e38", "line-width": 0.4, "line-opacity": 0.6 } }, "exp-fill");
   map.on("mousemove", "pop-fill", (e) => {
     const f = e.features && e.features[0];
-    if (!f) return;
+    if (!f || view.mode !== "single") return; // compare writes one paired tooltip instead
     const tip = $("tip");
     const pv = +f.properties.p;
-    tip.innerHTML = `<strong>${pv < 1 ? pv.toFixed(2) : fmt(pv)}</strong> people live in this grid cell<br><span class="muted">WorldPop 2020, modelled estimate</span>`;
+    tip.innerHTML = `<strong>${pv < 1 ? pv.toFixed(2) : fmt(pv)}</strong> people live in this grid cell`;
     tip.hidden = false;
     const r = tip.getBoundingClientRect();
     tip.style.left = `${Math.min(e.originalEvent.clientX + 14, innerWidth - r.width - 8)}px`;
@@ -137,11 +141,25 @@ function setupMap(map) {
     });
     map.on("mouseleave", layer, () => linkHover(map, null));
   }
+  for (const layer of ["grid-fill", "trend-fill", "pop-fill"]) {
+    map.on("click", layer, (e) => {
+      const f = e.features && e.features[0];
+      if (!f) return;
+      // The coarse grid in compare mode carries no cell index, only its H3 id, so a click there
+      // is resolved through the display cell under the pointer.
+      if (f.properties.i !== undefined) { openWhyForCell(+f.properties.i); return; }
+      const k = cellIndexOf(state.d, latLngToCell(e.lngLat.lat, e.lngLat.lng, 5));
+      if (k !== undefined) openWhyForCell(k);
+    });
+    map.on("mouseenter", layer, () => { map.getCanvas().style.cursor = drawing ? "crosshair" : "pointer"; });
+    map.on("mouseleave", layer, () => { map.getCanvas().style.cursor = drawing ? "crosshair" : ""; });
+  }
   map._ready = true;
   // bring this map up to date with whatever has been computed so far
   drawBox(state.box);
   if (state.grid) setGrid(map, state.grid.features);
   if (state.trend) setTrend(map, state.trend.features);
+  if (pickedH3) setPicked(map, footprint(pickedH3, hoverResOf(map)));
   if (state.popFeatures) map.getSource("pop").setData({ type: "FeatureCollection", features: state.popFeatures });
   if (state.app === "live" && map.getSource("live")) map.getSource("live").setData({ type: "FeatureCollection", features: live.feats });
   applyLayers();
@@ -312,6 +330,52 @@ function flyToCamera(cam) {
   map.flyTo({ center: cam.center, zoom: cam.zoom, duration, curve: 1.42, easing: easeInOutCubic, essential: true });
 }
 
+// ---- "Why it burned": opened by a cell on the map or a month in the calendar. It renders in the
+// side panel below the fire chart, outlines the cell on every globe and is closed by its button
+// or Esc.
+let whyCell = null;
+async function openWhyForCell(i) {
+  whyCell = i;
+  const d = state.d;
+  const place = placeName(d.lat[i], d.lon[i]) || "This area";
+  const liveCtx = state.app === "live" ? {
+    windowLabel: WINDOW_LABEL[live.hours],
+    feats: (live.feats || []).filter((f) => {
+      const [lon, lat] = f.geometry.coordinates;
+      return cellIndexOf(d, latLngToCell(lat, lon, 5)) === i;
+    }),
+  } : null;
+  await renderWhyCard($("sec-why"), d, state.agg, {
+    i, place, range: state.range, scope: "cell",
+    windowLabel: state.app === "live" ? WINDOW_LABEL[live.hours] : rangeLabel(),
+    recordLabel: `${MONTHS[d.months[0].m - 1]} ${d.months[0].y} – ${MONTHS[d.lastMonth.m - 1]} ${d.lastMonth.y}`,
+  }, liveCtx);
+  setPickedCell(h3Id(d, i)); // stays outlined while the card is open
+  $("sec-why").scrollIntoView({ behavior: reduceMotion.matches ? "auto" : "smooth", block: "nearest" });
+  $("sec-why").querySelector(".wc-close").addEventListener("click", closeWhy);
+  $("sec-why").querySelector(".wc-close").focus({ preventScroll: true });
+}
+// a month in the calendar: the selection box, that month only
+async function openWhyForMonth(mi) {
+  whyCell = null;
+  setPickedCell(null); // a month covers the whole selection, not one cell
+  const d = state.d, info = d.months[mi];
+  await renderWhyCard($("sec-why"), d, state.agg, {
+    place: state.box ? "Selected box" : "All of Canada", range: [mi, mi], scope: "month",
+    windowLabel: `${MONTHS[info.m - 1]} ${info.y}`,
+    nameOf: (la, lo) => placeName(la, lo) || "a cell",
+  }, null);
+  $("sec-why").scrollIntoView({ behavior: reduceMotion.matches ? "auto" : "smooth", block: "nearest" });
+  $("sec-why").querySelector(".wc-close").addEventListener("click", closeWhy);
+  $("sec-why").querySelector(".wc-close").focus({ preventScroll: true });
+}
+function closeWhy() {
+  whyCell = null;
+  closeWhyCard($("sec-why"));
+  setPickedCell(null);
+}
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("sec-why").hidden) closeWhy(); });
+
 // ---- linked hover: the hovered ground is outlined on every globe, translated to the resolution
 // each one draws at. The resolution a globe shows depends on its layer and the view mode.
 function hoverResOf(m) {
@@ -319,13 +383,67 @@ function hoverResOf(m) {
   if (show.trend || show.people) return 5;          // both are drawn on the display grid
   return state.grid && state.grid.coarse ? 4 : 5;   // the fire grid is rolled up in compare
 }
+// The cell the reader clicked, outlined on every globe until another is clicked or the card is
+// closed. Separate from hover, so moving the cursor never erases it.
+let pickedH3 = null;
+function drawPicked() {
+  for (const m of maps) {
+    if (!m._ready) continue;
+    setPicked(m, pickedH3 ? footprint(pickedH3, hoverResOf(m)) : []);
+  }
+}
+function setPickedCell(h3id) {
+  pickedH3 = h3id;
+  drawPicked();
+}
+
 function linkHover(from, h3id) {
   scheduleHover(() => {
     for (const m of maps) {
       if (!m._ready) continue;
       setHover(m, h3id ? footprint(h3id, hoverResOf(m)) : []);
     }
+    showPairTip(h3id);
   });
+}
+
+// In compare the tooltip reports the same ground on both globes, each in its own layer's terms,
+// so hovering one tells the reader what the other shows there too.
+function showPairTip(h3id) {
+  const tip = $("tip");
+  if (!h3id || view.mode === "single" || maps.length < 2) return;
+  const d = state.d;
+  // the hovered id may be res 4 (the coarse grid in compare) or res 5; find a display cell either way
+  let i = cellIndexOf(d, h3id);
+  if (i === undefined) {
+    try { i = cellIndexOf(d, cellToParent(h3id, 5)); } catch { /* not finer than res 5 */ }
+  }
+  if (i === undefined) {
+    try { for (const kid of cellToChildren(h3id, 5)) { i = cellIndexOf(d, kid); if (i !== undefined) break; } }
+    catch { /* not coarser than res 5 */ }
+  }
+  if (i === undefined) return;
+  const lines = maps.map((m, k) => {
+    const show = layersFor(m);
+    const where = k === 0 ? "Top" : "Bottom";
+    if (show.people) {
+      const p = d.pop[i] || 0;
+      return `<span class="muted">${where}:</span> ${p < 1 ? p.toFixed(2) : fmt(Math.round(p))} people`;
+    }
+    if (show.trend) {
+      const f = (state.trend?.features || []).find((x) => x.properties.i === i);
+      if (!f) return `<span class="muted">${where}:</span> no trend`;
+      return `<span class="muted">${where}:</span> ${f.properties.sig ? `${f.properties.slope > 0 ? "rising" : "falling"} ${fmt(Math.abs(f.properties.slope))} a year` : "no clear change"}`;
+    }
+    const unit = state.app === "live" ? "hotspots" : "cell-days";
+    const feats = (state.grid?.features || []);
+    const f = feats.find((x) => x.properties.h3 === h3id)
+      || feats.find((x) => x.properties.i === i);
+    return `<span class="muted">${where}:</span> ${f ? fmt(f.properties.v) : 0} ${unit}`;
+  });
+  const near = placeName(d.lat[i], d.lon[i]);
+  tip.innerHTML = `${near ? `<strong>${near}</strong><br>` : ""}${lines.join("<br>")}`;
+  tip.hidden = false;
 }
 
 // ---- views: one globe, or two locked globes (compare). On a narrow window the two globes stack
@@ -407,6 +525,7 @@ function refreshGrid() {
   const coarse = view.mode === "compare"; // two globes: fewer, larger cells so both stay smooth
   const g = (state.grid = isLive ? state.liveGrid || { features: [], scale: null, n: 0 } : buildGrid(state.d, state.agg, state.range, { coarse }));
   for (const m of maps) { setGrid(m, g.features); raiseHover(m); }
+  drawPicked(); // a redraw must not drop the selected cell
   state.fireLegend = !g.n || !g.scale ? ""
     : isLive ? gridLegendHTML(g.scale, { live: true, windowLabel: WINDOW_LABEL[live.hours] })
     : gridLegendHTML(g.scale, { rangeLabel: rangeLabel(), coarse: g.coarse });
@@ -592,7 +711,8 @@ function drawExposure(top) {
 function renderExposure() {
   if (!state.d || !state.mapReady) return;
   const isLive = state.app === "live";
-  const top = renderExposureList($("exposure"), state.d, selBox(), isLive ? live.feats : null, live.hours, zoomToCell, highlightExposure) || [];
+  const top = renderExposureList($("exposure"), state.d, selBox(), isLive ? live.feats : null, live.hours,
+    zoomToCell, highlightExposure, state.range) || [];
   drawExposure(top);
 }
 
@@ -789,7 +909,19 @@ function restoreFromUrl(d) {
   fixPair(); // unknown or colliding layers fall back to fire and people
   repaintPickers();
 
-  if (u.box) select(u.box, false); else clearBox(false);
+  // With nothing saved and nothing in the URL, open on the Okanagan in August 2023: a view that
+  // shows at once what the app is for. Any saved state or shared link wins over it.
+  const fresh = !location.search && !u.box && !u.range;
+  if (u.box) select(u.box, false);
+  else if (fresh) {
+    const aug = d.monthIndex.get(2023 * 100 + 8);
+    if (aug !== undefined) {
+      state.range = [aug, aug];
+      $("from").value = "2023-08";
+      $("to").value = "2023-08";
+    }
+    select(PRESETS.okanagan, false);
+  } else clearBox(false);
 
   if (u.app === "live") {
     state.app = "live";
@@ -804,6 +936,9 @@ function restoreFromUrl(d) {
   // the camera last, so no fit overrides it
   if (u.camera) {
     const apply = () => map.jumpTo(u.camera);
+    if (map.loaded()) apply(); else map.once("load", apply);
+  } else if (fresh) {
+    const apply = () => fitToData();
     if (map.loaded()) apply(); else map.once("load", apply);
   }
   urlReady = true;
@@ -824,9 +959,27 @@ function saveUrl() {
 }
 
 // ---- start
+initTextSize();
+// the tour lives in the header, and its steps follow whichever mode the reader is in
+{
+  const tour = initTour(document.querySelector(".map-panel"), () => state.app === "live");
+  const btn = $("tour-btn");
+  btn.addEventListener("click", tour.start);
+  if (!tour.seen) btn.insertAdjacentHTML("beforeend", `<span class="tour-dot" aria-hidden="true"></span>`);
+}
 setLiveMode($("layers-panel"), false);
 attachInfoTips($("tip"));
 attachTooltip($("calendar"), $("tip"), () => ({ d: state.d, agg: state.agg, mode: state.mode, colour: state.colour, cal: state.cal }));
+// a month in the calendar opens the card for that month, by click or by keyboard
+$("calendar").addEventListener("click", (e) => {
+  const td = e.target.closest("td[data-i]");
+  if (td) openWhyForMonth(Number(td.dataset.i));
+});
+$("calendar").addEventListener("keydown", (e) => {
+  if (e.key !== "Enter" && e.key !== " ") return;
+  const td = e.target.closest("td[data-i]");
+  if (td) { e.preventDefault(); openWhyForMonth(Number(td.dataset.i)); }
+});
 loadData("harmonised/")
   .then((d) => {
     state.d = d;
@@ -834,7 +987,7 @@ loadData("harmonised/")
     for (const id of ["from", "to"]) { $(id).min = first; $(id).max = last; }
     $("from").value = first; $("to").value = last;
     state.range = [0, d.months.length - 1];
-    $("data-end").textContent = `Data to ${monthDays(d.lastMonth)} ${MONTHS[d.lastMonth.m - 1]} ${d.lastMonth.y}.`;
+    // the data-end stamp moved to the About page; the header carries the wordmark only
     hotspotIndex().catch(() => {
       $("dl-hotspots").hidden = true;
       $("dl-status").textContent = "Hotspot download is not available on this copy of the site.";

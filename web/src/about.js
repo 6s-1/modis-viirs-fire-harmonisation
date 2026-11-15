@@ -1,6 +1,7 @@
 // About page. All numbers come from about.json, written by pipeline/about_data.py.
 import "./fonts.js";
 import "./style.css";
+import { initTextSize } from "./textsize.js";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const pct = (v, sign = false) => `${sign && v > 0 ? "+" : ""}${Number(v).toFixed(1)}%`;
@@ -187,6 +188,9 @@ function render(a) {
   </section>
 
   <section>
+    <h2>Data freshness</h2>
+    <p>Historical data to ${endDays} ${MONTHS[end.m - 1]} ${end.y}; live data from NASA FIRMS, near real time.</p>
+
     <h2>Data credits</h2>
     <ul>
       <li><strong>Active fire detections:</strong> NASA Fire Information for Resource Management System (FIRMS), part of NASA's Earth
@@ -195,7 +199,9 @@ function render(a) {
       <li><strong>Burned area and fire points:</strong> National Burned Area Composite (NBAC) and Canadian National Fire Database
         (NFDB), Canadian Forest Service, Natural Resources Canada, via the Canadian Wildland Fire Information System (CWFIS).
         Contains information licensed under the <a href="https://open.canada.ca/en/open-government-licence-canada">Open Government
-        Licence – Canada</a>.</li>
+        Licence – Canada</a>. Used as an independent check on the harmonised record, and shown in the
+        <em>Why it burned</em> card for the cause of recorded fires, their names and sizes, and the area burned.
+        Neither feeds the harmonisation model.</li>
       <li><strong>Fire regions:</strong> Terrestrial Ecozones of Canada, Agriculture and Agri-Food Canada. Contains information
         licensed under the Open Government Licence – Canada.</li>
       <li><strong>Land cover:</strong> © ESA WorldCover project 2021 / Contains modified Copernicus Sentinel data (2021) processed by
@@ -235,3 +241,5 @@ fetch("about/about.json")
   .then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); })
   .then((a) => { document.getElementById("about").innerHTML = render(a); })
   .catch((e) => { console.error(e); document.getElementById("about").innerHTML = `<p>Could not load the figures (${e.message}).</p>`; });
+
+initTextSize();

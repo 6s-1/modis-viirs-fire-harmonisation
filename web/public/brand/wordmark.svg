@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 96" role="img" aria-label="Ember">
+  <title>Ember</title>
+  <!-- Traced from web/design/ember-sketch.jpeg: the E is a flame whose body carries two bars,
+       followed by MBER in rounded hand-drawn capitals at the same stroke weight. -->
+  <g fill="none" stroke="#fa5a46" stroke-width="7" stroke-linecap="round" stroke-linejoin="round">
+    <!-- flame E: body with two tips rising from the top -->
+    <path d="M24 86
+             C10 70 12 52 24 40
+             C30 34 34 28 36 20
+             C40 28 45 33 51 37
+             C56 29 60 24 63 17
+             C69 30 76 36 80 46
+             C86 58 84 74 74 86
+             Z"/>
+    <!-- the two bars that make it read as an E -->
+    <path d="M20 58 H62"/>
+    <path d="M22 73 H70"/>
+
+    <!-- M -->
+    <path d="M104 84 V40 l15 26 15-26 v44"/>
+    <!-- B: two bowls off a straight stem -->
+    <path d="M152 84 V40"/>
+    <path d="M152 40 h12 a11 11 0 0 1 0 22 h-12"/>
+    <path d="M152 62 h14 a11 11 0 0 1 0 22 h-14"/>
+    <!-- E -->
+    <path d="M212 40 h-22 v44 h22"/>
+    <path d="M190 62 h17"/>
+    <!-- R -->
+    <path d="M230 84 V40 h14 a11 11 0 0 1 0 22 h-14"/>
+    <path d="M246 62 l14 22"/>
+  </g>
+</svg>

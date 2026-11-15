@@ -73,8 +73,9 @@ export function attachGridHover(map, tip, getInfo, onHover = () => {}) {
   map.on("mousemove", "grid-fill", (e) => {
     const f = e.features && e.features[0];
     if (!f) return;
-    const p = f.properties, { unit, label, place } = getInfo();
+    const p = f.properties, { unit, label, place, paired } = getInfo();
     onHover(map, p.h3 || null);
+    if (paired && !tip.hidden) return; // compare mode already wrote one covering both globes
     const est = p.est === true || p.est === "true";
     if (p.zero === true || p.zero === "true") { tip.hidden = true; return; }
     const near = place ? place(p.i) : "";
