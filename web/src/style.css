@@ -308,8 +308,6 @@ table.data thead th { color: var(--ink-2); font-weight: 500; }
 .exposure .linkish { text-align: left; }
 .exp-note { color: var(--ink-2); margin: 0 0 4px; }
 
-.ctx-toggle { margin-top: 6px; }
-
 .about ul.links { columns: 2; column-gap: 24px; }
 @media (max-width: 640px) { .about ul.links { columns: 1; } }
 .about ul.links li { break-inside: avoid; margin: 3px 0; }

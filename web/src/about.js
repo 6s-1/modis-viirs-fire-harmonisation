@@ -164,8 +164,6 @@ function render(a) {
       <li>Nunavut: <a href="https://www.gov.nu.ca/">Government of Nunavut</a></li>
       <li>Across Canada: <a href="https://www.alertready.ca/">Alert Ready</a></li>
     </ul>
-    <p>The optional "roads and towns" layer shows major roads and populated places from OpenStreetMap for orientation.
-    It is not a set of evacuation routes.</p>
   </section>
 
   <section>
@@ -200,7 +198,6 @@ function render(a) {
       <li><strong>Boundaries:</strong> Natural Earth (public domain).</li>
       <li><strong>Population:</strong> WorldPop (www.worldpop.org), 2020 1 km UN-adjusted population for Canada, licensed under CC BY 4.0.</li>
       <li><strong>Place names:</strong> GeoNames (cities500), licensed under CC BY 4.0.</li>
-      <li><strong>Roads and towns layer:</strong> © OpenStreetMap contributors (ODbL), via OpenMapTiles and OpenFreeMap.</li>
       <li><strong>Live fire:</strong> NASA FIRMS near-real-time VIIRS (NOAA-20, NOAA-21), served through a Cloudflare Worker that keeps
         the FIRMS key private.</li>
       <li><strong>Base map:</strong> OpenFreeMap, © OpenMapTiles, data © OpenStreetMap contributors.</li>

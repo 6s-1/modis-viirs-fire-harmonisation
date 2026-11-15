@@ -151,7 +151,7 @@ gh release upload hotspot-tiles hotspots.tar --clobber
   Terrestrial Ecozones of Canada, Agriculture and Agri-Food Canada: contain information licensed under the
   [Open Government Licence – Canada](https://open.canada.ca/en/open-government-licence-canada).
 - © ESA WorldCover project 2021 / Contains modified Copernicus Sentinel data (2021) processed by the ESA WorldCover consortium (CC BY 4.0).
-- Natural Earth (public domain). Base map and roads and towns layer: OpenFreeMap, © OpenMapTiles, data © OpenStreetMap contributors.
+- Natural Earth (public domain). Base map: OpenFreeMap, © OpenMapTiles, data © OpenStreetMap contributors.
 - Population: WorldPop 2020 (CC BY 4.0), a modelled estimate. Place names: GeoNames (CC BY 4.0).
 
 References are listed on the app's About page.
