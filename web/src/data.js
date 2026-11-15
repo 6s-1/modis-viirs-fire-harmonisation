@@ -90,7 +90,7 @@ export function boxAreaKm2(b) {
 
 // Sum harmonised cell-days per month for display cells whose centre lies in the box. Also the
 // area of Canada in the box (land and lakes), raw per-sensor totals and the same-days sums.
-export function aggregate(d, b, only = null) {
+export function aggregate(d, b) {
   const nM = d.months.length, nP = d.platforms.length;
   const totals = new Float64Array(nM);
   const raw = new Float64Array(nM * nP);
@@ -99,11 +99,9 @@ export function aggregate(d, b, only = null) {
   const ext = { south: 90, north: -90, west: 180, east: -180 }; // extent of selected cells with data
   const mask = new Uint8Array(d.lat.length);
   let canadaKm2 = 0;
-  const indices = only === null ? null : [only];
-  for (let n = 0, N = indices ? 1 : d.lat.length; n < N; n++) {
-    const i = indices ? indices[0] : n;
+  for (let i = 0; i < d.lat.length; i++) {
     const la = d.lat[i], lo = d.lon[i];
-    if (!indices && (la < b.south || la > b.north || lo < b.west || lo > b.east)) continue;
+    if (la < b.south || la > b.north || lo < b.west || lo > b.east) continue;
     gridCells.push(i);
     if (d.canada[i]) canadaKm2 += d.area[i];
     if (d.rowStart[i + 1] > d.rowStart[i]) {
@@ -124,7 +122,7 @@ export function aggregate(d, b, only = null) {
   }
   const rawOf = (p) => raw.subarray(d.platforms.indexOf(p) * nM, (d.platforms.indexOf(p) + 1) * nM);
   const detOf = (p) => det.subarray(d.platforms.indexOf(p) * nM, (d.platforms.indexOf(p) + 1) * nM);
-  return { totals, raw, rawOf, detOf, cells, gridCells, mask, sameDays, canadaKm2, boxKm2: only === null ? boxAreaKm2(b) : d.area[only], areaKm2: canadaKm2, only,
+  return { totals, raw, rawOf, detOf, cells, gridCells, mask, sameDays, canadaKm2, boxKm2: boxAreaKm2(b), areaKm2: canadaKm2,
     extent: cells.length ? ext : null };
 }
 

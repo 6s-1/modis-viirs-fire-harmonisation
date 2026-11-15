@@ -297,7 +297,6 @@ table.data thead th { color: var(--ink-2); font-weight: 500; }
 .key-cumnow { width: 16px; height: 0; border-top: 2.4px solid var(--accent); border-radius: 0; }
 .caption { font-size: 0.82rem; color: var(--ink-2); margin: 2px 0 4px; }
 
-.cell-name { font-size: 0.8rem; color: var(--ink-2); margin: 0 0 6px; }
 .linkish { background: none; border: 0; padding: 0; color: var(--accent); text-decoration: underline; font-size: 0.8rem; cursor: pointer; }
 
 .key-live { width: 8px; height: 8px; border-radius: 50%; background: #ffffff; box-shadow: 0 0 0 1px #0b0d12; display: inline-block; vertical-align: 0; }
