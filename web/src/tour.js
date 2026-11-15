@@ -3,27 +3,43 @@
 
 const SEEN = "ember:tour-seen";
 
-// Two sets: the middle steps differ, because the calendar and the comparison section are not on
-// screen in Live, and the live window and its charts are not on screen in Historical.
-const SHARED_FIRST = { target: "#draw", text: "Draw a box on the globe, or pick the Okanagan, to choose an area." };
-const SHARED_LAST = [
-  { target: "#compare-btn", text: "Compare splits the globe in two, so fire and people line up." },
-  { target: ".modebar", text: "Historical is the record since 2000; Live is the last day or week." },
-];
+// Seven steps in each mode, in the order a reader meets the app. A step may open a view (the
+// Layers panel, compare) to spotlight what it is talking about; whatever it opened is put back
+// when the tour ends.
 const HISTORICAL = [
-  { target: "#sec-calendar", text: "The calendar shows every month since 2000, darker where more burned." },
-  { target: "#calendar", text: "Click a month, or a cell on the map, to see why it burned." },
-  { target: "#sec-compare", text: "Compared with past years puts this year against the whole record." },
+  { target: "#draw", text: "Draw a box on the globe, or pick the Okanagan, to choose an area." },
+  { target: ".wc-answer", text: "Is this normal? Ember answers yes or no for your area and dates, and says how." },
+  { target: "#sec-calendar", text: "Every month since 2000; darker means more fire, dashed means estimated from older satellites." },
+  { target: "#calendar", text: "Click a month or a cell to see what caused the fire, how much land burned and what kind of land it was." },
+  { target: "#layers-panel", open: "layers", text: "Turn on 'Where fire is changing' to see where fire is rising or falling, or Places to find your way." },
+  { target: "#sec-compare", text: "Yearly totals, when the season runs, and how many people lived where fire burned." },
+  { target: "#compare-btn", open: "compare", text: "Compare puts fire and people on two linked globes; point at one and the other follows." },
 ];
 const LIVE = [
-  { target: "#live-window", text: "Pick the window: the last 24 hours, 48 hours or 7 days." },
-  { target: "#livechart", text: "This window is set against the same days in past years." },
-  { target: "#sec-exposure", text: "Click a cell on the map to see this window and the fire history there." },
+  { target: ".modebar", text: "Live shows what NASA satellites detected in the last day or week, near real time." },
+  { target: "#live-window", text: "Pick the last 24 hours, 48 hours or 7 days." },
+  { target: "#map", text: "Hotspots are grouped into the same cells as the history, so live and past read the same way." },
+  { target: ".wc-answer", text: "Yes or no: is this window normal for this time of year?" },
+  { target: "#map", text: "Click a cell to see the agency's name, size and status for the fire there, and its fire history." },
+  { target: "#sec-exposure", text: "These are the places with fire right now, ranked by how many people live there." },
+  { target: ".modebar", text: "Switch to Historical to see how today compares with the last 26 years." },
 ];
-const stepsFor = (live) => [SHARED_FIRST, ...(live ? LIVE : HISTORICAL), ...SHARED_LAST];
+const stepsFor = (live) => (live ? LIVE : HISTORICAL);
 let STEPS = stepsFor(false);
+// what a step opened, so the tour can put it back
+let opened = null;
+function openFor(step, helpers) {
+  if (step.open === "layers" && helpers.openLayers) { helpers.openLayers(true); opened = opened || {}; opened.layers = true; }
+  if (step.open === "compare" && helpers.setCompare && !helpers.isCompare()) { helpers.setCompare(true); opened = opened || {}; opened.compare = true; }
+}
+function restore(helpers) {
+  if (!opened) return;
+  if (opened.layers && helpers.openLayers) helpers.openLayers(false);
+  if (opened.compare && helpers.setCompare) helpers.setCompare(false);
+  opened = null;
+}
 
-export function initTour(host, isLive = () => false) {
+export function initTour(host, isLive = () => false, helpers = {}) {
   // the trigger is the header button; this element only holds focus state
   const mascot = document.getElementById("tour-btn") || document.createElement("button");
   let seen = false;
@@ -32,6 +48,7 @@ export function initTour(host, isLive = () => false) {
   let layer = null, step = 0;
 
   const stop = () => {
+    restore(helpers);
     if (layer) { layer.remove(); layer = null; }
     document.removeEventListener("keydown", onKey);
     mascot.setAttribute("aria-expanded", "false");
@@ -47,6 +64,7 @@ export function initTour(host, isLive = () => false) {
     if (n < 0 || n >= STEPS.length) return stop();
     step = n;
     const s = STEPS[n];
+    openFor(s, helpers);
     const el = document.querySelector(s.target);
     if (!el) return show(n + 1); // a control that is not on screen in this mode
     el.scrollIntoView({ behavior: "auto", block: "nearest" }); // measure after the scroll, not during it

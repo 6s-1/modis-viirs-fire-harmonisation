@@ -815,3 +815,14 @@ input[type="month"]:focus-visible, input[type="month"]:focus {
 .brand-sub { margin: 1px 0 0; font-size: var(--fs-xs); color: var(--muted); line-height: 1.3; }
 @media (max-width: 900px) { .brand-sub { display: none; } }
 @media (max-width: 640px) { .brand-lines { margin-left: 10px; padding-left: 10px; } .brand-tag { font-size: var(--fs-s); } }
+/* "Is this normal?": the answer leads the card */
+.wc-answer { margin: 0 0 12px; }
+.wc-verdict { margin: 0; font-size: var(--fs-2xl); font-weight: 650; line-height: 1.1; letter-spacing: -0.02em; color: var(--ink); }
+.wc-answer.tone-high .wc-verdict { color: #fb7146; }
+.wc-answer.tone-low .wc-verdict { color: #8fa3b8; }
+.wc-because { margin: 3px 0 0; font-size: var(--fs-s); line-height: 1.45; color: var(--muted); }
+/* agency-reported fires in the Why card */
+.wc-official { margin: 10px 0 0; padding-top: 10px; border-top: 1px solid var(--card-line); }
+.wc-official .wc-fires { margin: 6px 0 0; }
+.wc-official .wc-fires li { padding: 4px 0; }
+.wc-none { margin: 4px 0 0; font-size: var(--fs-s); color: var(--muted); }

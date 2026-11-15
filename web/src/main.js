@@ -108,6 +108,30 @@ function setupMap(map) {
   map.addLayer({ id: "exp-fill", type: "fill", source: "exp", paint: { "fill-color": "#ffffff", "fill-opacity": 0.01 } });
   map.addLayer({ id: "exp-line", type: "line", source: "exp", paint: { "line-color": "#ffffff", "line-width": 1.6 } });
   map.addLayer({ id: "exp-hi", type: "line", source: "exp", filter: ["==", ["get", "rank"], -1], paint: { "line-color": "#2bb3a3", "line-width": 3.5 } });
+  // Numbered badges as map layers, not DOM markers: ten markers per globe were repositioned on
+  // every frame of both locked globes, which is what made compare stutter.
+  map.addSource("exp-pt", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+  map.addLayer({ id: "exp-badge", type: "circle", source: "exp-pt",
+    paint: { "circle-radius": 10, "circle-color": ["case", ["==", ["get", "rank"], ["literal", -1]], "#ffffff", "#ffffff"],
+      "circle-stroke-color": "#0b0d12", "circle-stroke-width": 1.5 } });
+  map.addLayer({ id: "exp-badge-hi", type: "circle", source: "exp-pt", filter: ["==", ["get", "rank"], -1],
+    paint: { "circle-radius": 10, "circle-color": "#2bb3a3", "circle-stroke-color": "#0b0d12", "circle-stroke-width": 1.5 } });
+  map.addLayer({ id: "exp-badge-n", type: "symbol", source: "exp-pt",
+    layout: { "text-field": ["to-string", ["get", "rank"]], "text-size": 11,
+      "text-font": ["Noto Sans Regular"], "text-allow-overlap": true, "text-ignore-placement": true },
+    paint: { "text-color": "#0b0d12" } });
+  for (const id of ["exp-badge", "exp-badge-hi", "exp-badge-n"]) {
+    map.on("mouseenter", id, (e) => {
+      const f = e.features && e.features[0];
+      if (f) highlightExposure(+f.properties.rank);
+      map.getCanvas().style.cursor = drawing ? "crosshair" : "pointer";
+    });
+    map.on("mouseleave", id, () => { highlightExposure(null); map.getCanvas().style.cursor = drawing ? "crosshair" : ""; });
+    map.on("click", id, (e) => {
+      const f = e.features && e.features[0];
+      if (f) { e.preventDefault(); zoomToCell(+f.properties.i); }
+    });
+  }
   map.on("mousemove", "exp-fill", (e) => { const f = e.features && e.features[0]; if (f) highlightExposure(+f.properties.rank); });
   map.on("mouseleave", "exp-fill", () => highlightExposure(null));
   map.addSource("pop", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
@@ -338,12 +362,14 @@ async function openWhyForCell(i) {
   whyCell = i;
   const d = state.d;
   const place = placeName(d.lat[i], d.lon[i]) || "This area";
+  const mine = (live.feats || []).filter((f) => {
+    const [lon, lat] = f.geometry.coordinates;
+    return cellIndexOf(d, latLngToCell(lat, lon, 5)) === i;
+  });
   const liveCtx = state.app === "live" ? {
     windowLabel: WINDOW_LABEL[live.hours],
-    feats: (live.feats || []).filter((f) => {
-      const [lon, lat] = f.geometry.coordinates;
-      return cellIndexOf(d, latLngToCell(lat, lon, 5)) === i;
-    }),
+    feats: mine,
+    frame: { hours: live.hours, count: mine.length },
   } : null;
   await renderWhyCard($("sec-why"), d, state.agg, {
     i, place, range: state.range, scope: "cell",
@@ -362,6 +388,7 @@ async function openWhyForMonth(mi) {
   const d = state.d, info = d.months[mi];
   await renderWhyCard($("sec-why"), d, state.agg, {
     place: state.box ? "Selected box" : "All of Canada", range: [mi, mi], scope: "month",
+    clickedMonth: mi,
     windowLabel: `${MONTHS[info.m - 1]} ${info.y}`,
     nameOf: (la, lo) => placeName(la, lo) || "a cell",
   }, null);
@@ -371,8 +398,28 @@ async function openWhyForMonth(mi) {
 }
 function closeWhy() {
   whyCell = null;
-  closeWhyCard($("sec-why"));
   setPickedCell(null);
+  showAreaCard(); // fall back to the selection rather than leaving nothing
+}
+
+// The card with nothing clicked: the selected area over the selected dates, so the answer is on
+// screen as soon as the dashboard loads.
+async function showAreaCard() {
+  if (!state.d || !state.agg) return;
+  const d = state.d;
+  const liveCtx = state.app === "live"
+    ? { windowLabel: WINDOW_LABEL[live.hours], feats: live.feats || [],
+        frame: { hours: live.hours, count: (live.feats || []).length } }
+    : null;
+  await renderWhyCard($("sec-why"), d, state.agg, {
+    place: state.box ? "Selected area" : "All of Canada",
+    range: state.range, scope: "area",
+    windowLabel: state.app === "live" ? WINDOW_LABEL[live.hours] : rangeLabel(),
+    recordLabel: `${MONTHS[d.months[0].m - 1]} ${d.months[0].y} – ${MONTHS[d.lastMonth.m - 1]} ${d.lastMonth.y}`,
+    nameOf: (la, lo) => placeName(la, lo) || "a cell",
+  }, liveCtx);
+  const close = $("sec-why").querySelector(".wc-close");
+  if (close) close.hidden = true; // nothing to close back to
 }
 document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("sec-why").hidden) closeWhy(); });
 
@@ -520,7 +567,7 @@ document.querySelectorAll('input[name="view"]').forEach((r) => r.addEventListene
 document.querySelectorAll('input[name="colour"]').forEach((r) => r.addEventListener("change", (e) => { state.colour = e.target.value; update(); }));
 
 function refreshGrid() {
-  if (!state.mapReady || !state.agg) return;
+  if (!state.mapReady || !state.agg || deferHeavy) return;
   const isLive = state.app === "live";
   const coarse = view.mode === "compare"; // two globes: fewer, larger cells so both stay smooth
   const g = (state.grid = isLive ? state.liveGrid || { features: [], scale: null, n: 0 } : buildGrid(state.d, state.agg, state.range, { coarse }));
@@ -610,6 +657,7 @@ function update() {
     mode: state.mode, values: raw ? rawRecorded(d, agg) : agg.totals, colour: state.colour,
   });
   renderCompare($("compare"), d, agg, { yearFilter, totals: state.cal.totals, mode: state.mode, years, medianYears });
+  if (whyCell === null) showAreaCard(); // keep the answer in step with the selection
   $("dl-status").textContent = "";
   refreshGrid();
   renderExposure();
@@ -666,50 +714,69 @@ $("dl-live").addEventListener("click", () => {
 });
 
 // Zoom to an area from the exposure list: the cell's bounds padded by about one cell on each side.
+// Opening compare, building the second map, recomputing both grids and starting the flight in one
+// go dropped frames for most of a second. The work is spread out instead: open compare and wait
+// for the second globe, update once, fly, and leave the heavy setData until the flight has landed.
 function zoomToCell(i) {
-  if (view.mode === "single") setView("compare"); // a row opens the comparison on that area
   const ring = cellToBoundary(h3Id(state.d, i), true);
   const lats = ring.map((p) => p[1]), lons = ring.map((p) => p[0]);
   const s_ = Math.min(...lats), n_ = Math.max(...lats), w_ = Math.min(...lons), e_ = Math.max(...lons);
   const dy = n_ - s_, dx = e_ - w_;
-  select({ south: s_ - dy, north: n_ + dy, west: w_ - dx, east: e_ + dx }, true);
+  const box = { south: s_ - dy, north: n_ + dy, west: w_ - dx, east: e_ + dx };
+
+  const go = () => {
+    deferHeavy = true; // grids and badges wait until the flight lands
+    select(box, true);
+    let settled = false;
+    const done = () => {
+      if (settled) return;
+      settled = true;
+      maps[0].off("moveend", done);
+      clearTimeout(guard);
+      deferHeavy = false;
+      // one frame later, so the last frame of the flight is not the one that pays for it
+      requestAnimationFrame(() => { refreshGrid(); renderExposure(); });
+    };
+    const guard = setTimeout(done, 3500); // a flight that never ends must not strand them
+    maps[0].once("moveend", done);
+  };
+
+  if (view.mode === "single") {
+    setView("compare"); // a row opens the comparison on that area
+    const second = maps[1];
+    if (second && !second._ready) { second.once("load", () => requestAnimationFrame(go)); return; }
+    requestAnimationFrame(go);
+    return;
+  }
+  go();
 }
+let deferHeavy = false;
 
 // The top areas are outlined on the map with numbered badges; hovering a row, a badge or a
 // cell highlights the matching pair.
-const expMarkers = [];
 function highlightExposure(rank) {
-  for (const m of maps) if (m.getLayer("exp-hi")) m.setFilter("exp-hi", ["==", ["get", "rank"], rank || -1]);
-  expMarkers.forEach((m) => m.getElement().classList.toggle("hi", m._rank === rank));
+  for (const m of maps) {
+    if (m.getLayer("exp-hi")) m.setFilter("exp-hi", ["==", ["get", "rank"], rank || -1]);
+    if (m.getLayer("exp-badge-hi")) m.setFilter("exp-badge-hi", ["==", ["get", "rank"], rank || -1]);
+  }
   document.querySelectorAll("#exposure tr[data-rank]").forEach((tr) => tr.classList.toggle("hi", +tr.dataset.rank === rank));
 }
 // Outlines and numbered badges appear only when the "Exposure badges" layer is on (off by default).
 let expTop = [];
 function drawExposure(top) {
   expTop = top;
-  expMarkers.splice(0).forEach((m) => m.remove());
   if (!overlays.badges || !state.d) top = [];
-  const feats = top.map(({ i, rank }) => ({ type: "Feature", properties: { rank, i },
+  const outlines = top.map(({ i, rank }) => ({ type: "Feature", properties: { rank, i },
     geometry: { type: "Polygon", coordinates: [cellToBoundary(h3Id(state.d, i), true)] } }));
+  const points = top.map(({ i, rank }) => ({ type: "Feature", properties: { rank, i },
+    geometry: { type: "Point", coordinates: [state.d.lon[i], state.d.lat[i]] } }));
   for (const map of maps) {
-    const src = map.getSource("exp");
-    if (src) src.setData({ type: "FeatureCollection", features: feats });
-    if (!map._ready) continue;
-    for (const { i, rank } of top) {
-      const el = document.createElement("div");
-      el.className = "exp-badge";
-      el.textContent = rank;
-      el.addEventListener("mouseenter", () => highlightExposure(rank));
-      el.addEventListener("mouseleave", () => highlightExposure(null));
-      el.addEventListener("click", () => zoomToCell(i));
-      const mk = new maplibregl.Marker({ element: el, anchor: "center" }).setLngLat([state.d.lon[i], state.d.lat[i]]).addTo(map);
-      mk._rank = rank;
-      expMarkers.push(mk);
-    }
+    map.getSource("exp")?.setData({ type: "FeatureCollection", features: outlines });
+    map.getSource("exp-pt")?.setData({ type: "FeatureCollection", features: points });
   }
 }
 function renderExposure() {
-  if (!state.d || !state.mapReady) return;
+  if (!state.d || !state.mapReady || deferHeavy) return;
   const isLive = state.app === "live";
   const top = renderExposureList($("exposure"), state.d, selBox(), isLive ? live.feats : null, live.hours,
     zoomToCell, highlightExposure, state.range) || [];
@@ -868,6 +935,7 @@ function renderLive() {
   updatePop();
   renderLegends();
   renderExposure();
+  if (whyCell === null) showAreaCard(); // the live answer follows each refresh
 }
 
 document.querySelectorAll('input[name="app"]').forEach((r) => r.addEventListener("change", (e) => {
@@ -962,7 +1030,11 @@ function saveUrl() {
 initTextSize();
 // the tour lives in the header, and its steps follow whichever mode the reader is in
 {
-  const tour = initTour(document.querySelector(".map-panel"), () => state.app === "live");
+  const tour = initTour(document.querySelector(".map-panel"), () => state.app === "live", {
+    openLayers: (on) => { const panel = $("layers-panel"); panel.hidden = !on; $("layers-btn").setAttribute("aria-expanded", String(on)); },
+    isCompare: () => view.mode === "compare",
+    setCompare: (on) => setView(on ? "compare" : "single"),
+  });
   const btn = $("tour-btn");
   btn.addEventListener("click", tour.start);
   if (!tour.seen) btn.insertAdjacentHTML("beforeend", `<span class="tour-dot" aria-hidden="true"></span>`);

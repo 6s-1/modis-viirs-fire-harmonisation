@@ -188,6 +188,11 @@ function render(a) {
   </section>
 
   <section>
+    <h2>Use of AI tools</h2>
+    <p>Ember was built with the help of an AI coding assistant (Claude), under my direction, for writing and debugging
+      code, running data checks and drafting text. The method, the data choices, the design and every final decision
+      are mine. The logo and the mascot are my own drawings, converted to SVG with AI help.</p>
+
     <h2>Data freshness</h2>
     <p>Historical data to ${endDays} ${MONTHS[end.m - 1]} ${end.y}; live data from NASA FIRMS, near real time.</p>
 
@@ -202,6 +207,11 @@ function render(a) {
         Licence – Canada</a>. Used as an independent check on the harmonised record, and shown in the
         <em>Why it burned</em> card for the cause of recorded fires, their names and sizes, and the area burned.
         Neither feeds the harmonisation model.</li>
+      <li><strong>Fires reported by agencies:</strong> Active Fires Dataset, Canadian Wildland Fire Information System
+        (CWFIS), Canadian Forest Service, Natural Resources Canada, from the provincial, territorial and Parks Canada
+        agencies. Shown in live mode in the <em>Why it burned</em> card for the fires those agencies report near a
+        cell, with size and stage of control. Agencies update it about once a day, so it can lag the satellites.
+        Contains information licensed under the Open Government Licence – Canada.</li>
       <li><strong>Fire regions:</strong> Terrestrial Ecozones of Canada, Agriculture and Agri-Food Canada. Contains information
         licensed under the Open Government Licence – Canada.</li>
       <li><strong>Land cover:</strong> © ESA WorldCover project 2021 / Contains modified Copernicus Sentinel data (2021) processed by

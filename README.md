@@ -157,6 +157,13 @@ gh release upload hotspot-tiles hotspots.tar --clobber
 - The latest months (August–November 2026) use provisional near-real-time data.
 - Canada only in this version.
 
+## Use of AI tools
+
+Ember was built with the help of an AI coding assistant (Claude), under my direction, for writing
+and debugging code, running data checks and drafting text. The method, the data choices, the design
+and every final decision are mine. The logo and the mascot are my own drawings, converted to SVG
+with AI help.
+
 ## Data credits
 
 - NASA FIRMS active fire data (MODIS Collection 6.1, VIIRS 375 m), NASA ESDIS.
