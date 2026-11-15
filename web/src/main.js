@@ -8,7 +8,8 @@ import { attachTooltip, renderCalendar } from "./calendar.js";
 import { renderCompare } from "./compare.js";
 import { calendarPNG, fileStem, hotspotIndex, hotspotPlan, hotspotsCSV, monthlyCSV, saveBlob } from "./downloads.js";
 import { addGridLayers, attachGridHover, gridLegend, updateGrid } from "./grid.js";
-import { addLiveLayer, attachLiveHover, fetchLive, liveAvailable, viewBbox } from "./live.js";
+import { addLiveLayer, attachLiveHover, fetchLive, liveAvailable } from "./live.js";
+import { liveWindow, renderLiveChart } from "./livechart.js";
 
 const OBSERVED_FROM = 2012;
 // With no box drawn, the selection is all of Canada.
@@ -42,7 +43,7 @@ document.querySelectorAll("details[data-remember]").forEach((el) => {
   try { const v = localStorage.getItem(key); if (v !== null) el.open = v === "1"; } catch { /* storage unavailable */ }
   el.addEventListener("toggle", () => { try { localStorage.setItem(key, el.open ? "1" : "0"); } catch { /* ignore */ } });
 });
-const state = { d: null, box: null, agg: null, cal: null, range: null, observedOnly: false, mode: "harmonised", colour: "activity", mapReady: false };
+const state = { app: "historical", d: null, box: null, agg: null, cal: null, range: null, observedOnly: false, mode: "harmonised", colour: "activity", mapReady: false };
 
 // ---- map: globe, north up, no rotation or pitch, starts on Canada
 const map = new maplibregl.Map({
@@ -100,9 +101,6 @@ map.on("load", () => {
   map.on("mouseleave", "exp-fill", () => highlightExposure(null));
   addLiveLayer(map);
   attachLiveHover(map, $("tip"));
-  map.on("moveend", () => {
-    if (live.hours) { clearTimeout(live.timer); live.timer = setTimeout(loadLive, 600); }
-  });
   state.mapReady = true;
   renderExposure(); // places may have loaded before the map
   if (state.box) drawBox(state.box);
@@ -314,6 +312,8 @@ function refreshGrid() {
 function update() {
   const d = state.d;
   const agg = (state.agg = aggregate(d, selBox()));
+  if (state.app === "live") { setGridVisible(false); loadLive(); return; }
+  setGridVisible(true);
   const firstYear = state.observedOnly ? OBSERVED_FROM : d.firstYear;
   const years = [];
   for (let y = d.lastYear; y >= firstYear; y--) years.push(y);
@@ -447,50 +447,82 @@ function drawExposure(top) {
 }
 function renderExposure() {
   if (!state.d || !state.mapReady) return;
-  const top = renderExposureList($("exposure"), state.d, selBox(), live.hours ? state.live : null, live.hours, zoomToCell, highlightExposure) || [];
+  const isLive = state.app === "live";
+  const top = renderExposureList($("exposure"), state.d, selBox(), isLive ? live.feats : null, live.hours, zoomToCell, highlightExposure) || [];
   drawExposure(top);
 }
 
-// ---- live fire (near real time, via the Worker); every other feature works without it
-const live = { hours: 0, timer: null, seq: 0 };
+// ---- Live mode: near-real-time hotspots (via the Worker) for the selection; Historical is the record.
+// If the Worker cannot be reached, Live shows one line and Historical keeps working.
+const live = { hours: 24, seq: 0, feats: [] };
 const LIVE_DOWN = "Live fire data is unavailable right now.";
-function liveUnavailable() {
-  $("live-controls").hidden = true;
-  $("live-status").textContent = LIVE_DOWN;
-  if (map.getLayer("live")) map.setLayoutProperty("live", "visibility", "none");
-  live.hours = 0;
+const WINDOW_LABEL = { 24: "last 24 hours", 48: "last 48 hours", 168: "last 7 days" };
+let liveOk = null; // null = not checked yet
+const liveReady = liveAvailable().then((ok) => (liveOk = ok));
+
+function setGridVisible(on) {
+  for (const id of ["grid-fill", "grid-line", "grid-est"]) if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", on ? "visible" : "none");
+  if (map.getLayer("live")) map.setLayoutProperty("live", "visibility", on ? "none" : "visible");
 }
+const inBox = (f, b) => { const [x, y] = f.geometry.coordinates; return x >= b.west && x <= b.east && y >= b.south && y <= b.north; };
+
+function liveDown() {
+  document.body.classList.add("live-down");
+  $("summary").innerHTML = `<p class="notice">${LIVE_DOWN}</p>`;
+  if (map.getSource("live")) map.getSource("live").setData({ type: "FeatureCollection", features: [] });
+  $("grid-legend").innerHTML = "";
+}
+
 async function loadLive() {
   const seq = ++live.seq;
-  const bbox = viewBbox(map);
-  if (!bbox) { $("live-status").textContent = "Move the map over Canada to see live fire."; return; }
-  $("live-status").textContent = "Loading live fire…";
+  if (liveOk === null) await liveReady;
+  if (seq !== live.seq || state.app !== "live") return;
+  if (!liveOk) { liveDown(); return; }
+  document.body.classList.remove("live-down");
+  $("summary").innerHTML = `<p class="muted small">Loading live hotspots…</p>`;
+  const b = selBox();
   try {
-    const feats = await fetchLive(bbox, live.hours);
-    if (seq !== live.seq || !live.hours) return;
-    map.getSource("live").setData({ type: "FeatureCollection", features: feats });
-    map.setLayoutProperty("live", "visibility", "visible");
-    state.live = feats;
-    const label = { 24: "last 24 hours", 48: "last 48 hours", 168: "last 7 days" }[live.hours];
-    $("live-status").innerHTML = `<span class="sw key-live"></span> ${fmt(feats.length)} hotspots in view, ${label} ·
-      near real time, not harmonised · NOAA-20 and NOAA-21 · updated ${new Date().toISOString().slice(11, 16)} UTC`;
-    if (state.d) renderExposure();
+    const feats = await fetchLive([b.west, b.south, b.east, b.north], live.hours);
+    if (seq !== live.seq || state.app !== "live") return;
+    live.feats = feats.filter((f) => inBox(f, b)); // the Worker already keeps Canada only
+    state.live = live.feats;
+    renderLive();
   } catch {
-    if (seq === live.seq) liveUnavailable();
+    if (seq === live.seq) liveDown();
   }
 }
+
+function renderLive() {
+  const d = state.d, agg = state.agg, feats = live.feats;
+  map.getSource("live").setData({ type: "FeatureCollection", features: feats });
+  setGridVisible(false);
+  const n20 = feats.filter((f) => f.properties.sat !== "NOAA-21").length, n21 = feats.length - n20;
+  const win = liveWindow(live.hours);
+  const t = (ms) => new Date(ms).toISOString().slice(0, 16).replace("T", " ");
+  const startMs = live.hours >= 168 ? win.start : Date.now() - live.hours * 3600e3;
+  const areaTxt = agg.canadaKm2 >= 1e6 ? `${(agg.canadaKm2 / 1e6).toFixed(2)}M` : fmt(agg.canadaKm2);
+  const where = state.box ? `${areaTxt} km² searched` : `all of Canada, ${areaTxt} km²`;
+  const pop = d.pop ? agg.gridCells.reduce((s, i) => s + d.pop[i], 0) : 0;
+  $("summary").innerHTML = `
+    <div class="big">${fmt(feats.length)} <span class="unit">live hotspots</span><span class="live-tag">near real time, not harmonised</span></div>
+    <div class="sub">${WINDOW_LABEL[live.hours]} (${t(startMs)} – ${t(Date.now())} UTC) · <span class="info" title="Canada only: points outside Canada are removed.">${where}</span></div>
+    <div class="sub">NOAA-20 ${fmt(n20)} · NOAA-21 ${fmt(n21)}${pop ? ` · ${fmtShort(pop)} people live here <span class="dim">(WorldPop 2020, modelled)</span>` : ""}</div>`;
+  live.meta = renderLiveChart($("livechart"), feats, live.hours);
+  $("grid-legend").innerHTML = `<p class="legend-title">Live hotspots · ${WINDOW_LABEL[live.hours]}</p>
+    <ul class="legend"><li><span class="sw key-live"></span>near real time, not harmonised (NOAA-20, NOAA-21)</li></ul>`;
+  renderExposure();
+}
+
+document.querySelectorAll('input[name="app"]').forEach((r) => r.addEventListener("change", (e) => {
+  state.app = e.target.value;
+  document.body.classList.toggle("mode-live", state.app === "live");
+  if (state.app !== "live") { document.body.classList.remove("live-down"); live.seq++; state.live = null; }
+  if (state.d) update();
+}));
 document.querySelectorAll('input[name="live"]').forEach((r) => r.addEventListener("change", (e) => {
   live.hours = +e.target.value;
-  if (!live.hours) {
-    map.setLayoutProperty("live", "visibility", "none");
-    state.live = null;
-    $("live-status").textContent = "";
-    if (state.d) renderExposure();
-  } else loadLive();
+  if (state.app === "live") loadLive();
 }));
-liveAvailable().then((ok) => {
-  if (ok) { $("live-controls").hidden = false; $("live-status").textContent = ""; } else liveUnavailable();
-});
 
 // ---- start
 attachTooltip($("calendar"), $("tip"), () => ({ d: state.d, agg: state.agg, mode: state.mode, colour: state.colour, cal: state.cal }));

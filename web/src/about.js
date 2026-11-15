@@ -172,7 +172,9 @@ function render(a) {
     <h2>Live fire and people exposed</h2>
     <ul>
       <li><strong>Live fire</strong> shows near-real-time VIIRS hotspots from NOAA-20 and NOAA-21 (NASA FIRMS) for the last 24 hours,
-        48 hours or 7 days. These are single satellite detections: not harmonised, not checked, and not the same unit as the calendar.</li>
+        48 hours or 7 days. These are single satellite detections: not harmonised, not checked, and not the same unit as the calendar.
+        Points outside Canada are removed using the same boundary as the harmonised data (Natural Earth 1:50 m). Switch
+        between Historical and Live at the top of the panel.</li>
       <li><strong>People</strong> are WorldPop 2020 estimates (1 km, UN-adjusted): a model of where people live, not a census count,
         and six years old.</li>
       <li><strong>Areas with fire, ranked by people exposed</strong> lists ~250 km² grid cells with recent fire and the people living in

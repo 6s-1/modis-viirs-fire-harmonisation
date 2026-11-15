@@ -2,7 +2,6 @@
 // through the Cloudflare Worker that holds the FIRMS key. Unharmonised; shown as points.
 
 const LIVE_URL = (import.meta.env.VITE_LIVE_URL || "").replace(/\/$/, "");
-const CANADA = [-141.5, 41.5, -52.0, 83.5];
 const WINDOWS = { 24: 2, 48: 3, 168: 7 }; // hours -> FIRMS day range to request
 const SAT = { N20: "NOAA-20", N21: "NOAA-21", "1": "NOAA-20", "2": "NOAA-21" };
 
@@ -14,14 +13,6 @@ export async function liveAvailable() {
   } catch {
     return false;
   }
-}
-
-// View bounds clipped to Canada; null if the view does not touch Canada.
-export function viewBbox(map) {
-  const b = map.getBounds();
-  const w = Math.max(b.getWest(), CANADA[0]), s = Math.max(b.getSouth(), CANADA[1]);
-  const e = Math.min(b.getEast(), CANADA[2]), n = Math.min(b.getNorth(), CANADA[3]);
-  return w < e && s < n ? [w, s, e, n] : null;
 }
 
 function parse(csv, sinceMs) {

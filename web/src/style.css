@@ -359,3 +359,11 @@ table.data.exposure { min-width: 0; width: 100%; }
 .exp-badge.hi, .exposure tr.hi .exp-num { background: var(--accent); color: var(--accent-ink); }
 .exposure tr.hi { background: rgba(43, 179, 163, 0.12); }
 .exposure thead th:nth-child(2) { text-align: left; }
+
+/* Live / Historical */
+.modebar { align-self: flex-start; }
+.modebar label { padding: 5px 16px; font-size: 0.86rem; }
+body.mode-live .hist-only, body:not(.mode-live) .live-only { display: none !important; }
+body.mode-live.live-down #sec-calendar, body.mode-live.live-down #sec-exposure, body.mode-live.live-down #sec-downloads,
+body.mode-live.live-down #live-window { display: none !important; }
+.live-tag { font-size: 0.72rem; color: var(--warn-ink); background: var(--warn-bg); padding: 1px 6px; border-radius: 4px; margin-left: 6px; vertical-align: 3px; }
