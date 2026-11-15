@@ -2,9 +2,12 @@
 // through the Cloudflare Worker that holds the FIRMS key. Unharmonised; shown as points.
 
 const LIVE_URL = (import.meta.env.VITE_LIVE_URL || "").replace(/\/$/, "");
-// hours -> FIRMS day range to request. Each covers the window twice over where FIRMS allows it,
-// so "new and continuing" can see the equally long window before this one. 7 days is the cap.
-const WINDOWS = { 24: 2, 48: 4, 168: 7 };
+// hours -> FIRMS day range to request. The Worker accepts 1, 2, 3 or 7 only, so these must be one
+// of those: asking for 4 made it answer 400 and live mode read that as a Worker error. Each range
+// covers its window twice over where it can, so "new and continuing" can see the equally long
+// window before this one; 7 days is the cap FIRMS allows.
+const WINDOWS = { 24: 2, 48: 7, 168: 7 };
+const WORKER_DAYS = new Set([1, 2, 3, 7]); // must match DAYS in worker/src/index.js
 const SAT = { N20: "NOAA-20", N21: "NOAA-21", "1": "NOAA-20", "2": "NOAA-21" };
 
 // Why live mode is unavailable, for the dev banner and the console. Each check returns one of
@@ -77,6 +80,7 @@ function parse(csv, sinceMs) {
 // the feed still covers, and how far back the feed actually reached (ms).
 export async function fetchLive(bbox, hours) {
   const days = WINDOWS[hours];
+  if (!WORKER_DAYS.has(days)) throw new Error(`live: ${days} is not a day range the Worker accepts`);
   const now = Date.now();
   const since = now - hours * 3600 * 1000;
   const reachFrom = now - days * 86400 * 1000;
