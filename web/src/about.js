@@ -47,7 +47,7 @@ function nbacTable(a) {
     <tbody>${body}</tbody></table></div>`;
 }
 
-const TOC = [["calendar", "What the calendar shows"], ["built", "How it is built"],
+const TOC = [["team", "Team Sitara OPS"], ["why", "Why I built this"], ["calendar", "What the calendar shows"], ["built", "How it is built"],
   ["tests", "How well it works"], ["nbac", "Check against burned area"], ["limits", "Limits"],
   ["emergency", "Evacuation information"], ["live", "Live fire and people"], ["credits", "AI tools"],
   ["sources", "Data credits"], ["refs", "References"]];
@@ -69,6 +69,33 @@ function render(a) {
   const minKm2 = n(a.low_confidence_below_km2);
   return `${contents()}
   <div class="about-col">
+  <section id="sec-team">
+    <h2>Team Sitara OPS</h2>
+    <div class="team">
+      <div class="team-avatar" aria-hidden="true">SS</div>
+      <div class="team-who">
+        <p class="team-name">Shreya Saxena</p>
+        <p class="team-role">Computer Science (Honours), University of British Columbia · solo builder</p>
+        <p class="team-link"><a href="https://github.com/6s-1">github.com/6s-1</a></p>
+      </div>
+    </div>
+
+    <h2 id="sec-why">Why I built this</h2>
+    <p>In 2023 I was evacuated from Kelowna. The fire came over the ridge in an afternoon, and the question
+    everyone kept asking was the one nobody could answer: is this normal, or is this different? There was
+    plenty of data. There was no way to look at it.</p>
+    <p>In 2024 I worked on a wildfire-risk model with UBC and Rogers, and I found out why. The satellite record
+    is split in two. MODIS has been watching since 2000; VIIRS since 2012, and it sees four times as much fire
+    because its pixels are smaller. Put the two end to end and 2012 looks like the year Canada caught fire.
+    Every long-run question runs into that seam. Later, as a research assistant at the University of
+    Technology – Paraná, Brazil, I kept meeting the same wall in a different forest.</p>
+    <p>So I joined them. Ember converts 26 years of NASA fire detections into one unit that holds across the
+    seam, so a season can be compared with the 25 before it. It matters now: MODIS is at the end of its life,
+    and half of this record is about to go dark. What has already been seen is all we will ever have of those
+    years.</p>
+    <p class="team-close">Satellites die. Their memory shouldn't.</p>
+  </section>
+
   <section id="sec-calendar">
     <h2>What the calendar shows</h2>
     <p>Each square is a <strong>fire cell-day count</strong>: how many ~1 km grid cells had at least one satellite fire
