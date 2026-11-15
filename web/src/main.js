@@ -15,6 +15,7 @@ import { raisePlaces, setPlacesVisible } from "./places.js";
 import { addTrendLayers, attachTrendHover, buildTrend, setTrend, trendLegendHTML } from "./trend.js";
 import { addHoverLayers, footprint, raiseHover, scheduleHover, setHover } from "./hover.js";
 import { closeWhyCard, renderWhyCard } from "./whycard.js";
+import { initTextSize } from "./textsize.js";
 import { fixPair, lockCameras, layerPicker, repaintPickers, view } from "./views.js";
 import { readUrl, writeUrl } from "./urlstate.js";
 import { addLiveLayer, attachLiveHover, fetchLive, liveAvailable, liveReason } from "./live.js";
@@ -842,7 +843,19 @@ function restoreFromUrl(d) {
   fixPair(); // unknown or colliding layers fall back to fire and people
   repaintPickers();
 
-  if (u.box) select(u.box, false); else clearBox(false);
+  // With nothing saved and nothing in the URL, open on the Okanagan in August 2023: a view that
+  // shows at once what the app is for. Any saved state or shared link wins over it.
+  const fresh = !location.search && !u.box && !u.range;
+  if (u.box) select(u.box, false);
+  else if (fresh) {
+    const aug = d.monthIndex.get(2023 * 100 + 8);
+    if (aug !== undefined) {
+      state.range = [aug, aug];
+      $("from").value = "2023-08";
+      $("to").value = "2023-08";
+    }
+    select(PRESETS.okanagan, false);
+  } else clearBox(false);
 
   if (u.app === "live") {
     state.app = "live";
@@ -857,6 +870,9 @@ function restoreFromUrl(d) {
   // the camera last, so no fit overrides it
   if (u.camera) {
     const apply = () => map.jumpTo(u.camera);
+    if (map.loaded()) apply(); else map.once("load", apply);
+  } else if (fresh) {
+    const apply = () => fitToData();
     if (map.loaded()) apply(); else map.once("load", apply);
   }
   urlReady = true;
@@ -877,6 +893,7 @@ function saveUrl() {
 }
 
 // ---- start
+initTextSize();
 setLiveMode($("layers-panel"), false);
 attachInfoTips($("tip"));
 attachTooltip($("calendar"), $("tip"), () => ({ d: state.d, agg: state.agg, mode: state.mode, colour: state.colour, cal: state.cal }));
@@ -897,7 +914,7 @@ loadData("harmonised/")
     for (const id of ["from", "to"]) { $(id).min = first; $(id).max = last; }
     $("from").value = first; $("to").value = last;
     state.range = [0, d.months.length - 1];
-    $("data-end").textContent = `Data to ${monthDays(d.lastMonth)} ${MONTHS[d.lastMonth.m - 1]} ${d.lastMonth.y}.`;
+    // the data-end stamp moved to the About page; the header carries the wordmark only
     hotspotIndex().catch(() => {
       $("dl-hotspots").hidden = true;
       $("dl-status").textContent = "Hotspot download is not available on this copy of the site.";
