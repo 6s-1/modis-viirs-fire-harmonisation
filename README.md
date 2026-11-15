@@ -1,16 +1,61 @@
 # Ember
 
-**Harmonised MODIS + VIIRS fire activity for Canada.**
+**Ember joins 26 years of NASA MODIS and VIIRS fire detections into one comparable record for
+Canada, so any season can be read against the 25 before it.**
+It is a burning activity calendar for any area of the country, from November 2000 to today.
 
-NASA Space Apps 2026 challenge: *Harmonization of MODIS and VIIRS Hot Spots*.
+**Live app: https://6s-1.github.io/modis-viirs-fire-harmonisation/**
 
-MODIS (Terra and Aqua, from 2000) and VIIRS (S-NPP from 2012, NOAA-20 from 2018) detect fire at
-different resolutions, so their raw counts cannot be laid end to end: the record would jump in 2012.
-Ember converts the whole record to **VIIRS-equivalent fire cell-days** from November 2000 to
-the present and shows it as a burning activity calendar for any area of Canada.
+NASA Space Apps 2026 challenge: *Harmonization of MODIS and VIIRS Hot Spots*. Team Sitara OPS.
 
-**Live app:** https://6s-1.github.io/modis-viirs-fire-harmonisation/
-(method, test results, limits and credits are on its *About Ember* page)
+![The Ember dashboard: a globe of Canada covered in fire grid cells, with the selection panel and the month-by-year burning calendar beside it.](docs/img/dashboard.png)
+
+## The problem, and what Ember does about it
+
+MODIS (Terra and Aqua, from 2000) has 1 km pixels; VIIRS (S-NPP from 2012, NOAA-20 from 2018) has
+375 m pixels and finds **4.31x** as many fire cell-days in the same fires. Laid end to end the raw
+record jumps in 2012, and every long-run question runs into that seam. Ember converts the whole
+record to **VIIRS-equivalent fire cell-days** using conversion tables fitted where the two sensors
+overlap, so years can be compared on one scale.
+
+## Does it work?
+
+Years are hidden from the model and its estimate compared with what VIIRS actually recorded
+(leave-one-year-out, 2012-2025; weighted absolute error of yearly totals):
+
+| Scale | Previous method | **Ember** |
+|---|---|---|
+| Canada | 8.3% | **5.7%** |
+| Province | 12.4% | **8.2%** |
+| Grid cell (~250 km2) | 45.2% | **36.0%** |
+
+Across all hidden years, Canada-wide estimates land within **0.92-1.24x** the observed value. An
+independent check against NBAC burned area (never a model input) shows **no step at 2012**: the
+estimated years 2003-2011 track NBAC about as well as raw MODIS Aqua, the same satellite before and
+after. Full method, every test and the limits: [docs/HOW-IT-WORKS.md](docs/HOW-IT-WORKS.md) and the
+app's *About Ember* page.
+
+## Run it
+
+```bash
+cd web && npm install && npm run dev      # http://localhost:5173
+```
+
+That is enough to run the app: the harmonised export is committed in `web/public/harmonised/`.
+Rebuilding it from raw FIRMS downloads is under [Reproduce](#reproduce). Live mode additionally
+needs the Cloudflare Worker in `worker/` with a FIRMS key; without it the historical record still
+works.
+
+## Data credits in brief
+
+NASA FIRMS (MODIS Collection 6.1 and VIIRS 375 m Collection 2) for every fire detection; ESA
+WorldCover for land cover; NBAC, NFDB and CWFIS (Natural Resources Canada) for burned area, fire
+causes and agency-reported fires; WorldPop for population; GeoNames and Natural Earth for places and
+boundaries. Full list with links: [Data and tools](#data-and-tools), with the
+providers' [attribution statements](#attribution-and-licences). Ember was built with the help
+of an AI coding assistant under my direction; see [Use of AI tools](#use-of-ai-tools).
+
+## What you can do in the app
 
 - Draw a box on the globe or type bounds, pick a date range.
 - The box fills with grid cells coloured by fire activity; the calendar shows years by months.
@@ -148,6 +193,64 @@ tar -cf hotspots.tar -C web/public hotspots
 gh release upload hotspot-tiles hotspots.tar --clobber
 ```
 
+## Data and tools
+
+Everything Ember uses, with the page or endpoint it is actually taken from.
+
+### NASA data
+
+| What | Used for | Link |
+|---|---|---|
+| FIRMS archive download (MODIS Collection 6.1, VIIRS 375 m Collection 2) | Every fire detection in the harmonised record, 2000 to present | https://firms.modaps.eosdis.nasa.gov/download/ |
+| FIRMS area API (`/api/area/csv/`) | Near-real-time hotspots in live mode, fetched server-side by the Worker | https://firms.modaps.eosdis.nasa.gov/api/area/ |
+| FIRMS | The service itself, part of NASA's Earth Science Data and Information System (ESDIS) | https://firms.modaps.eosdis.nasa.gov/ |
+| NASA Earthdata: FIRMS | Product documentation and access | https://www.earthdata.nasa.gov/data/tools/firms |
+
+Instruments behind those detections: MODIS on Terra and Aqua, VIIRS on Suomi-NPP, NOAA-20 and
+NOAA-21.
+
+### Space agency partner data
+
+| What | Used for | Link |
+|---|---|---|
+| ESA WorldCover 10 m 2021 v200 | Land cover class (forest, grass and shrub, cropland, other) in the conversion tables; read directly from the public bucket | https://esa-worldcover.org/en |
+| ESA WorldCover v200 release | The dataset record and citation | https://zenodo.org/records/7254221 |
+
+### Other data
+
+| What | Used for | Link |
+|---|---|---|
+| National Burned Area Composite (NBAC), Canadian Forest Service | Independent check against burned area, and fire size and name in the *Why it burned* card | https://cwfis.cfs.nrcan.gc.ca/downloads/nbac/ |
+| Canadian National Fire Database (NFDB), fire points | Recorded cause of fires in the *Why it burned* card | https://cwfis.cfs.nrcan.gc.ca/downloads/nfdb/fire_pnt/current_version/ |
+| CWFIS Active Fires, from provincial, territorial and Parks Canada agencies | Agency-reported fires near a cell in live mode: name, size, stage of control | https://cwfis.cfs.nrcan.gc.ca/datamart |
+| Terrestrial Ecozones of Canada, Agriculture and Agri-Food Canada | The 15 fire regions the conversion tables are fitted per | https://sis.agr.gc.ca/cansis/nsdb/ecostrat/zone/ecozone_shp.zip |
+| WorldPop 2020 1 km UN-adjusted, Canada | People living in an area, and the exposure list | https://data.worldpop.org/GIS/Population/Global_2000_2020_1km_UNadj/2020/CAN/ |
+| WorldPop | The project itself | https://www.worldpop.org/ |
+| GeoNames `cities500` | Place names on the globe | https://download.geonames.org/export/dump/ |
+| Natural Earth 1:50 m admin 1 states and provinces | Canada and province boundaries; clipping detections to Canada | https://naciscdn.org/naturalearth/50m/cultural/ne_50m_admin_1_states_provinces.zip |
+| Natural Earth | The project itself | https://www.naturalearthdata.com/ |
+| OpenFreeMap (positron style), © OpenMapTiles, data © OpenStreetMap contributors | The base map | https://openfreemap.org/ |
+
+NBAC, NFDB, CWFIS and the ecozones contain information licensed under the
+[Open Government Licence – Canada](https://open.canada.ca/en/open-government-licence-canada).
+
+### Tools
+
+| What | Used for | Link |
+|---|---|---|
+| MapLibre GL JS | The globe and every map layer | https://maplibre.org/maplibre-gl-js/docs/ |
+| H3 (`h3-js` in the app, `h3-py` in the pipeline) | The hexagon grids: resolution 8 for detection, 5 for display | https://h3geo.org/ |
+| Vite | Build and dev server for the web app | https://vite.dev/ |
+| Cloudflare Workers | The proxy that keeps the FIRMS key off the client | https://developers.cloudflare.com/workers/ |
+| GitHub Pages | Hosting the live app | https://pages.github.com/ |
+| pandas | Every table in the pipeline | https://pandas.pydata.org/ |
+| NumPy | The numeric work behind the conversion tables | https://numpy.org/ |
+| GeoPandas | Ecozone, boundary and NBAC geometry | https://geopandas.org/ |
+| Rasterio | Reading the WorldCover and WorldPop rasters | https://rasterio.readthedocs.io/ |
+| SciPy | Statistics for the validation tests | https://scipy.org/ |
+| Matplotlib | The figures on the About page | https://matplotlib.org/ |
+| Claude (Anthropic) | AI coding assistant, used as described under [Use of AI tools](#use-of-ai-tools) | https://claude.com/product/claude-code |
+
 ## Limits
 
 - Extreme northern fire years are underestimated (2014: about −19% for all of Canada when hidden).
@@ -164,7 +267,10 @@ and debugging code, running data checks and drafting text. The method, the data 
 and every final decision are mine. The logo and the mascot are my own drawings, converted to SVG
 with AI help.
 
-## Data credits
+## Attribution and licences
+
+The links and uses are in [Data and tools](#data-and-tools); these are the attribution statements
+each provider asks for.
 
 - NASA FIRMS active fire data (MODIS Collection 6.1, VIIRS 375 m), NASA ESDIS.
 - NBAC and Canadian National Fire Database, Canadian Forest Service, Natural Resources Canada (CWFIS), and the
