@@ -122,3 +122,21 @@ export function attachLiveHover(map, tip) {
   });
   map.on("mouseleave", "live", () => { tip.hidden = true; });
 }
+
+// Fires the agencies report, from CWFIS through the Worker. Fetched once and reused: it changes
+// about once a day.
+let activeCache = null;
+export async function fetchActiveFires() {
+  if (!LIVE_URL) return [];
+  if (activeCache) return activeCache;
+  try {
+    const r = await fetch(`${LIVE_URL}/activefires`, { signal: AbortSignal.timeout(15000) });
+    if (!r.ok) { devWhy(`active fires returned ${r.status}`); return []; }
+    const d = await r.json();
+    activeCache = d.fires || [];
+    return activeCache;
+  } catch (err) {
+    devWhy(`could not reach the active fires feed (${err.name === "TimeoutError" ? "timed out" : err.message})`);
+    return [];
+  }
+}

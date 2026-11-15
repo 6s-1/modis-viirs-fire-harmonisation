@@ -821,3 +821,8 @@ input[type="month"]:focus-visible, input[type="month"]:focus {
 .wc-answer.tone-high .wc-verdict { color: #fb7146; }
 .wc-answer.tone-low .wc-verdict { color: #8fa3b8; }
 .wc-because { margin: 3px 0 0; font-size: var(--fs-s); line-height: 1.45; color: var(--muted); }
+/* agency-reported fires in the Why card */
+.wc-official { margin: 10px 0 0; padding-top: 10px; border-top: 1px solid var(--card-line); }
+.wc-official .wc-fires { margin: 6px 0 0; }
+.wc-official .wc-fires li { padding: 4px 0; }
+.wc-none { margin: 4px 0 0; font-size: var(--fs-s); color: var(--muted); }

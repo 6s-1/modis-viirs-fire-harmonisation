@@ -74,6 +74,51 @@ function keepCanada(csv) {
   return { body: out.join("\n") + "\n", dropped };
 }
 
+// Fires the agencies themselves report, from the Canadian Wildland Fire Information System.
+// Satellites see heat; this says who is fighting what, how big it is and whether it is held.
+// Cached for an hour: the agencies update it about once a day.
+const ACTIVE_URL = "https://geoserver.cwfif.nrcan.gc.ca/geoserver/ows"
+  + "?service=WFS&version=2.0.1&request=GetFeature&outputFormat=csv"
+  + "&typeName=public:cwfif_national_activefires";
+const ACTIVE_TTL_S = 3600;
+let activeCache = null;
+
+async function activeFires(cors) {
+  const headers = { ...cors, "Content-Type": "application/json; charset=utf-8", "Cache-Control": `public, max-age=${ACTIVE_TTL_S}` };
+  if (activeCache && Date.now() - activeCache.t < ACTIVE_TTL_S * 1000) {
+    return new Response(activeCache.body, { headers: { ...headers, "X-Cache": "memory" } });
+  }
+  let text;
+  try {
+    const res = await fetch(ACTIVE_URL, { cf: { cacheTtl: ACTIVE_TTL_S, cacheEverything: true } });
+    if (!res.ok) return json({ error: `CWFIS returned ${res.status}` }, cors, 502);
+    text = await res.text();
+  } catch {
+    return json({ error: "CWFIS unreachable" }, cors, 502);
+  }
+  // the feed uses CRLF, so the last column of every row would keep a trailing \r
+  const lines = text.split(/\r?\n/);
+  const head = lines[0].split(",").map((h) => h.trim());
+  const col = (n) => head.indexOf(n);
+  const iAg = col("agency_code"), iId = col("agency_fire_id"), iSize = col("fire_size"),
+    iStage = col("stage_of_control_status"), iLat = col("latitude"), iLon = col("longitude"),
+    iStart = col("situation_report_date"), iEnd = col("record_end");
+  const now = Date.now();
+  const out = [];
+  for (let k = 1; k < lines.length; k++) {
+    const c = lines[k].split(",");
+    if (c.length < head.length) continue;
+    const end = Date.parse(c[iEnd]);
+    if (!(end > now)) continue; // only fires whose record is still current
+    const lat = +c[iLat], lon = +c[iLon];
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+    out.push({ agency: c[iAg], id: c[iId], ha: +c[iSize], stage: c[iStage], lat, lon, start: c[iStart] || null });
+  }
+  const body = JSON.stringify({ fires: out, fetched: new Date().toISOString() });
+  activeCache = { t: Date.now(), body };
+  return new Response(body, { headers: { ...headers, "X-Cache": "miss" } });
+}
+
 export default {
   async fetch(request, env, ctx) {
     const cors = corsHeaders(request);
@@ -81,6 +126,7 @@ export default {
     if (request.method !== "GET") return json({ error: "method not allowed" }, cors, 405);
     const url = new URL(request.url);
     if (url.pathname === "/health") return json({ ok: Boolean(env.FIRMS_MAP_KEY) }, cors, env.FIRMS_MAP_KEY ? 200 : 503);
+    if (url.pathname === "/activefires") return activeFires(cors);
     if (url.pathname !== "/fires") return json({ error: "not found" }, cors, 404);
 
     const source = url.searchParams.get("source");

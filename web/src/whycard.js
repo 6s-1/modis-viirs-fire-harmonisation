@@ -11,6 +11,18 @@ import { MONTHS, fmt, fmtShort, isEstimated, median, quantile } from "./data.js"
 import { infoIcon } from "./info.js";
 import { mannKendall, theilSen } from "./compare.js";
 import { framePeriod, judge } from "./normal.js";
+import { fetchActiveFires } from "./live.js";
+
+// CWFIS stage of control, spelled out
+const STAGE = { OC: "Out of control", BH: "Being held", UC: "Under control", OUT: "Out" };
+const KM_NEAR = 30; // a fire this close to the cell centre counts as "in or near" it
+function nearbyFires(fires, la, lo) {
+  return fires
+    .map((f) => ({ ...f, km: Math.hypot((f.lat - la) * 111, (f.lon - lo) * 111 * Math.cos((la * Math.PI) / 180)) }))
+    .filter((f) => f.km <= KM_NEAR)
+    .sort((a, b) => b.ha - a.ha)
+    .slice(0, 3);
+}
 
 // ---- Stage B: cause, burned area and land cover, in one shard per ecozone, fetched when the
 // card first needs that zone. Display only: none of it feeds the harmonisation model.
@@ -240,6 +252,26 @@ export async function renderWhyCard(el, d, agg, subject, live) {
     }
   }
 
+  // ---- what the agencies report, in Live
+  let official = "";
+  if (live && isCell) {
+    const fires = await fetchActiveFires();
+    const near = nearbyFires(fires, d.lat[i], d.lon[i]);
+    const note = infoIcon(`Fires reported by the provincial, territorial and Parks Canada agencies, through the Canadian Wildland Fire Information System.<br>
+      Agencies update this about once a day, so it can lag the satellites in both directions.<br>
+      <span class="muted">Fires within ${KM_NEAR} km of this cell's centre, largest first.</span>`);
+    official = near.length
+      ? `<div class="wc-official">
+          <p class="wc-kicker">Reported by the agency${note}</p>
+          <ul class="wc-fires">${near.map((f) => `<li>
+            <b>${f.id || "Unnamed fire"}</b> <span class="muted">${f.agency}</span><br>
+            <span class="muted">${f.ha >= 0 ? `${fmt(f.ha)} ha · ` : ""}${STAGE[f.stage] || f.stage}${f.start ? ` · started ${f.start.slice(0, 10)}` : ""}</span>
+          </li>`).join("")}</ul>
+        </div>`
+      : `<div class="wc-official"><p class="wc-kicker">Reported by the agency${note}</p>
+          <p class="wc-none">No agency-reported fire here.</p></div>`;
+  }
+
   // ---- Stage B, for a single cell: cause, burned area, land cover and the rest
   let why = "", more = "";
   if (isCell) {
@@ -310,6 +342,7 @@ export async function renderWhyCard(el, d, agg, subject, live) {
     </div>
     ${answer}
     ${liveBlock}
+    ${official}
     ${liveBlock ? `<p class="wc-kicker wc-past">Past fire here</p>` : ""}
     <dl class="wc-rows">${rows.join("")}</dl>
     ${why}
