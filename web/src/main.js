@@ -11,8 +11,9 @@ import { addGridLayers, attachGridHover, gridLegend, updateGrid } from "./grid.j
 import { addLiveLayer, attachLiveHover, fetchLive, liveAvailable, viewBbox } from "./live.js";
 
 const OBSERVED_FROM = 2012;
+// With no box drawn, the selection is all of Canada.
+const CANADA = { south: 41.5, north: 83.5, west: -141.5, east: -52.0 };
 const PRESETS = {
-  "all-canada": { south: 41.5, north: 83.5, west: -141.5, east: -52.0 },
   okanagan: { south: 49.0, north: 50.6, west: -120.1, east: -118.9 }, // Okanagan valley, Osoyoos to Vernon, around Kelowna
 };
 const STYLE = "https://tiles.openfreemap.org/styles/positron";
@@ -98,7 +99,8 @@ map.on("load", () => {
   });
   state.mapReady = true;
   renderExposure(); // places may have loaded before the map
-  if (state.box) { drawBox(state.box); if (state.d) refreshGrid(); }
+  if (state.box) drawBox(state.box);
+  if (state.d) refreshGrid();
 });
 function drawBox(b) {
   const src = map.getSource("selection");
@@ -142,9 +144,7 @@ for (const [id, b] of Object.entries(PRESETS)) $(id).addEventListener("click", (
 // ---- context layer: major roads and populated places (OpenStreetMap via the basemap's vector tiles),
 // shown only inside the selection. For orientation; not evacuation routes.
 function selectionPolygon() {
-  const b = state.box;
-  if (!b) return null;
-  return boxFeature(b).geometry;
+  return boxFeature(selBox()).geometry;
 }
 const ROAD_CLASSES = ["motorway", "trunk", "primary"];
 function addContextLayers() {
@@ -193,8 +193,8 @@ function clipLine(coords, b) {
 // when a single cell is selected).
 function clipRoads() {
   const src = map.getSource("ctx-roads");
-  if (!src || !state.box) return;
-  const b = state.box;
+  if (!src) return;
+  const b = selBox();
   const feats = map.querySourceFeatures("openmaptiles", { sourceLayer: "transportation",
     filter: ["match", ["get", "class"], ROAD_CLASSES, true, false] });
   const lines = [];
@@ -218,10 +218,33 @@ function updateContext() {
 }
 $("ctx").addEventListener("change", updateContext);
 
+// The current selection: the drawn box, or all of Canada when there is none.
+const selBox = () => state.box || CANADA;
+
+// A small x pinned to the box's top-right corner clears the box (back to all of Canada).
+const clearEl = document.createElement("button");
+clearEl.type = "button";
+clearEl.className = "box-clear";
+clearEl.textContent = "×";
+clearEl.title = "Clear the box and return to all of Canada";
+clearEl.setAttribute("aria-label", "Clear the box and return to all of Canada");
+clearEl.addEventListener("click", (e) => { e.stopPropagation(); clearBox(); });
+const clearMarker = new maplibregl.Marker({ element: clearEl, anchor: "center" });
+
 function select(b, fly) {
   state.box = b;
   fields.forEach((f) => { $(f).value = Math.round(b[f] * 100) / 100; });
   drawBox(b);
+  clearMarker.setLngLat([b.east, b.north]).addTo(map);
+  if (state.d) update();
+  if (fly) fitToData();
+}
+
+function clearBox(fly = true) {
+  state.box = null;
+  fields.forEach((f) => { $(f).value = ""; });
+  drawBox(null);
+  clearMarker.remove();
   if (state.d) update();
   if (fly) fitToData();
 }
@@ -231,7 +254,7 @@ function select(b, fly) {
 function fitToData() {
   const e = state.agg && state.agg.extent;
   const half = 0.12; // display cells are ~0.25 degrees across; pad centres by half a cell
-  const b = e ? { south: e.south - half, north: e.north + half, west: e.west - half * 2, east: e.east + half * 2 } : state.box;
+  const b = e ? { south: e.south - half, north: e.north + half, west: e.west - half * 2, east: e.east + half * 2 } : selBox();
   const el = map.getContainer(), W = el.clientWidth, H = el.clientHeight;
   const side = 0.9 * Math.min(W, H);
   const px = Math.max((W - side) / 2, 0), py = Math.max((H - side) / 2, 0);
@@ -271,7 +294,7 @@ function refreshGrid() {
 
 function update() {
   const d = state.d;
-  const agg = (state.agg = aggregate(d, state.box));
+  const agg = (state.agg = aggregate(d, selBox()));
   const firstYear = state.observedOnly ? OBSERVED_FROM : d.firstYear;
   const years = [];
   for (let y = d.lastYear; y >= firstYear; y--) years.push(y);
@@ -291,9 +314,11 @@ function update() {
     const q = uncertaintyFactors(d, agg.canadaKm2, "year", d.months[i].source);
     lo += agg.totals[i] * (q ? q[0] : 1); hi += agg.totals[i] * (q ? q[2] : 1);
   }
-  const areaTip = `Canada inside the box (land and lakes): the area searched, not the area burned.${partlyOutside ? ` Part of the box is outside Canada. ${OUTSIDE}` : ""}`;
+  const areaTip = state.box ? `Canada inside the box (land and lakes): the area searched, not the area burned.${partlyOutside ? ` Part of the box is outside Canada. ${OUTSIDE}` : ""}`
+    : "All of Canada (land and lakes): the area searched, not the area burned. Draw a box to look at a smaller area.";
   const lowTip = `Less than ${fmt(minArea)} km² of Canada in the box: estimated years are low confidence.`;
   const areaTxt = agg.canadaKm2 >= 1e6 ? `${(agg.canadaKm2 / 1e6).toFixed(2)}M` : fmt(agg.canadaKm2);
+  const whereTxt = state.box ? "" : "all of Canada · ";
   const dets = [["terra", "Terra"], ["aqua", "Aqua"], ["snpp", "S-NPP"], ["noaa20", "NOAA-20"]].map(([p, name]) => {
     const v = agg.detOf(p);
     let t = 0;
@@ -311,7 +336,7 @@ function update() {
   $("summary").innerHTML = (!inCanada ? `<p class="notice">${OUTSIDE}</p>` : agg.cells.length ? `
     <div class="big" title="Harmonised fire cell-days (VIIRS-equivalent), ${rangeLabel()}">${fmt(total)}${hi - lo > 0.005 * total ? ` <span class="rng">(${fmtShort(lo)}–${fmtShort(hi)})</span>` : ""}
       <span class="unit">fire cell-days</span></div>
-    <div class="sub">${rangeLabel()} · ${agg.cells.length.toLocaleString("en-CA")} ${agg.cells.length === 1 ? "cell" : "cells"} with fire ·
+    <div class="sub">${whereTxt}${rangeLabel()} · ${agg.cells.length.toLocaleString("en-CA")} ${agg.cells.length === 1 ? "cell" : "cells"} with fire ·
       <span class="info" title="${areaTip}">${areaTxt} km² searched</span>${lowConfidence ? ` <span class="badge low" title="${lowTip}">low conf.</span>` : ""}</div>${popLine}${detLine}`
     : `<div class="big">0 <span class="unit">fire cell-days</span></div>
     <div class="sub"><span class="info" title="${areaTip}">${areaTxt} km² searched</span> · no fire detected</div>`);
@@ -333,10 +358,10 @@ function update() {
 
 // ---- downloads
 $("dl-monthly").addEventListener("click", () => {
-  saveBlob(monthlyCSV(state.d, state.agg, state.range), `ember_fire-cell-days_${fileStem(state.box, state.d, state.range)}.csv`);
+  saveBlob(monthlyCSV(state.d, state.agg, state.range), `ember_fire-cell-days_${fileStem(selBox(), state.d, state.range)}.csv`);
 });
 $("dl-png").addEventListener("click", async () => {
-  const d = state.d, b = state.box;
+  const d = state.d, b = selBox();
   const cal = state.mode === "raw" ? renderCalendar(document.createElement("div"), d, state.agg, {
     years: state.cal.totals.map((t) => t.y), medianYears: [], range: state.range, lowConfidence: false,
     legendEl: document.createElement("div") }) : state.cal; // the PNG is always the harmonised calendar
@@ -351,13 +376,13 @@ $("dl-hotspots").addEventListener("click", async () => {
   const st = $("dl-status"), btn = $("dl-hotspots");
   try {
     btn.disabled = true;
-    const plan = await hotspotPlan(state.box, state.d, state.range);
+    const plan = await hotspotPlan(selBox(), state.d, state.range);
     if (!plan.tiles.length) { st.textContent = "No hotspots in this box and date range."; return; }
     if (plan.tooBig) { st.textContent = `This would read up to ${fmt(plan.rows)} hotspots. Narrow the box or the date range (limit 1.5 million).`; return; }
     st.textContent = `Reading ${plan.tiles.length} tiles (${(plan.bytes / 1e6).toFixed(1)} MB)…`;
-    const { blob, rows } = await hotspotsCSV(state.box, state.d, state.range, plan,
+    const { blob, rows } = await hotspotsCSV(selBox(), state.d, state.range, plan,
       (done, n, kept) => { st.textContent = `Reading tiles ${done}/${n} · ${fmt(kept)} hotspots so far…`; });
-    saveBlob(blob, `ember_hotspots_${fileStem(state.box, state.d, state.range)}.csv`);
+    saveBlob(blob, `ember_hotspots_${fileStem(selBox(), state.d, state.range)}.csv`);
     st.textContent = `Saved ${fmt(rows)} hotspots.`;
   } catch (err) {
     st.textContent = `Hotspot download failed: ${err.message}`;
@@ -435,7 +460,7 @@ loadData("harmonised/")
       $("dl-hotspots").hidden = true;
       $("dl-status").textContent = "Hotspot download is not available on this copy of the site.";
     });
-    select(state.box || PRESETS["all-canada"], false);
+    clearBox(false); // start on all of Canada
     loadPlaces("harmonised/places.json").then(renderExposure).catch(() => { $("exposure").textContent = "Place names could not be loaded."; });
   })
   .catch((err) => { $("summary").textContent = `Could not load the harmonised data (${err.message}).`; });

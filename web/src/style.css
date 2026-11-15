@@ -321,3 +321,11 @@ table.data thead th { color: var(--ink-2); font-weight: 500; }
 .site-top h1 { font-size: 1.25rem; letter-spacing: 0.02em; }
 .tagline { color: var(--ink-2); font-size: 0.82rem; }
 .about .tagline { margin: 2px 0 0; }
+
+/* x on the box's top-right corner: clears the box, back to all of Canada */
+.box-clear {
+  width: 22px; height: 22px; padding: 0; border-radius: 50%; font-size: 15px; line-height: 20px;
+  background: var(--surface-solid); color: var(--ink); border: 1.5px solid var(--accent); cursor: pointer;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.5);
+}
+.box-clear:hover { background: var(--accent); color: var(--accent-ink); }
