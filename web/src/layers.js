@@ -4,6 +4,7 @@
 const KEY = "ember:layers";
 export const OVERLAYS = [
   { id: "people", label: "Where people live" },
+  { id: "trend", label: "Where fire is changing", histOnly: true },
   { id: "badges", label: "Exposure badges" },
   { id: "detections", label: "Individual live detections", liveOnly: true },
 ];
@@ -22,8 +23,8 @@ function save() {
 export function initLayersControl(buttonEl, panelEl, onChange) {
   panelEl.innerHTML = `<p class="lp-title">Layers</p>
     <label class="lp-row lp-base"><input type="checkbox" checked disabled /> Fire activity <span class="lp-note">always on</span></label>
-    ${OVERLAYS.map((o) => `<label class="lp-row"${o.liveOnly ? ' data-live-only' : ""}><input type="checkbox" data-layer="${o.id}"${overlays[o.id] ? " checked" : ""} />
-      ${o.label}${o.liveOnly ? ' <span class="lp-note">live mode</span>' : ""}</label>`).join("")}`;
+    ${OVERLAYS.map((o) => `<label class="lp-row"${o.liveOnly ? " data-live-only" : ""}${o.histOnly ? " data-hist-only" : ""}><input type="checkbox" data-layer="${o.id}"${overlays[o.id] ? " checked" : ""} />
+      ${o.label}${o.liveOnly ? ' <span class="lp-note">live mode</span>' : ""}${o.histOnly ? ' <span class="lp-note">historical</span>' : ""}</label>`).join("")}`;
   panelEl.addEventListener("change", (e) => {
     const id = e.target.dataset.layer;
     if (!id) return;
@@ -44,4 +45,6 @@ export function initLayersControl(buttonEl, panelEl, onChange) {
 export function setLiveMode(panelEl, isLive) {
   panelEl.querySelectorAll("[data-live-only] input").forEach((i) => { i.disabled = !isLive; });
   panelEl.querySelectorAll("[data-live-only]").forEach((l) => l.classList.toggle("off", !isLive));
+  panelEl.querySelectorAll("[data-hist-only] input").forEach((i) => { i.disabled = isLive; });
+  panelEl.querySelectorAll("[data-hist-only]").forEach((l) => l.classList.toggle("off", isLive));
 }

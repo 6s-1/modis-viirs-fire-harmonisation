@@ -11,6 +11,7 @@ import { attachInfoTips, infoIcon } from "./info.js";
 import { calendarPNG, coverage, fileTime, hotspotIndex, hotspotPlan, hotspotsCSV, liveCSV, monthlyCSV, saveBlob, utcStamp } from "./downloads.js";
 import { addGridLayers, attachGridHover, buildGrid, buildLiveGrid, gridLegendHTML, setGrid } from "./grid.js";
 import { initLayersControl, overlays, setLiveMode } from "./layers.js";
+import { addTrendLayers, attachTrendHover, buildTrend, setTrend, trendLegendHTML } from "./trend.js";
 import { addLiveLayer, attachLiveHover, fetchLive, liveAvailable } from "./live.js";
 import { liveWindow, renderLiveChart } from "./livechart.js";
 
@@ -112,12 +113,15 @@ function setupMap(map) {
     tip.style.top = `${Math.min(e.originalEvent.clientY + 14, innerHeight - r.height - 8)}px`;
   });
   map.on("mouseleave", "pop-fill", () => { $("tip").hidden = true; });
+  addTrendLayers(map);
+  attachTrendHover(map, $("tip"), () => trendYears());
   addLiveLayer(map);
   attachLiveHover(map, $("tip"));
   map._ready = true;
   // bring this map up to date with whatever has been computed so far
   drawBox(state.box);
   if (state.grid) setGrid(map, state.grid.features);
+  if (state.trend) setTrend(map, state.trend.features);
   if (state.popFeatures) map.getSource("pop").setData({ type: "FeatureCollection", features: state.popFeatures });
   if (state.app === "live" && map.getSource("live")) map.getSource("live").setData({ type: "FeatureCollection", features: live.feats });
   applyLayers();
@@ -315,8 +319,24 @@ function refreshGrid() {
     : isLive ? gridLegendHTML(g.scale, { live: true, windowLabel: WINDOW_LABEL[live.hours] })
     : gridLegendHTML(g.scale, { rangeLabel: rangeLabel() });
   updatePop();
+  updateTrend();
   applyLayers();
   renderLegends();
+}
+
+// Per-cell trends over the complete years in the date range.
+const trendYears = () => {
+  const t = state.trend;
+  return t && t.years.length ? `${t.years[0]}–${t.years[t.years.length - 1]}` : rangeLabel();
+};
+function updateTrend() {
+  if (!overlays.trend || state.app === "live" || !state.d || !state.agg) {
+    state.trend = null;
+    for (const m of maps) setTrend(m, []);
+    return;
+  }
+  state.trend = buildTrend(state.d, state.agg, state.range);
+  for (const m of maps) setTrend(m, state.trend.features);
 }
 
 function update() {
@@ -494,6 +514,7 @@ const liveReady = liveAvailable().then((ok) => (liveOk = ok));
 function layersFor() {
   return {
     fire: true,
+    trend: overlays.trend && state.app !== "live",
     people: overlays.people,
     detections: overlays.detections && state.app === "live",
   };
@@ -503,7 +524,8 @@ function applyLayers() {
     if (!m._ready) continue;
     const show = layersFor(m);
     const set = (ids, on) => ids.forEach((id) => m.getLayer(id) && m.setLayoutProperty(id, "visibility", on ? "visible" : "none"));
-    set(["grid-fill", "grid-line", "grid-est"], show.fire);
+    set(["grid-fill", "grid-line", "grid-est"], show.fire && !show.trend); // the trend replaces the totals
+    set(["trend-fill", "trend-line"], show.trend);
     set(["pop-fill", "pop-line"], show.people);
     set(["live"], show.detections);
   }
@@ -526,13 +548,15 @@ const popLegendHTML = () => `<p class="legend-title">People per grid cell${infoI
 function renderLegends() {
   const show = layersFor(maps[0]);
   const parts = [];
-  parts.push(state.fireLegend || "");
+  if (show.trend && state.trend) parts.push(trendLegendHTML(state.trend));
+  else parts.push(state.fireLegend || "");
   if (show.detections) parts.push(`<ul class="legend"><li><span class="sw key-live"></span>individual detection</li></ul>`);
   if (show.people) parts.push(popLegendHTML());
   $("grid-legend").innerHTML = parts.filter(Boolean).join("");
 }
 initLayersControl($("layers-btn"), $("layers-panel"), (id) => {
   if (id === "people") updatePop();
+  if (id === "trend") updateTrend();
   if (id === "badges") drawExposure(expTop);
   applyLayers();
   renderLegends();
