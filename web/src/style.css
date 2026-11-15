@@ -728,3 +728,4 @@ table.cal { table-layout: fixed; width: 100%; min-width: 440px; }
 .lv-new { fill: #df4531; }
 .lv-cont { fill: #6a6f7a; }
 .reading .lead { color: var(--ink); font-size: var(--fs-m); font-weight: 600; }
+.sb-bar.partial { opacity: 0.6; }

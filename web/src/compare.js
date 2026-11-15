@@ -420,14 +420,22 @@ function seasonBlock(d, agg, years, yearFilter) {
   const rows = [];
   for (const y of ys) {
     const vs = [];
-    let total = 0, est = false;
+    let total = 0, est = false, months = 0, anyPartial = false;
     for (let m = 1; m <= 12; m++) {
       const i = d.monthIndex.get(y * 100 + m);
       const v = i === undefined ? 0 : agg.totals[i];
-      if (i !== undefined && isEstimatedSource(d.months[i].source)) est = true;
+      if (i !== undefined) {
+        months++;
+        if (d.months[i].partial) anyPartial = true;
+        if (isEstimatedSource(d.months[i].source)) est = true;
+      }
       vs.push(v);
       total += v;
     }
+    // Same rule as the yearly totals chart: a year needs all twelve months, none of them partial.
+    // 2000 starts in November, so it has no bar; the current year is kept and marked "to date".
+    const partial = months < 12 || anyPartial;
+    if (partial && y !== d.lastYear) continue;
     if (total <= 0) continue;
     // The season is where the fire is, not where a single detection is: the months holding the
     // middle 80% of the year's cell-days. A month is split in halves so the edges can fall
@@ -443,45 +451,59 @@ function seasonBlock(d, agg, years, yearFilter) {
     const first = edge(total * 0.1), last = edge(total * 0.9);
     let peak = 1, peakV = 0;
     vs.forEach((v, k) => { if (v > peakV) { peakV = v; peak = k + 1; } });
-    rows.push({ y, first, last, peak, total, est });
+    rows.push({ y, first, last, peak, total, est, partial });
   }
   if (rows.length < 3) return "";
 
   const scale = makeScale(rows.map((r) => r.total));
   const W = 560, padL = 42, padR = 14, padT = 18, rowH = Math.max(7, Math.min(13, Math.floor(260 / rows.length)));
   const H = padT + rows.length * rowH + 22;
-  const x = (m) => padL + ((W - padL - padR) * (m - 1)) / 11;
+  // the domain runs from the start of January (1) to the end of December (13), so December has
+  // width and no bar runs off the right edge
+  const x = (m) => padL + ((W - padL - padR) * (m - 1)) / 12;
   const barH = Math.max(4, rowH - 3);
-  const monthName = (f) => `${LONG[Math.min(11, Math.max(0, Math.round(f) - 1))]}`;
+  // "mid-May", "late October": name the part of the year an edge falls in
+  const partOf = (f) => {
+    const m = Math.min(12, Math.max(1, Math.floor(f)));
+    const frac = f - m;
+    return `${frac < 0.34 ? "early" : frac < 0.67 ? "mid-" : "late "}${LONG[m - 1]}`.replace("early", "early ");
+  };
 
   const bars = rows.map((r, k) => {
     const y0 = padT + k * rowH;
     const x0 = x(r.first), x1 = x(r.last);
-    const html = `<strong>${fmt(r.total)}</strong> cell-days in ${r.y}<br>
-      <span class="muted">most of the fire between ${monthName(r.first)} and ${monthName(r.last)}, peak in ${LONG[r.peak - 1]}</span>${r.est ? `<br><span class="muted">estimated from MODIS</span>` : ""}`;
+    const html = `<strong>${fmt(r.total)}</strong> cell-days in ${r.y}${r.partial ? " <span class=\"muted\">(to date)</span>" : ""}<br>
+      <span class="muted">most fire from ${partOf(r.first)} to ${partOf(r.last)}, peak in ${LONG[r.peak - 1]}</span>${r.est ? `<br><span class="muted">estimated from MODIS</span>` : ""}`;
     return `<rect x="${f1(x0)}" y="${f1(y0)}" width="${f1(Math.max(x1 - x0, 2.5))}" height="${barH}" rx="${Math.min(3, barH / 2)}"
-        fill="${scale.color(r.total)}" class="sb-bar${r.est ? " est" : ""}"/>
-      <circle cx="${f1(x(r.peak))}" cy="${f1(y0 + barH / 2)}" r="${Math.min(3, barH / 2 + 0.5)}" class="sb-peak"/>
+        fill="${scale.color(r.total)}" class="sb-bar${r.est ? " est" : ""}${r.partial ? " partial" : ""}"/>
+      <circle cx="${f1(x(r.peak + 0.5))}" cy="${f1(y0 + barH / 2)}" r="${Math.min(3, barH / 2 + 0.5)}" class="sb-peak"/>
       ${k % Math.ceil(rows.length / 9) === 0 ? `<text x="${padL - 6}" y="${f1(y0 + barH - 1)}" class="tick" text-anchor="end">${r.y}</text>` : ""}
       <rect x="${padL}" y="${f1(y0)}" width="${W - padL - padR}" height="${barH}" class="hit" tabindex="0"
-        aria-label="${r.y}: most fire between ${monthName(r.first)} and ${monthName(r.last)}, peak ${LONG[r.peak - 1]}, ${fmt(r.total)} cell-days" ${tip(html)}/>`;
+        aria-label="${r.y}${r.partial ? " to date" : ""}: most fire from ${partOf(r.first)} to ${partOf(r.last)}, peak ${LONG[r.peak - 1]}, ${fmt(r.total)} cell-days" ${tip(html)}/>`;
   }).join("");
-  const xt = MONTHS.map((m, k) => (k % 2 === 0 ? `<text x="${f1(x(k + 1))}" y="${H - 6}" class="tick" text-anchor="middle">${m}</text>` : "")).join("");
+  const xt = MONTHS.map((m, k) => (k % 2 === 0 ? `<text x="${f1(x(k + 1.5))}" y="${H - 6}" class="tick" text-anchor="middle">${m}</text>` : "")).join("");
 
-  // how the season edges have moved: first third of the years against the last third
-  const third = Math.max(2, Math.floor(rows.length / 3));
-  const early = rows.slice(0, third), late = rows.slice(-third);
-  const mean = (arr, key) => arr.reduce((a, r) => a + r[key], 0) / arr.length;
-  const dStart = mean(late, "first") - mean(early, "first");
-  const dEnd = mean(late, "last") - mean(early, "last");
+  // How the season edges have moved. Measured years only: estimated years sit about three weeks
+  // wider at both ends, and MODIS and VIIRS agree to 0.2 weeks over the same years, so that step
+  // is an artefact of the estimation rather than a real shift. With too few measured years, say
+  // nothing rather than compare across the step.
+  const solid = rows.filter((r) => !r.partial && !r.est && r.y >= MEASURED_FROM);
   const weeks = (months) => { const w = Math.abs(months * 4.35); return `${w.toFixed(w < 2 ? 1 : 0)} week${w >= 1.5 ? "s" : ""}`; };
-  const part = [];
-  if (Math.abs(dStart) >= 0.15) part.push(`starts about ${weeks(dStart)} ${dStart < 0 ? "earlier" : "later"}`);
-  if (Math.abs(dEnd) >= 0.15) part.push(`ends about ${weeks(dEnd)} ${dEnd > 0 ? "later" : "earlier"}`);
-  const early1 = `${early[0].y}–${early[early.length - 1].y}`;
-  const reading = part.length
-    ? `Against ${early1}, the season now ${part.join(" and ")}.`
-    : `The season runs at about the same time as in ${early1}.`;
+  let reading = "";
+  if (solid.length >= 9) {
+    const third = Math.max(3, Math.floor(solid.length / 3));
+    const early = solid.slice(0, third), late = solid.slice(-third);
+    const mean = (arr, key) => arr.reduce((a, r) => a + r[key], 0) / arr.length;
+    const dStart = mean(late, "first") - mean(early, "first");
+    const dEnd = mean(late, "last") - mean(early, "last");
+    const part = [];
+    if (Math.abs(dStart) >= 0.25) part.push(`starts about ${weeks(dStart)} ${dStart < 0 ? "earlier" : "later"}`);
+    if (Math.abs(dEnd) >= 0.25) part.push(`ends about ${weeks(dEnd)} ${dEnd > 0 ? "later" : "earlier"}`);
+    const early1 = `${early[0].y}–${early[early.length - 1].y}`;
+    reading = part.length
+      ? `Against ${early1}, the season now ${part.join(" and ")}.`
+      : `The season runs at about the same time as in ${early1}.`;
+  }
 
   return `<section class="cblock" data-b="season-timing">
     <h3 class="cb-title">When the fire season runs, ${rows[0].y} to ${rows[rows.length - 1].y}</h3>
@@ -492,7 +514,8 @@ function seasonBlock(d, agg, years, yearFilter) {
       <li><span class="sw key-peak"></span>peak month</li>
     </ul>
     <p class="reading">${reading}${infoIcon(`Each bar spans the months holding the middle 80% of that year's fire cell-days in the current selection, so a few early or late detections do not stretch it. The dot marks the month with the most fire.<br>
-      The comparison takes the mean start and end of ${early1} against ${late[0].y}–${late[late.length - 1].y}.<br>
+      Years without twelve complete months are left out; the current year is shown to date.<br>
+      ${reading ? `The comparison uses measured years only (${MEASURED_FROM} onwards): estimated years run about three weeks wider at both ends, which is an artefact of the estimation, not a real shift.<br>` : ""}
       <span class="muted">Years estimated from MODIS are outlined.</span>`)}</p>
   </section>`;
 }
