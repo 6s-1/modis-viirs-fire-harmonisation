@@ -11,8 +11,10 @@ import { attachInfoTips, infoIcon } from "./info.js";
 import { calendarPNG, coverage, fileTime, hotspotIndex, hotspotPlan, hotspotsCSV, liveCSV, monthlyCSV, saveBlob, utcStamp } from "./downloads.js";
 import { addGridLayers, attachGridHover, buildGrid, buildLiveGrid, gridLegendHTML, setGrid } from "./grid.js";
 import { initLayersControl, overlays, setLiveMode } from "./layers.js";
+import { raisePlaces, setPlacesVisible } from "./places.js";
 import { addTrendLayers, attachTrendHover, buildTrend, setTrend, trendLegendHTML } from "./trend.js";
-import { attachSwipe, lockCameras, layerPicker, view } from "./views.js";
+import { fixPair, lockCameras, layerPicker, repaintPickers, view } from "./views.js";
+import { readUrl, writeUrl } from "./urlstate.js";
 import { addLiveLayer, attachLiveHover, fetchLive, liveAvailable } from "./live.js";
 import { liveWindow, renderLiveChart, setLivePlaceNamer } from "./livechart.js";
 
@@ -47,6 +49,7 @@ function makeMap(container) {
   m.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
   m.addControl(new maplibregl.AttributionControl({ compact: true }), "top-right"); // under zoom, clear of the corners below
   m.on("style.load", () => { m.setProjection({ type: "globe" }); neutralBasemap(m); });
+  m.on("moveend", () => { if (m === maps[0]) saveUrl(); });
   m.on("load", () => {
     // the compact attribution starts collapsed (an "i" button) so it never spreads across the map
     m.getContainer().querySelectorAll(".maplibregl-compact-show").forEach((el) => el.classList.remove("maplibregl-compact-show"));
@@ -94,7 +97,8 @@ function setupMap(map) {
   map.addLayer({ id: "selection-line", type: "line", source: "selection", paint: { "line-color": "#2bb3a3", "line-width": 2 } });
   addGridLayers(map);
   attachGridHover(map, $("tip"), () => ({ unit: state.app === "live" ? "hotspots" : "cell-days",
-    label: state.app === "live" ? WINDOW_LABEL[live.hours] : rangeLabel() }));
+    label: state.app === "live" ? WINDOW_LABEL[live.hours] : rangeLabel(),
+    place: (i) => (state.d && i !== undefined && state.d.lat[i] !== undefined ? placeName(state.d.lat[i], state.d.lon[i]) : "") }), () => maps);
   map.addSource("exp", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
   map.addLayer({ id: "exp-fill", type: "fill", source: "exp", paint: { "fill-color": "#ffffff", "fill-opacity": 0.01 } });
   map.addLayer({ id: "exp-line", type: "line", source: "exp", paint: { "line-color": "#ffffff", "line-width": 1.6 } });
@@ -110,7 +114,8 @@ function setupMap(map) {
     const f = e.features && e.features[0];
     if (!f) return;
     const tip = $("tip");
-    tip.innerHTML = `<strong>${fmt(+f.properties.p)}</strong> people live in this grid cell<br><span class="muted">WorldPop 2020, modelled estimate</span>`;
+    const pv = +f.properties.p;
+    tip.innerHTML = `<strong>${pv < 1 ? pv.toFixed(2) : fmt(pv)}</strong> people live in this grid cell<br><span class="muted">WorldPop 2020, modelled estimate</span>`;
     tip.hidden = false;
     const r = tip.getBoundingClientRect();
     tip.style.left = `${Math.min(e.originalEvent.clientX + 14, innerWidth - r.width - 8)}px`;
@@ -121,6 +126,7 @@ function setupMap(map) {
   attachTrendHover(map, $("tip"), () => trendYears());
   addLiveLayer(map);
   attachLiveHover(map, $("tip"));
+  raisePlaces(map); // borders and labels above the fire grid
   map._ready = true;
   // bring this map up to date with whatever has been computed so far
   drawBox(state.box);
@@ -221,6 +227,7 @@ function select(b, fly) {
   placeClearMarkers(b);
   if (state.d) update();
   if (fly) fitToData();
+  saveUrl();
 }
 
 function clearBox(fly = true) {
@@ -231,6 +238,7 @@ function clearBox(fly = true) {
   placeClearMarkers(null);
   if (state.d) update();
   if (fly) flyToCamera(canadaCamera()); // back to exactly the opening view
+  saveUrl();
 }
 
 // Fit the camera so the cells with data (or the box, if none) fill ~90% of the map's shorter side,
@@ -294,10 +302,10 @@ function flyToCamera(cam) {
   map.flyTo({ center: cam.center, zoom: cam.zoom, duration, curve: 1.42, easing: easeInOutCubic, essential: true });
 }
 
-// ---- views: one globe, two locked globes (compare), or one globe with a divider (swipe)
-// On a narrow window compare becomes swipe, so a phone gets one globe with a divider.
+// ---- views: one globe, or two locked globes (compare). On a narrow window the two globes stack
+// as the layout already does, still locked together.
 const narrow = window.matchMedia("(max-width: 960px)");
-let unlock = null, swipe = null;
+let unlock = null;
 
 function ensureSecondMap() {
   if (maps[1]) return maps[1];
@@ -316,60 +324,35 @@ function onViewPick() {
   updatePop();
   applyLayers();
   renderLegends();
-}
-
-// The swipe view clips the second map to the right of the divider; both maps sit on top of
-// each other, so the reader sees one globe split in two.
-function setSplit(frac) {
-  const slot = $("map-slot-b");
-  slot.style.clipPath = `inset(0 0 0 ${(frac * 100).toFixed(2)}%)`;
+  saveUrl();
 }
 
 function setView(mode) {
-  if (mode === "compare" && narrow.matches) mode = "swipe"; // no room to stack two globes
   if (mode === view.mode) return;
   view.mode = mode;
   const stack = $("map-stack");
   stack.dataset.view = mode;
-  $("compare-btn").setAttribute("aria-pressed", String(mode === "compare" || (mode === "swipe" && narrow.matches)));
-  $("swipe-btn").setAttribute("aria-pressed", String(mode === "swipe" && !narrow.matches));
-  $("swipe-btn").hidden = narrow.matches; // on a phone Compare already gives the swipe
+  $("compare-btn").setAttribute("aria-pressed", String(mode === "compare"));
   if (mode === "single") {
     if (unlock) { unlock(); unlock = null; }
-    if (swipe) { swipe.handle.remove(); swipe = null; }
     $("map-slot-b").hidden = true;
-    $("map-slot-b").style.clipPath = "";
     document.querySelectorAll(".view-pick").forEach((el) => { el.hidden = true; });
     if (maps[1]) maps[1].resize();
     maps[0].resize();
     refreshGrid(); // back to the full-resolution grid
     onViewPick();
+    saveUrl();
     return;
   }
   ensureSecondMap();
   document.querySelectorAll(".view-pick").forEach((el) => { el.hidden = false; });
-  if (mode === "swipe") {
-    if (!swipe) swipe = attachSwipe(stack, setSplit);
-    setSplit(view.split);
-  } else if (swipe) {
-    swipe.handle.remove();
-    swipe = null;
-    $("map-slot-b").style.clipPath = "";
-  }
   if (!unlock) unlock = lockCameras(maps);
   requestAnimationFrame(() => { for (const m of maps) m.resize(); });
   refreshGrid(); // the grid is coarser while two globes are shown
   onViewPick();
+  saveUrl();
 }
 $("compare-btn").addEventListener("click", () => setView(view.mode === "compare" ? "single" : "compare"));
-$("swipe-btn").addEventListener("click", () => setView(view.mode === "swipe" ? "single" : "swipe"));
-narrow.addEventListener("change", () => {
-  $("swipe-btn").hidden = narrow.matches;
-  if (view.mode === "compare" && narrow.matches) { view.mode = "x"; setView("compare"); }
-  else if (view.mode === "swipe" && !narrow.matches) { view.mode = "x"; setView("compare"); }
-});
-
-$("swipe-btn").hidden = narrow.matches;
 
 // ---- date range, observed-only toggle, harmonised / raw view
 const monthValue = (info) => `${info.y}-${String(info.m).padStart(2, "0")}`;
@@ -387,7 +370,7 @@ function readRange() {
   state.range = [a, b];
   return true;
 }
-["from", "to"].forEach((id) => $(id).addEventListener("change", () => { if (readRange()) update(); }));
+["from", "to"].forEach((id) => $(id).addEventListener("change", () => { if (readRange()) { update(); saveUrl(); } }));
 document.querySelectorAll('input[name="years"]').forEach((r) => r.addEventListener("change", (e) => { state.observedOnly = e.target.value === "measured"; update(); }));
 document.querySelectorAll('input[name="view"]').forEach((r) => r.addEventListener("change", (e) => { state.mode = e.target.value; update(); }));
 document.querySelectorAll('input[name="colour"]').forEach((r) => r.addEventListener("change", (e) => { state.colour = e.target.value; update(); }));
@@ -395,7 +378,7 @@ document.querySelectorAll('input[name="colour"]').forEach((r) => r.addEventListe
 function refreshGrid() {
   if (!state.mapReady || !state.agg) return;
   const isLive = state.app === "live";
-  const coarse = view.mode !== "single"; // two globes: fewer, larger cells so both stay smooth
+  const coarse = view.mode === "compare"; // two globes: fewer, larger cells so both stay smooth
   const g = (state.grid = isLive ? state.liveGrid || { features: [], scale: null, n: 0 } : buildGrid(state.d, state.agg, state.range, { coarse }));
   for (const m of maps) setGrid(m, g.features);
   state.fireLegend = !g.n || !g.scale ? ""
@@ -413,7 +396,7 @@ const trendYears = () => {
   return t && t.years.length ? `${t.years[0]}–${t.years[t.years.length - 1]}` : rangeLabel();
 };
 const wantsTrend = () => (view.mode === "single" ? overlays.trend : view.top === "trend" || view.bottom === "trend");
-const wantsPeople = () => (view.mode === "single" ? overlays.people : view.top === "people" || view.bottom === "people");
+const wantsPeople = () => view.mode !== "single" && (view.top === "people" || view.bottom === "people");
 function updateTrend() {
   if (!wantsTrend() || state.app === "live" || !state.d || !state.agg) {
     state.trend = null;
@@ -597,20 +580,22 @@ const liveReady = liveAvailable().then((ok) => (liveOk = ok));
 
 // Which layers each map shows. The fire grid is the base and always on; overlays follow their
 // toggles in the Layers control. Nothing else appears unless it is turned on.
-// In single view the overlay toggles decide what each map shows. In compare and swipe each map
+// In single view the overlay toggles decide what each map shows. In compare each map
 // shows one chosen layer, so the pickers decide instead; the toggles that are not a map's subject
 // still apply on top of it.
 function layersFor(m) {
   const live = state.app === "live";
   const overlayShow = {
     fire: true,
+    places: overlays.places,
     trend: overlays.trend && !live,
-    people: overlays.people,
+    people: false, // not an overlay: population is a compare-globe layer only
     detections: overlays.detections && live,
   };
   if (view.mode === "single") return overlayShow;
   const pick = m === maps[0] ? view.top : view.bottom;
   return {
+    places: overlays.places, // on both globes, whatever each one shows
     fire: pick === "fire",
     trend: pick === "trend" && !live,
     people: pick === "people",
@@ -622,6 +607,7 @@ function applyLayers() {
     if (!m._ready) continue;
     const show = layersFor(m);
     const set = (ids, on) => ids.forEach((id) => m.getLayer(id) && m.setLayoutProperty(id, "visibility", on ? "visible" : "none"));
+    setPlacesVisible(m, show.places);
     set(["grid-fill", "grid-line", "grid-est"], show.fire && !show.trend); // the trend replaces the totals
     set(["trend-fill", "trend-line"], show.trend);
     set(["pop-fill", "pop-line"], show.people);
@@ -629,19 +615,23 @@ function applyLayers() {
   }
 }
 
-// People per display cell (WorldPop 2020): own blue scale so it never reads as fire.
-const POP_EDGES = [100, 1000, 10000, 100000];
-const POP_COLORS = ["#d6e6f8", "#9ac2ee", "#5596de", "#2a67b4", "#123f7a"];
-const POP_LABELS = ["< 100", "100–1k", "1k–10k", "10k–100k", "> 100k"];
+// People per display cell (WorldPop 2020): its own blue scale so it never reads as fire.
+// Log-spaced classes starting below one person: the old linear classes began at 1 and the layer
+// only drew cells with at least one person, which hid 4,160 of the 4,829 populated cells north of
+// 60 (86%) and made the territories look empty. Cells with nobody in them stay empty: nothing is
+// smoothed or spread into them.
+const POP_EDGES = [1, 10, 100, 1000, 10000];
+const POP_COLORS = ["#d7ebfa", "#a5d1f3", "#66b3e6", "#1b94d3", "#0570ab", "#044e81"];
+const POP_LABELS = ["< 1", "1–10", "10–100", "100–1k", "1k–10k", "> 10k"];
 function popColor(v) { let k = 0; while (k < POP_EDGES.length && v >= POP_EDGES[k]) k++; return POP_COLORS[k]; }
 function updatePop() {
   const d = state.d;
-  state.popFeatures = !wantsPeople() || !d || !state.agg ? [] : state.agg.gridCells.filter((i) => d.pop[i] >= 1).map((i) => ({ type: "Feature",
-    properties: { color: popColor(d.pop[i]), p: Math.round(d.pop[i]) },
+  state.popFeatures = !wantsPeople() || !d || !state.agg ? [] : state.agg.gridCells.filter((i) => d.pop[i] > 0).map((i) => ({ type: "Feature",
+    properties: { color: popColor(d.pop[i]), p: d.pop[i] },
     geometry: { type: "Polygon", coordinates: [cellToBoundary(h3Id(d, i), true)] } }));
   for (const m of maps) { const src = m.getSource("pop"); if (src) src.setData({ type: "FeatureCollection", features: state.popFeatures }); }
 }
-const popLegendHTML = () => `<p class="legend-title">People per grid cell${infoIcon("People living in each ~250 km² grid cell. WorldPop 2020, 1 km, UN-adjusted: a modelled estimate, not a census count.")}</p>
+const popLegendHTML = () => `<p class="legend-title">People per grid cell${infoIcon("People living in each ~250 km² grid cell. WorldPop 2020, 1 km, UN-adjusted: a modelled estimate, not a census count.<br>Classes are log-spaced and start below one person, so sparsely populated cells in the north are still visible. Cells with nobody in them are left empty.")}</p>
   <ul class="legend">${POP_COLORS.map((c, k) => `<li><span class="sw" style="background:${c}"></span>${POP_LABELS[k]}</li>`).join("")}</ul>`;
 function legendFor(m) {
   const show = layersFor(m), parts = [];
@@ -656,7 +646,6 @@ function renderLegends() {
   if (maps[1]) $("grid-legend-b").innerHTML = legendFor(maps[1]);
 }
 initLayersControl($("layers-btn"), $("layers-panel"), (id) => {
-  if (id === "people") updatePop();
   if (id === "trend") updateTrend();
   if (id === "badges") drawExposure(expTop);
   applyLayers();
@@ -720,6 +709,7 @@ function renderLive() {
     `NOAA-20 ${fmt(n20)} · NOAA-21 ${fmt(n21)}`,
     pop ? `${fmtShort(pop)} people live here. <span class="muted">WorldPop 2020, modelled.</span>` : "",
     `<span class="muted">Near real time from NASA FIRMS (VIIRS): provisional and not harmonised.</span>`,
+    `<span class="muted">New and continuing cells are shown only when the feed reaches back a full window before this one; FIRMS serves whole UTC days, so it often does not.</span>`,
   ].filter(Boolean).join("<br>");
   $("summary").innerHTML = `<div class="big">${fmt(feats.length)} <span class="unit">live hotspots</span>${infoIcon(details)}</div>`;
   live.meta = renderLiveChart($("livechart"), feats, live.hours, d, agg, WINDOW_LABEL[live.hours],
@@ -737,11 +727,72 @@ document.querySelectorAll('input[name="app"]').forEach((r) => r.addEventListener
   setLiveMode($("layers-panel"), state.app === "live");
   if (state.app !== "live") { document.body.classList.remove("live-down"); live.seq++; state.live = null; }
   if (state.d) update();
+  saveUrl();
 }));
 document.querySelectorAll('input[name="live"]').forEach((r) => r.addEventListener("change", (e) => {
   live.hours = +e.target.value;
   if (state.app === "live") loadLive();
+  saveUrl();
 }));
+
+// ---- the view in the URL, so a reload or a shared link reopens the same view.
+// Each setting is validated on its own: a bad one falls back to its default and the rest stand.
+let urlReady = false;
+function restoreFromUrl(d) {
+  const u = readUrl();
+
+  if (u.range) {
+    const idx = (v) => d.monthIndex.get(+v.slice(0, 4) * 100 + +v.slice(5, 7));
+    const a = idx(u.range.from), b = idx(u.range.to);
+    if (a !== undefined && b !== undefined && a <= b) {
+      state.range = [a, b];
+      $("from").value = u.range.from;
+      $("to").value = u.range.to;
+    }
+  }
+  if (u.liveHours) {
+    live.hours = u.liveHours;
+    const radio = document.querySelector(`input[name="live"][value="${u.liveHours}"]`);
+    if (radio) radio.checked = true;
+  }
+  if (u.top) view.top = u.top;
+  if (u.bottom) view.bottom = u.bottom;
+  fixPair(); // unknown or colliding layers fall back to fire and people
+  repaintPickers();
+
+  if (u.box) select(u.box, false); else clearBox(false);
+
+  if (u.app === "live") {
+    state.app = "live";
+    document.body.classList.toggle("mode-live", true);
+    setLiveMode($("layers-panel"), true);
+    const radio = document.querySelector('input[name="app"][value="live"]');
+    if (radio) radio.checked = true;
+    update();
+  }
+  if (u.viewMode === "compare") setView("compare");
+
+  // the camera last, so no fit overrides it
+  if (u.camera) {
+    const apply = () => map.jumpTo(u.camera);
+    if (map.loaded()) apply(); else map.once("load", apply);
+  }
+  urlReady = true;
+  saveUrl();
+}
+function saveUrl() {
+  if (!urlReady) return;
+  writeUrl(() => {
+    const c = map.getCenter();
+    return {
+      app: state.app, box: state.box,
+      from: $("from").value, to: $("to").value,
+      liveHours: live.hours,
+      viewMode: view.mode, top: view.top, bottom: view.bottom,
+      camera: { center: [c.lng, c.lat], zoom: map.getZoom(), bearing: map.getBearing(), pitch: map.getPitch() },
+    };
+  });
+}
 
 // ---- start
 setLiveMode($("layers-panel"), false);
@@ -759,7 +810,7 @@ loadData("harmonised/")
       $("dl-hotspots").hidden = true;
       $("dl-status").textContent = "Hotspot download is not available on this copy of the site.";
     });
-    clearBox(false); // start on all of Canada
+    restoreFromUrl(d); // URL, then localStorage, then defaults
     loadPlaces("harmonised/places.json").then(() => { setLivePlaceNamer(placeName); renderExposure(); }).catch(() => { $("exposure").textContent = "Place names could not be loaded."; });
   })
   .catch((err) => { $("summary").textContent = `Could not load the harmonised data (${err.message}).`; });
