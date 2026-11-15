@@ -15,6 +15,14 @@ import { cellToBoundary, cellToChildren, cellToParent, cellsToMultiPolygon, getR
 const CASING = 3.5, LINE = 1.5;
 
 export function addHoverLayers(map) {
+  // The selected cell is its own source, below hover, so moving the cursor cannot wipe it: a
+  // click used to set the hover outline and the next mousemove overwrote it.
+  map.addSource("picked", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+  map.addLayer({ id: "picked-casing", type: "line", source: "picked",
+    paint: { "line-color": "#0b0d12", "line-width": CASING + 1, "line-opacity": 0.9 } });
+  map.addLayer({ id: "picked-line", type: "line", source: "picked",
+    paint: { "line-color": "#2bb3a3", "line-width": LINE + 0.8, "line-opacity": 1 } });
+
   map.addSource("hover", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
   map.addLayer({ id: "hover-casing", type: "line", source: "hover",
     paint: { "line-color": "#0b0d12", "line-width": CASING, "line-opacity": 0.85 } });
@@ -24,7 +32,7 @@ export function addHoverLayers(map) {
 
 // Keep the hover layers on top whenever anything else is added above them.
 export function raiseHover(map) {
-  for (const id of ["hover-casing", "hover-line"]) {
+  for (const id of ["picked-casing", "picked-line", "hover-casing", "hover-line"]) {
     if (map.getLayer(id)) { try { map.moveLayer(id); } catch { /* already last */ } }
   }
 }
@@ -45,8 +53,14 @@ export function footprint(h3id, targetRes) {
   return [cellToBoundary(cellToParent(h3id, targetRes), true)];
 }
 
+export function setPicked(map, rings) {
+  setRings(map, "picked", rings);
+}
 export function setHover(map, rings) {
-  const src = map.getSource("hover");
+  setRings(map, "hover", rings);
+}
+function setRings(map, id, rings) {
+  const src = map.getSource(id);
   if (!src) return;
   src.setData({ type: "FeatureCollection", features: rings.map((ring) => ({
     type: "Feature", properties: {}, geometry: { type: "Polygon", coordinates: [ring] } })) });

@@ -63,6 +63,33 @@ function cellHistory(d, i) {
   return { byYear, byMonth, total };
 }
 
+// The same history as one cell, but summed over every cell in the selection.
+function areaHistory(d, agg) {
+  const byYear = new Map(), byMonth = new Array(12).fill(0);
+  let total = 0;
+  for (let mi = 0; mi < d.months.length; mi++) {
+    const v = agg.totals[mi];
+    if (!(v > 0)) continue;
+    const info = d.months[mi];
+    byYear.set(info.y, (byYear.get(info.y) || 0) + v);
+    byMonth[info.m - 1] += v;
+    total += v;
+  }
+  return { byYear, byMonth, total };
+}
+
+// Which cells in the selection carried this month's fire, and where it was worst.
+function monthDetail(d, agg, mi) {
+  const cells = [];
+  for (const i of agg.gridCells) {
+    for (let r2 = d.rowStart[i]; r2 < d.rowStart[i + 1]; r2++) {
+      if (d.rowMonth[r2] === mi && d.rowValue[r2] > 0) { cells.push({ i, v: d.rowValue[r2] }); break; }
+    }
+  }
+  cells.sort((a, b) => b.v - a.v);
+  return cells;
+}
+
 // Where this cell sits among the cells of its own ecozone, over the same window.
 function ecozonePercentile(d, agg, i, range) {
   const zone = d.region[i];
@@ -128,7 +155,7 @@ const row = (label, value) => `<div class="wc-row"><dt>${label}</dt><dd>${value}
 export async function renderWhyCard(el, d, agg, subject, live) {
   const { i, place, range, windowLabel, scope } = subject;
   const isCell = i !== undefined && i !== null;
-  const hist = isCell ? cellHistory(d, i) : null;
+  const hist = isCell ? cellHistory(d, i) : areaHistory(d, agg);
   const inWindow = isCell ? windowTotal(d, i, range) : boxWindowTotal(d, agg, range);
 
   // live block, when the card was opened in live mode
@@ -153,6 +180,8 @@ export async function renderWhyCard(el, d, agg, subject, live) {
     </div>`;
   }
 
+  const placeOf = (dd, k) => (subject.nameOf ? subject.nameOf(dd.lat[k], dd.lon[k]) : "a cell");
+
   // Stage A history
   const rows = [];
   const histLabel = live ? subject.recordLabel || "" : windowLabel;
@@ -170,12 +199,44 @@ export async function renderWhyCard(el, d, agg, subject, live) {
       rows.push(row("Years with fire", `${withFire} of ${span}`));
       rows.push(row("Last burned", String(lastYear)));
     }
-    const people = d.pop[i];
-    rows.push(row("People living here", people >= 1 ? fmtShort(Math.round(people)) : people > 0 ? people.toFixed(2) : "0"));
-    const tr = cellTrend(d, i, range);
-    if (tr) rows.push(row("Where fire is changing", `${tr.dir} <span class="muted">${tr.years}</span>`));
-    const ez = ecozonePercentile(d, agg, i, range);
-    if (ez) rows.push(row("In its ecozone", `${ordinal(ez.pct)} percentile <span class="muted">of ${fmt(ez.n)} cells in ${ez.zone}</span>`));
+    if (isCell) {
+      const people = d.pop[i];
+      rows.push(row("People living here", people >= 1 ? fmtShort(Math.round(people)) : people > 0 ? people.toFixed(2) : "0"));
+      const tr = cellTrend(d, i, range);
+      if (tr) rows.push(row("Where fire is changing", `${tr.dir} <span class="muted">${tr.years}</span>`));
+      const ez = ecozonePercentile(d, agg, i, range);
+      if (ez) rows.push(row("In its ecozone", `${ordinal(ez.pct)} percentile <span class="muted">of ${fmt(ez.n)} cells in ${ez.zone}</span>`));
+    } else {
+      // a month over the whole selection: how it ranks, and where the fire actually was
+      const mi = range[0], info = d.months[mi];
+      const sameMonth = [];
+      for (let y = d.firstYear; y <= d.lastYear; y++) {
+        const k = d.monthIndex.get(y * 100 + info.m);
+        if (k === undefined || d.months[k].partial) continue;
+        sameMonth.push({ y, v: agg.totals[k] });
+      }
+      const mine = agg.totals[mi];
+      const above = sameMonth.filter((o) => o.y !== info.y && o.v > mine).length;
+      const others = sameMonth.filter((o) => o.y !== info.y);
+      if (others.length >= 5) {
+        rows.push(row(`Against other ${LONG[info.m - 1]}s`, above === 0
+          ? `the busiest of ${others.length + 1}`
+          : `${ordinal(above + 1)} of ${others.length + 1}`));
+        rows.push(row("Typical for this month", `${fmt(median(others.map((o) => o.v)))} cell-days`));
+      }
+      const cells = monthDetail(d, agg, mi);
+      if (cells.length) {
+        rows.push(row("Grid cells with fire", `${fmt(cells.length)} of ${fmt(agg.gridCells.length)}`));
+        const top = cells[0];
+        rows.push(row("Worst cell", `${placeOf(d, top.i)} <span class="muted">${fmt(top.v)} cell-days</span>`));
+        const half = cells.reduce((acc, c) => acc + c.v, 0) * 0.5;
+        let run = 0, n = 0;
+        for (const c of cells) { run += c.v; n++; if (run >= half) break; }
+        rows.push(row("Half the fire was in", `${n} cell${n === 1 ? "" : "s"}`));
+      }
+      const people = agg.gridCells.reduce((a, k) => a + (d.pop[k] || 0), 0);
+      if (people > 0) rows.push(row("People living here", fmtShort(Math.round(people))));
+    }
   }
 
   // ---- Stage B, for a single cell: cause, burned area, land cover and the rest

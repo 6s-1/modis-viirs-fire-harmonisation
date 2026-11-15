@@ -13,7 +13,7 @@ import { addGridLayers, attachGridHover, buildGrid, buildLiveGrid, gridLegendHTM
 import { initLayersControl, overlays, setLiveMode } from "./layers.js";
 import { raisePlaces, setPlacesVisible } from "./places.js";
 import { addTrendLayers, attachTrendHover, buildTrend, setTrend, trendLegendHTML } from "./trend.js";
-import { addHoverLayers, footprint, raiseHover, scheduleHover, setHover } from "./hover.js";
+import { addHoverLayers, footprint, raiseHover, scheduleHover, setHover, setPicked } from "./hover.js";
 import { closeWhyCard, renderWhyCard } from "./whycard.js";
 import { initTextSize } from "./textsize.js";
 import { initTour } from "./tour.js";
@@ -153,6 +153,7 @@ function setupMap(map) {
   drawBox(state.box);
   if (state.grid) setGrid(map, state.grid.features);
   if (state.trend) setTrend(map, state.trend.features);
+  if (pickedH3) setPicked(map, footprint(pickedH3, hoverResOf(map)));
   if (state.popFeatures) map.getSource("pop").setData({ type: "FeatureCollection", features: state.popFeatures });
   if (state.app === "live" && map.getSource("live")) map.getSource("live").setData({ type: "FeatureCollection", features: live.feats });
   applyLayers();
@@ -343,7 +344,7 @@ async function openWhyForCell(i) {
     windowLabel: state.app === "live" ? WINDOW_LABEL[live.hours] : rangeLabel(),
     recordLabel: `${MONTHS[d.months[0].m - 1]} ${d.months[0].y} – ${MONTHS[d.lastMonth.m - 1]} ${d.lastMonth.y}`,
   }, liveCtx);
-  linkHover(maps[0], h3Id(d, i)); // keep the clicked cell outlined
+  setPickedCell(h3Id(d, i)); // stays outlined while the card is open
   $("sec-why").scrollIntoView({ behavior: reduceMotion.matches ? "auto" : "smooth", block: "nearest" });
   $("sec-why").querySelector(".wc-close").addEventListener("click", closeWhy);
   $("sec-why").querySelector(".wc-close").focus({ preventScroll: true });
@@ -351,10 +352,12 @@ async function openWhyForCell(i) {
 // a month in the calendar: the selection box, that month only
 async function openWhyForMonth(mi) {
   whyCell = null;
+  setPickedCell(null); // a month covers the whole selection, not one cell
   const d = state.d, info = d.months[mi];
   await renderWhyCard($("sec-why"), d, state.agg, {
     place: state.box ? "Selected box" : "All of Canada", range: [mi, mi], scope: "month",
     windowLabel: `${MONTHS[info.m - 1]} ${info.y}`,
+    nameOf: (la, lo) => placeName(la, lo) || "a cell",
   }, null);
   $("sec-why").scrollIntoView({ behavior: reduceMotion.matches ? "auto" : "smooth", block: "nearest" });
   $("sec-why").querySelector(".wc-close").addEventListener("click", closeWhy);
@@ -363,7 +366,7 @@ async function openWhyForMonth(mi) {
 function closeWhy() {
   whyCell = null;
   closeWhyCard($("sec-why"));
-  linkHover(maps[0], null);
+  setPickedCell(null);
 }
 document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("sec-why").hidden) closeWhy(); });
 
@@ -374,6 +377,20 @@ function hoverResOf(m) {
   if (show.trend || show.people) return 5;          // both are drawn on the display grid
   return state.grid && state.grid.coarse ? 4 : 5;   // the fire grid is rolled up in compare
 }
+// The cell the reader clicked, outlined on every globe until another is clicked or the card is
+// closed. Separate from hover, so moving the cursor never erases it.
+let pickedH3 = null;
+function drawPicked() {
+  for (const m of maps) {
+    if (!m._ready) continue;
+    setPicked(m, pickedH3 ? footprint(pickedH3, hoverResOf(m)) : []);
+  }
+}
+function setPickedCell(h3id) {
+  pickedH3 = h3id;
+  drawPicked();
+}
+
 function linkHover(from, h3id) {
   scheduleHover(() => {
     for (const m of maps) {
@@ -462,6 +479,7 @@ function refreshGrid() {
   const coarse = view.mode === "compare"; // two globes: fewer, larger cells so both stay smooth
   const g = (state.grid = isLive ? state.liveGrid || { features: [], scale: null, n: 0 } : buildGrid(state.d, state.agg, state.range, { coarse }));
   for (const m of maps) { setGrid(m, g.features); raiseHover(m); }
+  drawPicked(); // a redraw must not drop the selected cell
   state.fireLegend = !g.n || !g.scale ? ""
     : isLive ? gridLegendHTML(g.scale, { live: true, windowLabel: WINDOW_LABEL[live.hours] })
     : gridLegendHTML(g.scale, { rangeLabel: rangeLabel(), coarse: g.coarse });
