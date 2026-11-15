@@ -9,7 +9,8 @@ import { attachTooltip, renderCalendar } from "./calendar.js";
 import { renderCompare } from "./compare.js";
 import { attachInfoTips, infoIcon } from "./info.js";
 import { calendarPNG, coverage, fileTime, hotspotIndex, hotspotPlan, hotspotsCSV, liveCSV, monthlyCSV, saveBlob, utcStamp } from "./downloads.js";
-import { addGridLayers, attachGridHover, gridLegend, updateGrid } from "./grid.js";
+import { addGridLayers, attachGridHover, buildGrid, gridLegendHTML, setGrid } from "./grid.js";
+import { initLayersControl, overlays, setLiveMode } from "./layers.js";
 import { addLiveLayer, attachLiveHover, fetchLive, liveAvailable } from "./live.js";
 import { liveWindow, renderLiveChart } from "./livechart.js";
 
@@ -30,36 +31,35 @@ document.querySelectorAll("details[data-remember]").forEach((el) => {
   try { const v = localStorage.getItem(key); if (v !== null) el.open = v === "1"; } catch { /* storage unavailable */ }
   el.addEventListener("toggle", () => { try { localStorage.setItem(key, el.open ? "1" : "0"); } catch { /* ignore */ } });
 });
-const state = { showPop: false, app: "historical", d: null, box: null, agg: null, cal: null, range: null, observedOnly: false, mode: "harmonised", colour: "activity", mapReady: false };
+const state = { app: "historical", d: null, box: null, agg: null, cal: null, range: null, observedOnly: false, mode: "harmonised", colour: "activity", mapReady: false };
 
-// ---- map: globe, north up, no rotation or pitch, starts on Canada
-const map = new maplibregl.Map({
-  container: "map",
-  style: STYLE,
-  center: [-96, 58],
-  zoom: 1.5,
-  bearing: 0,
-  pitch: 0,
-  maxPitch: 0,
-  dragRotate: false,
-  pitchWithRotate: false,
-  touchPitch: false,
-  attributionControl: { compact: true },
-});
-if (import.meta.env.DEV) window.__ember = { map, get state() { return state; } }; // test hook, dev builds only
-map.touchZoomRotate.disableRotation();
-map.keyboard.disableRotation();
-map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
+// ---- maps: globe, north up, no rotation or pitch. Every map gets the same sources and layers;
+// what each one shows is set by applyLayers(). maps[0] is the main globe.
+function makeMap(container) {
+  const m = new maplibregl.Map({
+    container, style: STYLE, center: [-96, 58], zoom: 1.5, bearing: 0, pitch: 0, maxPitch: 0,
+    dragRotate: false, pitchWithRotate: false, touchPitch: false, attributionControl: { compact: true },
+  });
+  m.touchZoomRotate.disableRotation();
+  m.keyboard.disableRotation();
+  m.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
+  m.on("style.load", () => { m.setProjection({ type: "globe" }); neutralBasemap(m); });
+  m.on("load", () => setupMap(m));
+  attachDrawing(m);
+  return m;
+}
+const maps = [];
+const map = makeMap("map");
+maps.push(map);
 map.on("style.load", () => {
-  map.setProjection({ type: "globe" });
-  neutralBasemap();
   const cam = canadaCamera(); // open already in on all of Canada
   if (cam) map.jumpTo(cam);
 });
+if (import.meta.env.DEV) window.__ember = { map, maps, get state() { return state; } }; // test hook, dev builds only
 
 // Mid-grey basemap so both ends of the fire scale stand out (light orange low end, dark red
 // high end): land ~ rgb(160,163,168), water darker, no blue or green tints.
-function neutralBasemap() {
+function neutralBasemap(map) {
   const paint = { background: ["background-color", "#a0a3a8"], water: ["fill-color", "#6f747c"], park: ["fill-color", "#9a9da2"],
     landcover_wood: ["fill-color", "#9a9da2"], landuse_residential: ["fill-color", "#9c9fa4"], landcover_ice_shelf: ["fill-color", "#b3b6ba"],
     landcover_glacier: ["fill-color", "#b3b6ba"], waterway: ["line-color", "#6f747c"], boundary_2: ["line-color", "#55595f"], boundary_3: ["line-color", "#6a6e74"] };
@@ -78,12 +78,13 @@ function boxFeature(b) {
   for (let k = 1; k <= n; k++) ring.push([b.west, b.north - ((b.north - b.south) * k) / n]);
   return { type: "Feature", properties: {}, geometry: { type: "Polygon", coordinates: [ring] } };
 }
-map.on("load", () => {
+function setupMap(map) {
   map.addSource("selection", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
   map.addLayer({ id: "selection-fill", type: "fill", source: "selection", paint: { "fill-color": "#2bb3a3", "fill-opacity": 0.05 } });
   map.addLayer({ id: "selection-line", type: "line", source: "selection", paint: { "line-color": "#2bb3a3", "line-width": 2 } });
   addGridLayers(map);
-  attachGridHover(map, $("tip"), () => rangeLabel());
+  attachGridHover(map, $("tip"), () => ({ unit: state.app === "live" ? "hotspots" : "cell-days",
+    label: state.app === "live" ? WINDOW_LABEL[live.hours] : rangeLabel() }));
   map.addSource("exp", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
   map.addLayer({ id: "exp-fill", type: "fill", source: "exp", paint: { "fill-color": "#ffffff", "fill-opacity": 0.01 } });
   map.addLayer({ id: "exp-line", type: "line", source: "exp", paint: { "line-color": "#ffffff", "line-width": 1.6 } });
@@ -108,14 +109,26 @@ map.on("load", () => {
   map.on("mouseleave", "pop-fill", () => { $("tip").hidden = true; });
   addLiveLayer(map);
   attachLiveHover(map, $("tip"));
-  state.mapReady = true;
-  renderExposure(); // places may have loaded before the map
-  if (state.box) drawBox(state.box);
-  if (state.d) refreshGrid();
-});
+  map._ready = true;
+  // bring this map up to date with whatever has been computed so far
+  drawBox(state.box);
+  if (state.grid) setGrid(map, state.grid.features);
+  if (state.popFeatures) map.getSource("pop").setData({ type: "FeatureCollection", features: state.popFeatures });
+  if (state.app === "live" && map.getSource("live")) map.getSource("live").setData({ type: "FeatureCollection", features: live.feats });
+  applyLayers();
+  if (map === maps[0]) {
+    state.mapReady = true;
+    renderExposure(); // places may have loaded before the map
+    if (state.d) refreshGrid();
+  } else {
+    drawExposure(expTop);
+  }
+}
 function drawBox(b) {
-  const src = map.getSource("selection");
-  if (src) src.setData({ type: "FeatureCollection", features: b ? [boxFeature(b)] : [] });
+  for (const m of maps) {
+    const src = m.getSource("selection");
+    if (src) src.setData({ type: "FeatureCollection", features: b ? [boxFeature(b)] : [] });
+  }
 }
 
 // ---- rectangle drawing (works on the globe; panning is paused while drawing)
@@ -125,20 +138,24 @@ function setDrawing(on) {
   drawing = on;
   $("draw").setAttribute("aria-pressed", String(on));
   $("draw").textContent = on ? "Drag on the map…" : "Draw a box";
-  map.getCanvas().style.cursor = on ? "crosshair" : "";
-  if (on) map.dragPan.disable(); else map.dragPan.enable();
+  for (const m of maps) {
+    m.getCanvas().style.cursor = on ? "crosshair" : "";
+    if (on) m.dragPan.disable(); else m.dragPan.enable();
+  }
 }
 const boxFrom = (a, b) => ({ south: Math.min(a.lat, b.lat), north: Math.max(a.lat, b.lat), west: Math.min(a.lng, b.lng), east: Math.max(a.lng, b.lng) });
-map.on("mousedown", (e) => { if (drawing) { start = e.lngLat; e.preventDefault(); } });
-map.on("mousemove", (e) => { if (drawing && start) drawBox(boxFrom(start, e.lngLat)); });
-map.on("mouseup", (e) => {
-  if (!drawing || !start) return;
-  const b = boxFrom(start, e.lngLat);
-  start = null;
-  setDrawing(false);
-  if (b.north - b.south < 0.05 || b.east - b.west < 0.05) { drawBox(state.box); return; }
-  select(b, true);
-});
+function attachDrawing(m) {
+  m.on("mousedown", (e) => { if (drawing) { start = e.lngLat; e.preventDefault(); } });
+  m.on("mousemove", (e) => { if (drawing && start) drawBox(boxFrom(start, e.lngLat)); });
+  m.on("mouseup", (e) => {
+    if (!drawing || !start) return;
+    const b = boxFrom(start, e.lngLat);
+    start = null;
+    setDrawing(false);
+    if (b.north - b.south < 0.05 || b.east - b.west < 0.05) { drawBox(state.box); return; }
+    select(b, true);
+  });
+}
 
 // ---- bounds inputs and presets
 const fields = ["south", "north", "west", "east"];
@@ -169,14 +186,26 @@ clearEl.textContent = "×";
 clearEl.title = "Clear the box and return to all of Canada";
 clearEl.setAttribute("aria-label", "Clear the box and return to all of Canada");
 clearEl.addEventListener("click", (e) => { e.stopPropagation(); clearBox(); });
-const clearMarker = new maplibregl.Marker({ element: clearEl, anchor: "center" });
+// one x per map, all pinned to the same corner
+const clearMarkers = new Map();
+function placeClearMarkers(b) {
+  for (const m of maps) {
+    if (!clearMarkers.has(m)) {
+      const el = m === maps[0] ? clearEl : clearEl.cloneNode(true);
+      if (el !== clearEl) el.addEventListener("click", (e) => { e.stopPropagation(); clearBox(); });
+      clearMarkers.set(m, new maplibregl.Marker({ element: el, anchor: "center" }));
+    }
+    const mk = clearMarkers.get(m);
+    if (b) mk.setLngLat([b.east, b.north]).addTo(m); else mk.remove();
+  }
+}
 
 function select(b, fly) {
   state.box = b;
   $("bounds-error").textContent = "";
   fields.forEach((f) => { $(f).value = Math.round(b[f] * 100) / 100; });
   drawBox(b);
-  clearMarker.setLngLat([b.east, b.north]).addTo(map);
+  placeClearMarkers(b);
   if (state.d) update();
   if (fly) fitToData();
 }
@@ -186,7 +215,7 @@ function clearBox(fly = true) {
   $("bounds-error").textContent = "";
   fields.forEach((f) => { $(f).value = CANADA[f]; }); // the form always shows the current selection
   drawBox(null);
-  clearMarker.remove();
+  placeClearMarkers(null);
   if (state.d) update();
   if (fly) flyToCamera(canadaCamera()); // back to exactly the opening view
 }
@@ -274,19 +303,18 @@ document.querySelectorAll('input[name="colour"]').forEach((r) => r.addEventListe
 
 function refreshGrid() {
   if (!state.mapReady || !state.agg) return;
-  const g = updateGrid(map, state.d, state.agg, state.range);
-  const tmp = document.createElement("div");
-  if (g.n) gridLegend(tmp, g.scale, rangeLabel());
-  state.fireLegend = tmp.innerHTML;
+  const g = (state.grid = state.app === "live" ? { features: [], scale: null, n: 0 } : buildGrid(state.d, state.agg, state.range));
+  for (const m of maps) setGrid(m, g.features);
+  state.fireLegend = g.n && g.scale ? gridLegendHTML(g.scale, { rangeLabel: rangeLabel() }) : "";
   updatePop();
+  applyLayers();
   renderLegends();
 }
 
 function update() {
   const d = state.d;
   const agg = (state.agg = aggregate(d, selBox()));
-  if (state.app === "live") { setGridVisible(false); updatePop(); renderLegends(); loadLive(); return; }
-  setGridVisible(true);
+  if (state.app === "live") { refreshGrid(); loadLive(); return; }
   const firstYear = state.observedOnly ? OBSERVED_FROM : d.firstYear;
   const years = [];
   for (let y = d.lastYear; y >= firstYear; y--) years.push(y);
@@ -409,33 +437,35 @@ function zoomToCell(i) {
 // cell highlights the matching pair.
 const expMarkers = [];
 function highlightExposure(rank) {
-  if (map.getLayer("exp-hi")) map.setFilter("exp-hi", ["==", ["get", "rank"], rank || -1]);
+  for (const m of maps) if (m.getLayer("exp-hi")) m.setFilter("exp-hi", ["==", ["get", "rank"], rank || -1]);
   expMarkers.forEach((m) => m.getElement().classList.toggle("hi", m._rank === rank));
   document.querySelectorAll("#exposure tr[data-rank]").forEach((tr) => tr.classList.toggle("hi", +tr.dataset.rank === rank));
 }
-// Outlines and numbered badges appear only when "Show on map" is ticked (off by default).
+// Outlines and numbered badges appear only when the "Exposure badges" layer is on (off by default).
 let expTop = [];
 function drawExposure(top) {
   expTop = top;
   expMarkers.splice(0).forEach((m) => m.remove());
-  if (!$("exp-show").checked) top = [];
+  if (!overlays.badges || !state.d) top = [];
   const feats = top.map(({ i, rank }) => ({ type: "Feature", properties: { rank, i },
     geometry: { type: "Polygon", coordinates: [cellToBoundary(h3Id(state.d, i), true)] } }));
-  const src = map.getSource("exp");
-  if (src) src.setData({ type: "FeatureCollection", features: feats });
-  for (const { i, rank } of top) {
-    const el = document.createElement("div");
-    el.className = "exp-badge";
-    el.textContent = rank;
-    el.addEventListener("mouseenter", () => highlightExposure(rank));
-    el.addEventListener("mouseleave", () => highlightExposure(null));
-    el.addEventListener("click", () => zoomToCell(i));
-    const m = new maplibregl.Marker({ element: el, anchor: "center" }).setLngLat([state.d.lon[i], state.d.lat[i]]).addTo(map);
-    m._rank = rank;
-    expMarkers.push(m);
+  for (const map of maps) {
+    const src = map.getSource("exp");
+    if (src) src.setData({ type: "FeatureCollection", features: feats });
+    if (!map._ready) continue;
+    for (const { i, rank } of top) {
+      const el = document.createElement("div");
+      el.className = "exp-badge";
+      el.textContent = rank;
+      el.addEventListener("mouseenter", () => highlightExposure(rank));
+      el.addEventListener("mouseleave", () => highlightExposure(null));
+      el.addEventListener("click", () => zoomToCell(i));
+      const mk = new maplibregl.Marker({ element: el, anchor: "center" }).setLngLat([state.d.lon[i], state.d.lat[i]]).addTo(map);
+      mk._rank = rank;
+      expMarkers.push(mk);
+    }
   }
 }
-$("exp-show").addEventListener("change", () => drawExposure(expTop));
 function renderExposure() {
   if (!state.d || !state.mapReady) return;
   const isLive = state.app === "live";
@@ -451,13 +481,24 @@ const WINDOW_LABEL = { 24: "last 24 hours", 48: "last 48 hours", 168: "last 7 da
 let liveOk = null; // null = not checked yet
 const liveReady = liveAvailable().then((ok) => (liveOk = ok));
 
-// Which map layers show: the fire grid in Historical (unless people are shown), live points in
-// Live, and the population shading whenever "Show where people live" is on (both modes).
-function setGridVisible(historical) {
-  const set = (ids, on) => ids.forEach((id) => map.getLayer(id) && map.setLayoutProperty(id, "visibility", on ? "visible" : "none"));
-  set(["grid-fill", "grid-line", "grid-est"], historical && !state.showPop);
-  set(["live"], !historical);
-  set(["pop-fill", "pop-line"], state.showPop);
+// Which layers each map shows. The fire grid is the base and always on; overlays follow their
+// toggles in the Layers control. Nothing else appears unless it is turned on.
+function layersFor() {
+  return {
+    fire: true,
+    people: overlays.people,
+    detections: overlays.detections && state.app === "live",
+  };
+}
+function applyLayers() {
+  for (const m of maps) {
+    if (!m._ready) continue;
+    const show = layersFor(m);
+    const set = (ids, on) => ids.forEach((id) => m.getLayer(id) && m.setLayoutProperty(id, "visibility", on ? "visible" : "none"));
+    set(["grid-fill", "grid-line", "grid-est"], show.fire);
+    set(["pop-fill", "pop-line"], show.people);
+    set(["live"], show.detections);
+  }
 }
 
 // People per display cell (WorldPop 2020): own blue scale so it never reads as fire.
@@ -466,29 +507,25 @@ const POP_COLORS = ["#d6e6f8", "#9ac2ee", "#5596de", "#2a67b4", "#123f7a"];
 const POP_LABELS = ["< 100", "100–1k", "1k–10k", "10k–100k", "> 100k"];
 function popColor(v) { let k = 0; while (k < POP_EDGES.length && v >= POP_EDGES[k]) k++; return POP_COLORS[k]; }
 function updatePop() {
-  const src = map.getSource("pop");
-  if (!src) return;
-  if (!state.showPop || !state.d) { src.setData({ type: "FeatureCollection", features: [] }); return; }
   const d = state.d;
-  const feats = state.agg.gridCells.filter((i) => d.pop[i] >= 1).map((i) => ({ type: "Feature",
+  state.popFeatures = !overlays.people || !d || !state.agg ? [] : state.agg.gridCells.filter((i) => d.pop[i] >= 1).map((i) => ({ type: "Feature",
     properties: { color: popColor(d.pop[i]), p: Math.round(d.pop[i]) },
     geometry: { type: "Polygon", coordinates: [cellToBoundary(h3Id(d, i), true)] } }));
-  src.setData({ type: "FeatureCollection", features: feats });
+  for (const m of maps) { const src = m.getSource("pop"); if (src) src.setData({ type: "FeatureCollection", features: state.popFeatures }); }
 }
 const popLegendHTML = () => `<p class="legend-title">People per grid cell${infoIcon("People living in each ~250 km² grid cell. WorldPop 2020, 1 km, UN-adjusted: a modelled estimate, not a census count.")}</p>
   <ul class="legend">${POP_COLORS.map((c, k) => `<li><span class="sw" style="background:${c}"></span>${POP_LABELS[k]}</li>`).join("")}</ul>`;
 function renderLegends() {
+  const show = layersFor(maps[0]);
   const parts = [];
-  if (state.showPop) parts.push(popLegendHTML());
-  if (state.app === "live") parts.push(state.liveLegend || "");
-  else if (!state.showPop) parts.push(state.fireLegend || "");
-  $("grid-legend").innerHTML = parts.join("");
+  parts.push(state.app === "live" ? state.liveLegend || "" : state.fireLegend || "");
+  if (show.people) parts.push(popLegendHTML());
+  $("grid-legend").innerHTML = parts.filter(Boolean).join("");
 }
-$("pop-toggle").addEventListener("click", () => {
-  state.showPop = !state.showPop;
-  $("pop-toggle").setAttribute("aria-pressed", String(state.showPop));
-  updatePop();
-  setGridVisible(state.app !== "live");
+initLayersControl($("layers-btn"), $("layers-panel"), (id) => {
+  if (id === "people") updatePop();
+  if (id === "badges") drawExposure(expTop);
+  applyLayers();
   renderLegends();
 });
 const inBox = (f, b) => { const [x, y] = f.geometry.coordinates; return x >= b.west && x <= b.east && y >= b.south && y <= b.north; };
@@ -496,7 +533,7 @@ const inBox = (f, b) => { const [x, y] = f.geometry.coordinates; return x >= b.w
 function liveDown() {
   document.body.classList.add("live-down");
   $("summary").innerHTML = `<p class="notice">${LIVE_DOWN}</p>`;
-  if (map.getSource("live")) map.getSource("live").setData({ type: "FeatureCollection", features: [] });
+  for (const m of maps) if (m.getSource("live")) m.getSource("live").setData({ type: "FeatureCollection", features: [] });
   $("grid-legend").innerHTML = "";
 }
 
@@ -522,8 +559,8 @@ async function loadLive() {
 
 function renderLive() {
   const d = state.d, agg = state.agg, feats = live.feats;
-  map.getSource("live").setData({ type: "FeatureCollection", features: feats });
-  setGridVisible(false);
+  for (const m of maps) if (m.getSource("live")) m.getSource("live").setData({ type: "FeatureCollection", features: feats });
+  applyLayers();
   const n20 = feats.filter((f) => f.properties.sat !== "NOAA-21").length, n21 = feats.length - n20;
   const win = liveWindow(live.hours);
   const t = (ms) => new Date(ms).toISOString().slice(0, 16).replace("T", " ");
@@ -551,6 +588,7 @@ function renderLive() {
 document.querySelectorAll('input[name="app"]').forEach((r) => r.addEventListener("change", (e) => {
   state.app = e.target.value;
   document.body.classList.toggle("mode-live", state.app === "live");
+  setLiveMode($("layers-panel"), state.app === "live");
   if (state.app !== "live") { document.body.classList.remove("live-down"); live.seq++; state.live = null; }
   if (state.d) update();
 }));
@@ -560,6 +598,7 @@ document.querySelectorAll('input[name="live"]').forEach((r) => r.addEventListene
 }));
 
 // ---- start
+setLiveMode($("layers-panel"), false);
 attachInfoTips($("tip"));
 attachTooltip($("calendar"), $("tip"), () => ({ d: state.d, agg: state.agg, mode: state.mode, colour: state.colour, cal: state.cal }));
 loadData("harmonised/")
