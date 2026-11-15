@@ -112,7 +112,8 @@ function setupMap(map) {
     const f = e.features && e.features[0];
     if (!f) return;
     const tip = $("tip");
-    tip.innerHTML = `<strong>${fmt(+f.properties.p)}</strong> people live in this grid cell<br><span class="muted">WorldPop 2020, modelled estimate</span>`;
+    const pv = +f.properties.p;
+    tip.innerHTML = `<strong>${pv < 1 ? pv.toFixed(2) : fmt(pv)}</strong> people live in this grid cell<br><span class="muted">WorldPop 2020, modelled estimate</span>`;
     tip.hidden = false;
     const r = tip.getBoundingClientRect();
     tip.style.left = `${Math.min(e.originalEvent.clientX + 14, innerWidth - r.width - 8)}px`;
@@ -608,19 +609,23 @@ function applyLayers() {
   }
 }
 
-// People per display cell (WorldPop 2020): own blue scale so it never reads as fire.
-const POP_EDGES = [100, 1000, 10000, 100000];
-const POP_COLORS = ["#d6e6f8", "#9ac2ee", "#5596de", "#2a67b4", "#123f7a"];
-const POP_LABELS = ["< 100", "100–1k", "1k–10k", "10k–100k", "> 100k"];
+// People per display cell (WorldPop 2020): its own blue scale so it never reads as fire.
+// Log-spaced classes starting below one person: the old linear classes began at 1 and the layer
+// only drew cells with at least one person, which hid 4,160 of the 4,829 populated cells north of
+// 60 (86%) and made the territories look empty. Cells with nobody in them stay empty: nothing is
+// smoothed or spread into them.
+const POP_EDGES = [1, 10, 100, 1000, 10000];
+const POP_COLORS = ["#d7ebfa", "#a5d1f3", "#66b3e6", "#1b94d3", "#0570ab", "#044e81"];
+const POP_LABELS = ["< 1", "1–10", "10–100", "100–1k", "1k–10k", "> 10k"];
 function popColor(v) { let k = 0; while (k < POP_EDGES.length && v >= POP_EDGES[k]) k++; return POP_COLORS[k]; }
 function updatePop() {
   const d = state.d;
-  state.popFeatures = !wantsPeople() || !d || !state.agg ? [] : state.agg.gridCells.filter((i) => d.pop[i] >= 1).map((i) => ({ type: "Feature",
-    properties: { color: popColor(d.pop[i]), p: Math.round(d.pop[i]) },
+  state.popFeatures = !wantsPeople() || !d || !state.agg ? [] : state.agg.gridCells.filter((i) => d.pop[i] > 0).map((i) => ({ type: "Feature",
+    properties: { color: popColor(d.pop[i]), p: d.pop[i] },
     geometry: { type: "Polygon", coordinates: [cellToBoundary(h3Id(d, i), true)] } }));
   for (const m of maps) { const src = m.getSource("pop"); if (src) src.setData({ type: "FeatureCollection", features: state.popFeatures }); }
 }
-const popLegendHTML = () => `<p class="legend-title">People per grid cell${infoIcon("People living in each ~250 km² grid cell. WorldPop 2020, 1 km, UN-adjusted: a modelled estimate, not a census count.")}</p>
+const popLegendHTML = () => `<p class="legend-title">People per grid cell${infoIcon("People living in each ~250 km² grid cell. WorldPop 2020, 1 km, UN-adjusted: a modelled estimate, not a census count.<br>Classes are log-spaced and start below one person, so sparsely populated cells in the north are still visible. Cells with nobody in them are left empty.")}</p>
   <ul class="legend">${POP_COLORS.map((c, k) => `<li><span class="sw" style="background:${c}"></span>${POP_LABELS[k]}</li>`).join("")}</ul>`;
 function legendFor(m) {
   const show = layersFor(m), parts = [];
