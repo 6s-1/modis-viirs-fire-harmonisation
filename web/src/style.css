@@ -455,3 +455,27 @@ body.mode-live.live-down #live-window { display: none !important; }
 .apply-row { display: flex; justify-content: flex-end; margin: 2px 0 0; }
 .area { border-bottom: 0; padding-bottom: 6px; margin-bottom: 0; }
 #summary { border-top: 1px solid var(--line); padding-top: 10px; margin-top: 4px; }
+
+/* calendar legend: its own block, colour bands on the left, state keys on the right */
+.cal-legend {
+  display: flex; flex-wrap: wrap; gap: 12px 28px; align-items: flex-start;
+  margin: 10px 0 14px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: rgba(255, 255, 255, 0.02);
+}
+.lg-title { margin: 0 0 8px; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); display: flex; align-items: center; }
+.lg-title .info-i { margin-left: 6px; vertical-align: 0; text-transform: none; letter-spacing: 0; }
+.lg-scale { flex: 1 1 260px; min-width: 0; }
+.lg-row { display: flex; align-items: flex-start; gap: 14px; }
+.lg-zero { display: grid; gap: 4px; flex: none; }
+.lg-ramp { flex: 1; display: grid; grid-template-columns: repeat(var(--n), minmax(28px, 1fr)); gap: 2px; list-style: none; margin: 0; padding: 0; max-width: 340px; }
+.lg-ramp li { display: grid; gap: 4px; min-width: 0; }
+.lg-band { display: block; height: 12px; border-radius: 2px; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14); }
+.lg-zero .lg-band { width: 28px; }
+.lg-lab { font-size: 0.68rem; line-height: 1.2; color: var(--ink-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.lg-ramp .lg-lab { white-space: normal; }
+.lg-ends { display: flex; justify-content: space-between; max-width: 340px; margin: 4px 0 0; font-size: 0.66rem; color: var(--muted); }
+.lg-keys { flex: 1 1 220px; padding-left: 20px; border-left: 1px solid var(--line); }
+.lg-keylist { display: grid; grid-template-columns: repeat(2, minmax(0, max-content)); gap: 6px 18px; list-style: none; margin: 0; padding: 0; font-size: 0.72rem; color: var(--ink-2); }
+.lg-keylist li { display: flex; align-items: center; gap: 7px; white-space: nowrap; }
+.lg-keylist .sw { flex: none; width: 16px; height: 12px; }
+.key-star { box-shadow: none !important; text-align: center; line-height: 16px; color: var(--ink); font-size: 1.05rem; font-weight: 600; }
+@media (max-width: 560px) { .lg-keys { padding-left: 0; border-left: 0; border-top: 1px solid var(--line); padding-top: 10px; flex-basis: 100%; } }
