@@ -10,6 +10,7 @@
 import { MONTHS, fmt, fmtShort, isEstimated, median, quantile } from "./data.js";
 import { infoIcon } from "./info.js";
 import { mannKendall, theilSen } from "./compare.js";
+import { framePeriod, judge } from "./normal.js";
 
 // ---- Stage B: cause, burned area and land cover, in one shard per ecozone, fetched when the
 // card first needs that zone. Display only: none of it feeds the harmonisation model.
@@ -285,6 +286,20 @@ export async function renderWhyCard(el, d, agg, subject, live) {
     People: WorldPop 2020, a modelled estimate.<br>
     <span class="muted">Where fire is changing is shown only when the cell's own trend is statistically significant (p ≤ 0.1).</span>`;
 
+  // "Is this normal?" leads the card: a verdict, then one sentence on direction and distance.
+  let answer = "";
+  {
+    const framed = framePeriod(d, isCell ? cellAgg(d, agg, i) : agg,
+      { range, clickedMonth: subject.clickedMonth, live: live && live.frame });
+    if (framed) {
+      const v = judge(framed);
+      answer = `<div class="wc-answer tone-${v.tone}">
+        ${v.verdict ? `<p class="wc-verdict">${v.verdict}.</p>` : ""}
+        <p class="wc-because"${v.rank ? ` title="${v.rank}"` : ""}>${v.text}</p>
+      </div>`;
+    }
+  }
+
   el.innerHTML = `<div class="wc" role="region" aria-label="Why it burned: ${place}">
     <div class="wc-head">
       <div>
@@ -293,6 +308,7 @@ export async function renderWhyCard(el, d, agg, subject, live) {
       </div>
       <button type="button" class="wc-close" aria-label="Close this card">×</button>
     </div>
+    ${answer}
     ${liveBlock}
     ${liveBlock ? `<p class="wc-kicker wc-past">Past fire here</p>` : ""}
     <dl class="wc-rows">${rows.join("")}</dl>
@@ -311,6 +327,19 @@ function yearsIn(d, range) {
   const out = [];
   for (let y = d.months[range[0]].y; y <= d.months[range[1]].y; y++) out.push(y);
   return out;
+}
+
+// A view of one cell shaped like the aggregate, so the same framing works for a clicked cell.
+function cellAgg(d, agg, i) {
+  const totals = new Float64Array(d.months.length);
+  for (let r2 = d.rowStart[i]; r2 < d.rowStart[i + 1]; r2++) totals[d.rowMonth[r2]] += d.rowValue[r2];
+  const sameDays = new Map();
+  if (d.sdCell) {
+    for (let r2 = 0; r2 < d.sdCell.length; r2++) {
+      if (d.sdCell[r2] === i) sameDays.set(d.sdYear[r2], (sameDays.get(d.sdYear[r2]) || 0) + d.sdValue[r2]);
+    }
+  }
+  return { ...agg, totals, sameDays };
 }
 
 function boxWindowTotal(d, agg, range) {

@@ -362,12 +362,14 @@ async function openWhyForCell(i) {
   whyCell = i;
   const d = state.d;
   const place = placeName(d.lat[i], d.lon[i]) || "This area";
+  const mine = (live.feats || []).filter((f) => {
+    const [lon, lat] = f.geometry.coordinates;
+    return cellIndexOf(d, latLngToCell(lat, lon, 5)) === i;
+  });
   const liveCtx = state.app === "live" ? {
     windowLabel: WINDOW_LABEL[live.hours],
-    feats: (live.feats || []).filter((f) => {
-      const [lon, lat] = f.geometry.coordinates;
-      return cellIndexOf(d, latLngToCell(lat, lon, 5)) === i;
-    }),
+    feats: mine,
+    frame: { hours: live.hours, count: mine.length },
   } : null;
   await renderWhyCard($("sec-why"), d, state.agg, {
     i, place, range: state.range, scope: "cell",
@@ -386,6 +388,7 @@ async function openWhyForMonth(mi) {
   const d = state.d, info = d.months[mi];
   await renderWhyCard($("sec-why"), d, state.agg, {
     place: state.box ? "Selected box" : "All of Canada", range: [mi, mi], scope: "month",
+    clickedMonth: mi,
     windowLabel: `${MONTHS[info.m - 1]} ${info.y}`,
     nameOf: (la, lo) => placeName(la, lo) || "a cell",
   }, null);
@@ -395,8 +398,28 @@ async function openWhyForMonth(mi) {
 }
 function closeWhy() {
   whyCell = null;
-  closeWhyCard($("sec-why"));
   setPickedCell(null);
+  showAreaCard(); // fall back to the selection rather than leaving nothing
+}
+
+// The card with nothing clicked: the selected area over the selected dates, so the answer is on
+// screen as soon as the dashboard loads.
+async function showAreaCard() {
+  if (!state.d || !state.agg) return;
+  const d = state.d;
+  const liveCtx = state.app === "live"
+    ? { windowLabel: WINDOW_LABEL[live.hours], feats: live.feats || [],
+        frame: { hours: live.hours, count: (live.feats || []).length } }
+    : null;
+  await renderWhyCard($("sec-why"), d, state.agg, {
+    place: state.box ? "Selected area" : "All of Canada",
+    range: state.range, scope: "area",
+    windowLabel: state.app === "live" ? WINDOW_LABEL[live.hours] : rangeLabel(),
+    recordLabel: `${MONTHS[d.months[0].m - 1]} ${d.months[0].y} – ${MONTHS[d.lastMonth.m - 1]} ${d.lastMonth.y}`,
+    nameOf: (la, lo) => placeName(la, lo) || "a cell",
+  }, liveCtx);
+  const close = $("sec-why").querySelector(".wc-close");
+  if (close) close.hidden = true; // nothing to close back to
 }
 document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("sec-why").hidden) closeWhy(); });
 
@@ -634,6 +657,7 @@ function update() {
     mode: state.mode, values: raw ? rawRecorded(d, agg) : agg.totals, colour: state.colour,
   });
   renderCompare($("compare"), d, agg, { yearFilter, totals: state.cal.totals, mode: state.mode, years, medianYears });
+  if (whyCell === null) showAreaCard(); // keep the answer in step with the selection
   $("dl-status").textContent = "";
   refreshGrid();
   renderExposure();
@@ -911,6 +935,7 @@ function renderLive() {
   updatePop();
   renderLegends();
   renderExposure();
+  if (whyCell === null) showAreaCard(); // the live answer follows each refresh
 }
 
 document.querySelectorAll('input[name="app"]').forEach((r) => r.addEventListener("change", (e) => {
