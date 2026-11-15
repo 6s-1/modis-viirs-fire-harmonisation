@@ -328,7 +328,9 @@ function setView(mode) {
   view.mode = mode;
   const stack = $("map-stack");
   stack.dataset.view = mode;
-  $("compare-btn").setAttribute("aria-pressed", String(mode !== "single"));
+  $("compare-btn").setAttribute("aria-pressed", String(mode === "compare" || (mode === "swipe" && narrow.matches)));
+  $("swipe-btn").setAttribute("aria-pressed", String(mode === "swipe" && !narrow.matches));
+  $("swipe-btn").hidden = narrow.matches; // on a phone Compare already gives the swipe
   if (mode === "single") {
     if (unlock) { unlock(); unlock = null; }
     if (swipe) { swipe.handle.remove(); swipe = null; }
@@ -354,11 +356,15 @@ function setView(mode) {
   requestAnimationFrame(() => { for (const m of maps) m.resize(); });
   onViewPick();
 }
-$("compare-btn").addEventListener("click", () => setView(view.mode === "single" ? "compare" : "single"));
+$("compare-btn").addEventListener("click", () => setView(view.mode === "compare" ? "single" : "compare"));
+$("swipe-btn").addEventListener("click", () => setView(view.mode === "swipe" ? "single" : "swipe"));
 narrow.addEventListener("change", () => {
+  $("swipe-btn").hidden = narrow.matches;
   if (view.mode === "compare" && narrow.matches) { view.mode = "x"; setView("compare"); }
   else if (view.mode === "swipe" && !narrow.matches) { view.mode = "x"; setView("compare"); }
 });
+
+$("swipe-btn").hidden = narrow.matches;
 
 // ---- date range, observed-only toggle, harmonised / raw view
 const monthValue = (info) => `${info.y}-${String(info.m).padStart(2, "0")}`;
