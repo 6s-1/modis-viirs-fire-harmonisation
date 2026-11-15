@@ -329,3 +329,13 @@ table.data thead th { color: var(--ink-2); font-weight: 500; }
   box-shadow: 0 1px 6px rgba(0, 0, 0, 0.5);
 }
 .box-clear:hover { background: var(--accent); color: var(--accent-ink); }
+
+/* bounds form: Latitude row, Longitude row (+ Apply), Dates row */
+.area { display: block; }
+.area .bounds { display: block; margin: 0; }
+.brow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin: 0 0 6px; border: 0; padding: 0; }
+.brow-h { width: 72px; flex: none; font-size: 0.74rem; color: var(--ink-2); }
+.brow label { display: flex; flex-direction: row; align-items: center; gap: 6px; font-size: 0.74rem; color: var(--muted); }
+.area .brow input[type="number"] { width: 104px; }
+.area .brow input[type="month"] { width: 150px; }
+@media (max-width: 420px) { .brow-h { width: 100%; } }

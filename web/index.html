@@ -35,15 +35,22 @@
           <h2 id="sel-h">Selection</h2>
           <div class="area" id="sec-area">
             <form id="bounds" class="bounds" aria-label="Area bounds in degrees">
-              <label>South <input id="south" type="number" step="any" inputmode="decimal" placeholder="41.5" /></label>
-              <label>North <input id="north" type="number" step="any" inputmode="decimal" placeholder="83.5" /></label>
-              <label>West <input id="west" type="number" step="any" inputmode="decimal" placeholder="-141.5" /></label>
-              <label>East <input id="east" type="number" step="any" inputmode="decimal" placeholder="-52" /></label>
-              <button type="submit" class="ghost">Apply</button>
+              <div class="brow">
+                <span class="brow-h">Latitude</span>
+                <label>South <input id="south" type="number" step="any" inputmode="decimal" placeholder="41.5" /></label>
+                <label>North <input id="north" type="number" step="any" inputmode="decimal" placeholder="83.5" /></label>
+              </div>
+              <div class="brow">
+                <span class="brow-h">Longitude</span>
+                <label>West <input id="west" type="number" step="any" inputmode="decimal" placeholder="-141.5" /></label>
+                <label>East <input id="east" type="number" step="any" inputmode="decimal" placeholder="-52" /></label>
+                <button type="submit" class="ghost">Apply</button>
+              </div>
               <p id="bounds-error" class="error" role="alert"></p>
             </form>
-            <fieldset class="range">
+            <fieldset class="range brow">
               <legend class="sr">Date range</legend>
+              <span class="brow-h" aria-hidden="true">Dates</span>
               <label>From <input id="from" type="month" /></label>
               <label>To <input id="to" type="month" /></label>
               <p id="range-error" class="error" role="alert"></p>
