@@ -126,6 +126,17 @@ gh variable set LIVE_URL --body "https://ember-live-proxy.<your-subdomain>.worke
 For local testing put `FIRMS_MAP_KEY=...` in `worker/.dev.vars` (not committed), run `npx wrangler dev`,
 and start the app with `VITE_LIVE_URL=http://127.0.0.1:8787 npm run dev`.
 
+To point the dev server at the deployed Worker instead, write the address to `web/.env.local`
+(not committed) and restart the dev server:
+
+```bash
+printf 'VITE_LIVE_URL=%s\n' "$(gh variable get LIVE_URL)" > web/.env.local
+```
+
+Without it, live mode shows "Live fire data is unavailable right now." and the dev console says why.
+The dev server uses `strictPort`, because the Worker only allows requests from `:5173` and `:4173`;
+on another port it would refuse them.
+
 ### 5. Deploy
 
 Pushing to `main` builds and deploys to GitHub Pages (`.github/workflows/deploy.yml`). The hotspot

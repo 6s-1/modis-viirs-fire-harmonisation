@@ -7,12 +7,26 @@ const LIVE_URL = (import.meta.env.VITE_LIVE_URL || "").replace(/\/$/, "");
 const WINDOWS = { 24: 2, 48: 4, 168: 7 };
 const SAT = { N20: "NOAA-20", N21: "NOAA-21", "1": "NOAA-20", "2": "NOAA-21" };
 
+// In dev, say on the console why live mode is unavailable. The on-screen banner is unchanged.
+const devWhy = (msg) => { if (import.meta.env.DEV) console.warn(`[ember] live mode unavailable: ${msg}`); };
+
 export async function liveAvailable() {
-  if (!LIVE_URL) return false;
+  if (!LIVE_URL) {
+    devWhy("VITE_LIVE_URL is not set. Put it in web/.env.local (see the Worker section of the README) and restart the dev server.");
+    return false;
+  }
   try {
     const r = await fetch(`${LIVE_URL}/health`, { signal: AbortSignal.timeout(5000) });
-    return r.ok;
-  } catch {
+    if (!r.ok) {
+      devWhy(r.status === 503
+        ? `the Worker at ${LIVE_URL} has no FIRMS_MAP_KEY set (health 503). Run: cd worker && npx wrangler secret put FIRMS_MAP_KEY`
+        : `health check on ${LIVE_URL} returned ${r.status}.`);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    devWhy(`could not reach ${LIVE_URL} (${err.name === "TimeoutError" ? "timed out" : err.message}). `
+      + `If the dev server is not on port 5173 the Worker refuses the request: CORS allows :5173 and :4173 only.`);
     return false;
   }
 }
