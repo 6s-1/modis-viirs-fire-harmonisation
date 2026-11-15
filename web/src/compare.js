@@ -1,11 +1,16 @@
-// Compared with past years, in three blocks, each led by a one-sentence headline:
-//   Trend      yearly totals with a Theil–Sen trend line, its likely range and a Mann–Kendall test
-//   Anomalies  every month against the same month in other years
-//   This year  latest months, year to date and the seasonal profile against typical
+// Compared with past years: a storyline from the widest timescale to the narrowest.
+//   1 Yearly totals, with a trend line
+//   2 When the fire season runs, by year
+//   3 This year so far, against past years
+//   4 Month by month, this year against typical
+//   5 Unusual months
+// Every block states its subject in the heading, never its conclusion; any reading of the data is
+// one muted line below the chart, with the statistics behind an info icon.
 // Blocks are patched in place on a new selection, so bars and lines glide to their new values.
 
 import { MONTHS, fmt, fmtShort, fmtSig, median, monthDays, quantile } from "./data.js";
 import { infoIcon } from "./info.js";
+import { distributionStrip, rankSentence } from "./strip.js";
 import { RAMP, makeScale } from "./calendar.js";
 
 const LONG = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -207,11 +212,9 @@ function anomalyBlock(d, agg, years) {
   // a typical value under 1 cell-day makes a ratio meaningless, so say so instead
   const times = (r) => (r.med < 1 ? "" : r.r >= 10 ? `${Math.round(r.r)}×` : `${r.r.toFixed(1)}×`);
   const vsTyp = (r) => (r.med < 1 ? "where there is usually almost none" : `${times(r)} typical`);
-  const latest = anoms[anoms.length - 1];
   const headline = anoms.length
     ? `${anoms.length === 1 ? "One month was" : `${anoms.length} months were`} unusually high for the time of year; the biggest was ${label(top[0])}${top[0].med < 1 ? ` (${fmt(top[0].v)} cell-days ${vsTyp(top[0])})` : ` at ${vsTyp(top[0])}`}`
     : "No month stood out as unusually high for its time of year";
-  const sub = anoms.length ? `Most recent: ${label(latest)} (${fmt(latest.v)} cell-days, ${vsTyp(latest)}).` : "";
 
   const W = 560, H = 150, padL = 44, padR = 10, padT = 14, padB = 22;
   const n = Math.max(rows.length, 1);
@@ -248,50 +251,50 @@ function anomalyBlock(d, agg, years) {
 
 // ---------- 3) this year vs typical
 
-function verdictWord(r) {
-  if (!Number.isFinite(r)) return "about normal";
-  if (r < 0.5) return "well below normal";
-  if (r < 0.8) return "below normal";
-  if (r < 0.95) return "slightly below normal";
-  if (r <= 1.05) return "about normal";
-  if (r <= 1.25) return "slightly above normal";
-  if (r < 2) return "above normal";
-  return "well above normal";
-}
+// ---------- 3) this year so far, against past years
+// Like for like: an unfinished month is compared with the same days of that month in past years,
+// using the same_days totals the pipeline writes for exactly that window.
 
-function bullet({ subject, ongoing, v, vals, years, nrt, big }) {
-  const med = median(vals), q1 = quantile(vals, 0.25), q3 = quantile(vals, 0.75);
-  const r = med > 0 ? v / med : v > 0 ? Infinity : 1;
-  const word = med > 0 || v > 0 ? verdictWord(r) : "about normal";
-  const sentence = `${subject} ${ongoing ? "is running" : "was"} ${word}`;
-  const ratio = med > 0 ? `${(v / med).toFixed(2)}×` : "";
-  const W = 560, H = 26;
-  const max = Math.max(v, q3 || 0, med || 0, 1e-9) * 1.08;
-  const x = (t) => 2 + ((W - 4) * t) / max;
-  const html = `<strong>${fmt(v)}</strong> cell-days<br><span class="muted">${subject}</span><br>typical ${fmt(med)} <span class="muted">(median ${span(years)})</span>
-    <br>middle half ${fmt(q1)}–${fmt(q3)}`;
-  return `<div class="cmp${big ? "" : " small-cmp"}">
-    <p class="${big ? "headline" : "verdict-sm"}">${sentence}${nrt ? `<span class="nrt-dot" title="Provisional near-real-time data"></span>` : ""}</p>
-    <p class="verdict-nums"><b>${fmt(v)}</b> this year · ${fmt(med)} typical${ratio ? ` · ${ratio}` : ""}</p>
-    <svg viewBox="0 0 ${W} ${H}" class="bullet" preserveAspectRatio="none" role="img" ${tip(html)}
-      aria-label="${sentence}: ${fmt(v)} this year, typical ${fmt(med)}, middle half of past years ${fmt(q1)} to ${fmt(q3)}">
-      <rect x="${f1(x(Number.isFinite(q1) ? q1 : 0))}" y="3" width="${f1(Number.isFinite(q1) ? Math.max(x(q3) - x(q1), 1) : 0)}" height="${H - 6}" rx="3" class="bband"/>
-      <rect x="2" y="${H / 2 - 4}" width="${f1(Math.max(x(v) - 2, 1))}" height="8" rx="2" class="bbar"/>
-      <rect x="${f1(x(Number.isFinite(med) ? med : 0) - 1.5)}" y="2" width="3" height="${H - 4}" class="bmed"/></svg>
-  </div>`;
-}
+function nowVsPast(d, agg, yearFilter) {
+  const lastI = d.months.length - 1, last = d.months[lastI];
+  const sd = d.manifest.same_days;
+  const partial = last.partial && sd && sd.month === last.m && sd.year === last.y;
+  const monthName = LONG[last.m - 1];
+  let points, now, axisTitle, noun, note;
 
-function monthBullet(d, agg, i, yearFilter, big) {
-  const info = d.months[i];
-  const ys = [], vals = [];
-  for (let y = d.firstYear; y < info.y; y++) {
-    const j = d.monthIndex.get(y * 100 + info.m);
-    if (j === undefined || d.months[j].partial || !yearFilter(y)) continue;
-    ys.push(y);
-    vals.push(agg.totals[j]);
+  if (partial) {
+    // 1-N of this month against 1-N of the same month in past years
+    const nDays = sd.days;
+    points = sd.years.filter((y) => y !== last.y && yearFilter(y))
+      .map((y) => ({ year: y, value: agg.sameDays.get(y) || 0 }));
+    now = { label: `${last.y}`, value: agg.totals[lastI] };
+    axisTitle = `1–${nDays} ${MONTHS[last.m - 1]}, past years`;
+    noun = `${monthName}s so far`;
+    note = `Each dot is 1–${nDays} ${monthName} of one past year, the same days as ${last.y} so far.`;
+  } else {
+    // the latest complete month against the same month in past years
+    let k = lastI;
+    while (k > 0 && d.months[k].partial) k--;
+    const info = d.months[k];
+    points = [];
+    for (let y = d.firstYear; y < info.y; y++) {
+      const m = d.monthIndex.get(y * 100 + info.m);
+      if (m === undefined || d.months[m].partial || !yearFilter(y)) continue;
+      points.push({ year: y, value: agg.totals[m] });
+    }
+    now = { label: `${info.y}`, value: agg.totals[k] };
+    axisTitle = `Past ${LONG[info.m - 1]}s`;
+    noun = `${LONG[info.m - 1]}s`;
+    note = `Each dot is one past ${LONG[info.m - 1]}.`;
   }
-  return bullet({ subject: `${LONG[info.m - 1]} ${info.y}`, ongoing: false, v: agg.totals[i], vals, years: ys,
-    nrt: info.source === "near_real_time", big });
+  if (!points.length) return "";
+  const title = partial ? `${monthName} 1–${sd.days}, ${last.y} against past years` : `${axisTitle.replace("Past ", "")}, ${now.label} against past years`;
+  const tipFor = (p) => tip(`<strong>${fmt(p.value)}</strong> cell-days<br><span class="muted">${p.year}</span>`);
+  return `<section class="cblock" data-b="now">
+    <h3 class="cb-title">${title}</h3>
+    ${distributionStrip({ points, now, axisTitle, tipFor })}
+    <p class="reading">${rankSentence({ points, now, noun })}${infoIcon(`${note}<br>Typical is the median of those years.<br><span class="muted">Fire cell-days in the current selection.</span>`)}</p>
+  </section>`;
 }
 
 function cumulative(d, agg, yearsShown, yearFilter) {
@@ -324,7 +327,7 @@ function cumulative(d, agg, yearsShown, yearFilter) {
   const headline = others.length
     ? `${Y} to ${dateTxt}: ${rank === 1 ? "the highest" : `the ${ordinal(rank)} highest`} of ${others.length + 1} years at this date`
     : `${Y} to ${dateTxt}`;
-  const sub = others.length ? `${fmt(cur)} cell-days so far; the typical year had ${fmt(median(others.map(sameDay)))} by this date (median ${span(others)}).` : "";
+  const sub = others.length ? `${fmt(cur)} cell-days so far against a typical ${fmt(median(others.map(sameDay)))} by this date (median ${span(others)}).` : "";
 
   const W = 560, H = 190, padL = 44, padR = 40, padB = 22, padT = 10;
   const max = niceMax(Math.max(1, ...lines.map((l) => l.pts[l.pts.length - 1][1])));
@@ -405,34 +408,6 @@ function seasonal(d, agg, medianYears) {
       <li><span class="sw key-hollow"></span>partial month</li>
     </ul>
     <p class="reading">${headline}${sub ? infoIcon(sub) : ""}</p></section>`;
-}
-
-function thisYearBlock(d, agg, years, yearFilter, medianYears) {
-  const lastI = d.months.length - 1;
-  const last = d.months[lastI];
-  let html = "";
-  const sd = d.manifest.same_days;
-  if (last.partial && sd && sd.month === last.m) {
-    const n = monthDays(last);
-    const ys = sd.years.filter(yearFilter);
-    html += bullet({ subject: `1–${n} ${MONTHS[last.m - 1]} ${last.y}`, ongoing: true, v: agg.totals[lastI],
-      vals: ys.map((y) => agg.sameDays.get(y) || 0), years: ys, nrt: last.source === "near_real_time", big: true });
-  } else {
-    html += monthBullet(d, agg, lastI, yearFilter, true);
-  }
-  let j = lastI;
-  while (j > 0 && d.months[j].partial) j--;
-  if (j !== lastI) html += monthBullet(d, agg, j, yearFilter, false);
-  return `<section class="cblock" data-b="now">
-    <h3 class="cb-title">The latest months against past years</h3>
-    ${html}
-    <ul class="legend">
-      <li><span class="sw key-bbar"></span>this year</li>
-      <li><span class="sw key-bmed"></span>typical (median)</li>
-      <li><span class="sw key-bband"></span>middle half of past years</li></ul>
-  </section>`
-    + cumulative(d, agg, years, yearFilter)
-    + seasonal(d, agg, medianYears);
 }
 
 // ---------- 2) when the fire season runs, by year
@@ -670,6 +645,8 @@ export function renderCompare(el, d, agg, opts) {
   // widest timescale first, narrowing: years, then the season's shape, then this year, then months
   morph(el, trendBlock(d, totals, yearFilter, observedOnly)
     + seasonBlock(d, agg, years, yearFilter)
-    + thisYearBlock(d, agg, years, yearFilter, medianYears)
+    + nowVsPast(d, agg, yearFilter)
+    + cumulative(d, agg, years, yearFilter)
+    + seasonal(d, agg, medianYears)
     + anomalyBlock(d, agg, years));
 }
