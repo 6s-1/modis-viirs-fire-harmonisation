@@ -3,6 +3,9 @@
 
 const KEY = "ember:layers";
 export const OVERLAYS = [
+  // Places is the one overlay that starts on: without borders and town names the globe has no
+  // reference points. It still has its own toggle and is remembered like the rest.
+  { id: "places", label: "Places and borders", on: true },
   // "Where people live" is not here: it is a static map of where towns are, so it does not change
   // with the selection or the dates. It stays as a choice in the compare-globe pickers, where it
   // is the natural counterpart to fire.
@@ -15,7 +18,8 @@ function load() {
   try { return JSON.parse(localStorage.getItem(KEY) || "{}") || {}; } catch { return {}; }
 }
 const saved = load();
-export const overlays = Object.fromEntries(OVERLAYS.map((o) => [o.id, saved[o.id] === true]));
+export const overlays = Object.fromEntries(OVERLAYS.map((o) =>
+  [o.id, typeof saved[o.id] === "boolean" ? saved[o.id] : o.on === true]));
 
 function save() {
   try { localStorage.setItem(KEY, JSON.stringify(overlays)); } catch { /* storage unavailable */ }

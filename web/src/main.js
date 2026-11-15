@@ -11,6 +11,7 @@ import { attachInfoTips, infoIcon } from "./info.js";
 import { calendarPNG, coverage, fileTime, hotspotIndex, hotspotPlan, hotspotsCSV, liveCSV, monthlyCSV, saveBlob, utcStamp } from "./downloads.js";
 import { addGridLayers, attachGridHover, buildGrid, buildLiveGrid, gridLegendHTML, setGrid } from "./grid.js";
 import { initLayersControl, overlays, setLiveMode } from "./layers.js";
+import { raisePlaces, setPlacesVisible } from "./places.js";
 import { addTrendLayers, attachTrendHover, buildTrend, setTrend, trendLegendHTML } from "./trend.js";
 import { fixPair, lockCameras, layerPicker, repaintPickers, view } from "./views.js";
 import { readUrl, writeUrl } from "./urlstate.js";
@@ -125,6 +126,7 @@ function setupMap(map) {
   attachTrendHover(map, $("tip"), () => trendYears());
   addLiveLayer(map);
   attachLiveHover(map, $("tip"));
+  raisePlaces(map); // borders and labels above the fire grid
   map._ready = true;
   // bring this map up to date with whatever has been computed so far
   drawBox(state.box);
@@ -585,6 +587,7 @@ function layersFor(m) {
   const live = state.app === "live";
   const overlayShow = {
     fire: true,
+    places: overlays.places,
     trend: overlays.trend && !live,
     people: false, // not an overlay: population is a compare-globe layer only
     detections: overlays.detections && live,
@@ -592,6 +595,7 @@ function layersFor(m) {
   if (view.mode === "single") return overlayShow;
   const pick = m === maps[0] ? view.top : view.bottom;
   return {
+    places: overlays.places, // on both globes, whatever each one shows
     fire: pick === "fire",
     trend: pick === "trend" && !live,
     people: pick === "people",
@@ -603,6 +607,7 @@ function applyLayers() {
     if (!m._ready) continue;
     const show = layersFor(m);
     const set = (ids, on) => ids.forEach((id) => m.getLayer(id) && m.setLayoutProperty(id, "visibility", on ? "visible" : "none"));
+    setPlacesVisible(m, show.places);
     set(["grid-fill", "grid-line", "grid-est"], show.fire && !show.trend); // the trend replaces the totals
     set(["trend-fill", "trend-line"], show.trend);
     set(["pop-fill", "pop-line"], show.people);
