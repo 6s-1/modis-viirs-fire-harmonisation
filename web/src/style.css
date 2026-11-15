@@ -787,9 +787,7 @@ input[type="month"]:focus-visible, input[type="month"]:focus {
 .mascot-dot { position: absolute; top: 2px; right: 2px; width: 9px; height: 9px; border-radius: 50%;
   background: var(--accent); box-shadow: 0 0 0 2px #0f1118; animation: mdot 2.4s ease-in-out infinite; }
 @keyframes mdot { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.25); } }
-/* the legend moves up so the mascot never covers it */
-.map-stack[data-view="single"] #grid-legend, #grid-legend { left: 68px; }
-@media (max-width: 640px) { .mascot { width: 38px; height: 38px; left: 8px; bottom: 8px; } #grid-legend { left: 54px; } }
+/* the mascot moved to the header, so the legend sits at the corner on both globes */
 
 .tour { position: fixed; inset: 0; z-index: 40; }
 .tour-spot { position: fixed; border-radius: 10px; box-shadow: 0 0 0 9999px rgba(5, 6, 10, 0.72), 0 0 0 2px var(--accent);

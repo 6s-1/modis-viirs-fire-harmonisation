@@ -4,7 +4,7 @@ import "./fonts.js";
 import "./style.css";
 import { MONTHS, aggregate, cellIndexOf, fmt, fmtShort, h3Id, loadData, monthDays, population, rawRecorded, uncertaintyFactors } from "./data.js";
 import { renderExposureList, loadPlaces, placeName } from "./exposure.js";
-import { cellToBoundary, latLngToCell } from "h3-js";
+import { cellToBoundary, cellToChildren, cellToParent, latLngToCell } from "h3-js";
 import { attachTooltip, renderCalendar } from "./calendar.js";
 import { renderCompare } from "./compare.js";
 import { attachInfoTips, infoIcon } from "./info.js";
@@ -102,6 +102,7 @@ function setupMap(map) {
   addGridLayers(map);
   attachGridHover(map, $("tip"), () => ({ unit: state.app === "live" ? "hotspots" : "cell-days",
     label: state.app === "live" ? WINDOW_LABEL[live.hours] : rangeLabel(),
+    paired: view.mode !== "single",
     place: (i) => (state.d && i !== undefined && state.d.lat[i] !== undefined ? placeName(state.d.lat[i], state.d.lon[i]) : "") }), linkHover);
   map.addSource("exp", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
   map.addLayer({ id: "exp-fill", type: "fill", source: "exp", paint: { "fill-color": "#ffffff", "fill-opacity": 0.01 } });
@@ -116,10 +117,10 @@ function setupMap(map) {
     paint: { "line-color": "#2a2e38", "line-width": 0.4, "line-opacity": 0.6 } }, "exp-fill");
   map.on("mousemove", "pop-fill", (e) => {
     const f = e.features && e.features[0];
-    if (!f) return;
+    if (!f || view.mode !== "single") return; // compare writes one paired tooltip instead
     const tip = $("tip");
     const pv = +f.properties.p;
-    tip.innerHTML = `<strong>${pv < 1 ? pv.toFixed(2) : fmt(pv)}</strong> people live in this grid cell<br><span class="muted">WorldPop 2020, modelled estimate</span>`;
+    tip.innerHTML = `<strong>${pv < 1 ? pv.toFixed(2) : fmt(pv)}</strong> people live in this grid cell`;
     tip.hidden = false;
     const r = tip.getBoundingClientRect();
     tip.style.left = `${Math.min(e.originalEvent.clientX + 14, innerWidth - r.width - 8)}px`;
@@ -143,7 +144,12 @@ function setupMap(map) {
   for (const layer of ["grid-fill", "trend-fill", "pop-fill"]) {
     map.on("click", layer, (e) => {
       const f = e.features && e.features[0];
-      if (f && f.properties.i !== undefined) openWhyForCell(+f.properties.i);
+      if (!f) return;
+      // The coarse grid in compare mode carries no cell index, only its H3 id, so a click there
+      // is resolved through the display cell under the pointer.
+      if (f.properties.i !== undefined) { openWhyForCell(+f.properties.i); return; }
+      const k = cellIndexOf(state.d, latLngToCell(e.lngLat.lat, e.lngLat.lng, 5));
+      if (k !== undefined) openWhyForCell(k);
     });
     map.on("mouseenter", layer, () => { map.getCanvas().style.cursor = drawing ? "crosshair" : "pointer"; });
     map.on("mouseleave", layer, () => { map.getCanvas().style.cursor = drawing ? "crosshair" : ""; });
@@ -397,7 +403,47 @@ function linkHover(from, h3id) {
       if (!m._ready) continue;
       setHover(m, h3id ? footprint(h3id, hoverResOf(m)) : []);
     }
+    showPairTip(h3id);
   });
+}
+
+// In compare the tooltip reports the same ground on both globes, each in its own layer's terms,
+// so hovering one tells the reader what the other shows there too.
+function showPairTip(h3id) {
+  const tip = $("tip");
+  if (!h3id || view.mode === "single" || maps.length < 2) return;
+  const d = state.d;
+  // the hovered id may be res 4 (the coarse grid in compare) or res 5; find a display cell either way
+  let i = cellIndexOf(d, h3id);
+  if (i === undefined) {
+    try { i = cellIndexOf(d, cellToParent(h3id, 5)); } catch { /* not finer than res 5 */ }
+  }
+  if (i === undefined) {
+    try { for (const kid of cellToChildren(h3id, 5)) { i = cellIndexOf(d, kid); if (i !== undefined) break; } }
+    catch { /* not coarser than res 5 */ }
+  }
+  if (i === undefined) return;
+  const lines = maps.map((m, k) => {
+    const show = layersFor(m);
+    const where = k === 0 ? "Top" : "Bottom";
+    if (show.people) {
+      const p = d.pop[i] || 0;
+      return `<span class="muted">${where}:</span> ${p < 1 ? p.toFixed(2) : fmt(Math.round(p))} people`;
+    }
+    if (show.trend) {
+      const f = (state.trend?.features || []).find((x) => x.properties.i === i);
+      if (!f) return `<span class="muted">${where}:</span> no trend`;
+      return `<span class="muted">${where}:</span> ${f.properties.sig ? `${f.properties.slope > 0 ? "rising" : "falling"} ${fmt(Math.abs(f.properties.slope))} a year` : "no clear change"}`;
+    }
+    const unit = state.app === "live" ? "hotspots" : "cell-days";
+    const feats = (state.grid?.features || []);
+    const f = feats.find((x) => x.properties.h3 === h3id)
+      || feats.find((x) => x.properties.i === i);
+    return `<span class="muted">${where}:</span> ${f ? fmt(f.properties.v) : 0} ${unit}`;
+  });
+  const near = placeName(d.lat[i], d.lon[i]);
+  tip.innerHTML = `${near ? `<strong>${near}</strong><br>` : ""}${lines.join("<br>")}`;
+  tip.hidden = false;
 }
 
 // ---- views: one globe, or two locked globes (compare). On a narrow window the two globes stack
