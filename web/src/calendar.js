@@ -1,14 +1,16 @@
 // Ember burning activity calendar: years as rows, months as columns, colour = harmonised cell-days.
 
+import { infoIcon } from "./info.js";
 import { MONTHS, SOURCE_LABEL, fmt, fmtShort, fmtSig, isEstimated, median, recordedSensor, uncertaintyFactors } from "./data.js";
 
 export const SENSOR_LABEL = { terra: "MODIS Terra", aqua: "MODIS Aqua", snpp: "VIIRS S-NPP", noaa20: "VIIRS NOAA-20", viirs: "VIIRS" };
 const SENSOR_SHORT = { terra: "Terra", aqua: "Aqua", viirs: "VIIRS" };
 
-// Fire scale: six classes from pale yellow (least) through orange and red to dark red (most).
-// Lightness falls steadily (OKLab L 95 -> 36), so the order also reads in greyscale; zero is not
-// a class (empty outlined cell, "no fire"). Darker red = more fire.
-export const RAMP = ["#fff1a8", "#fecb5c", "#fd9638", "#ec5527", "#c81e1f", "#8c0d18"];
+// Fire scale: six classes in one warm family that only darkens, light orange (least) through orange,
+// red-orange and red to dark red (most); no yellow. CIELAB L* falls in even steps of ~12
+// (88, 76, 64, 52, 40, 28) while hue runs 62 -> 28 degrees, so the order also reads in greyscale and
+// with red-green colour blindness. Zero is not a class (empty outlined cell, "no fire").
+export const RAMP = ["#ffd5b8", "#ffa67d", "#fb7146", "#df4531", "#b2292a", "#7d1e23"];
 
 // Diverging scale for "compared with normal": ratio to the median of the same month.
 // Purple = below normal, orange = above, neutral grey at 1x. Both arms get stronger further from 1x.
@@ -126,32 +128,52 @@ export function renderCalendar(el, d, agg, opts) {
   return { scale, totals, monthMedians, medSpan };
 }
 
-function marks(harm, lowConfidence) {
-  return `<ul class="legend keys">
-      ${harm ? `<li title="Estimated from MODIS before VIIRS (2012); the year total shows the likely range"><span class="sw key-est"></span>estimated</li>` : ""}
-      <li><span class="sw key-partial"></span>partial month</li>
-      <li title="Provisional near-real-time data"><span class="sw key-nrt"></span>near real time</li>
-      <li><span class="sw key-top"></span>top 3</li>
-      <li><span class="sw key-nodata">–</span>no data</li>
-      <li><span class="sw key-out"></span>outside date range</li>
-      <li>* part of year</li>
-      ${lowConfidence ? `<li title="Less than the minimum area of Canada in the box for reliable estimates"><span class="badge low">low conf.</span></li>` : ""}
-    </ul>`;
+// Calendar legend: a block of its own. Left, the colour bands as an even strip with the lower
+// bound of each band under it, and "no fire" set apart. Right, the state keys in an aligned grid.
+function keys(harm, lowConfidence) {
+  const k = (sw, label) => `<li><span class="sw ${sw}"></span><span>${label}</span></li>`;
+  return `<div class="lg-keys">
+      <p class="lg-title">Marks</p>
+      <ul class="lg-keylist">
+        ${harm ? k("key-est", "estimated") : ""}
+        ${k("key-partial", "partial month")}
+        ${k("key-nrt", "near real time")}
+        ${k("key-top", "top 3")}
+        ${k("key-nodata", "no data")}
+        ${k("key-out", "outside dates")}
+        <li><span class="sw key-star">*</span><span>part of year</span></li>
+        ${lowConfidence ? `<li><span class="badge low">low conf.</span>${infoIcon("Less than the minimum area of Canada in the box for reliable estimates of the years before 2012.")}</li>` : ""}
+      </ul>
+    </div>`;
 }
+
+const strip = (colors, labels, aria) => `<ol class="lg-ramp" aria-label="${aria}" style="--n:${colors.length}">
+    ${colors.map((c, k) => `<li><span class="lg-band" style="background:${c}"></span><span class="lg-lab">${labels[k]}</span></li>`).join("")}</ol>`;
 
 function renderRatioLegend(el, lowConfidence, harm, medSpan) {
-  el.innerHTML = `<p class="legend-title"><span class="info" title="Each month divided by the median of the same calendar month over complete months ${medSpan}. 1× = a normal month for this area.">Compared with normal · × median of the same month, ${medSpan}</span></p>
-    <ul class="legend" aria-label="Ratio colour scale"><li><strong>below normal</strong></li>${RATIO_COLORS.map((c, k) => `<li><span class="sw" style="background:${c}"></span>${RATIO_LABELS[k]}</li>`).join("")}<li><strong>above normal</strong></li></ul>
-    ${marks(harm, lowConfidence)}`;
+  el.innerHTML = `<div class="cal-legend">
+    <div class="lg-scale">
+      <p class="lg-title">× median of the same month${infoIcon(`Each month divided by the median of the same calendar month over complete months ${medSpan}. 1× is a normal month for this area. Purple is below normal, grey normal, brown to orange above.`)}</p>
+      ${strip(RATIO_COLORS, RATIO_LABELS.map((l) => l.replace("–", "–<wbr>")), "Ratio colour scale")}
+      <p class="lg-ends"><span>below normal</span><span>above normal</span></p>
+    </div>
+    ${keys(harm, lowConfidence)}
+  </div>`;
 }
 
-const DEFINITION = "Fire cell-days: ~1 km grid cells with at least one fire detection on a day, summed over the month. Pale yellow is the least fire, dark red the most.";
+const DEFINITION = "Fire cell-days: ~1 km grid cells with at least one fire detection on a day, summed over the month. Light orange is the least fire, dark red the most. Each band starts at the number under it.";
 
 function renderLegend(el, scale, lowConfidence, harm = true) {
-  const sw = scale.colors.map((c, k) => `<li><span class="sw" style="background:${c}"></span>${scale.label(k)}</li>`).join("");
-  el.innerHTML = `<p class="legend-title"><span class="info" title="${DEFINITION}">${harm ? "Fire cell-days per month" : "Raw fire cell-days per month"}</span></p>
-    <ul class="legend" aria-label="Colour scale"><li class="nofire"><span class="sw key-zero"></span>no fire</li>${sw}</ul>
-    ${marks(harm, lowConfidence)}`;
+  el.innerHTML = `<div class="cal-legend">
+    <div class="lg-scale">
+      <p class="lg-title">${harm ? "Fire cell-days per month" : "Raw fire cell-days per month"}${infoIcon(DEFINITION)}</p>
+      <div class="lg-row">
+        <div class="lg-zero"><span class="lg-band key-zero"></span><span class="lg-lab">no fire</span></div>
+        ${strip(scale.colors, scale.colors.map((_, k) => scale.label(k)), "Colour scale")}
+      </div>
+    </div>
+    ${keys(harm, lowConfidence)}
+  </div>`;
 }
 
 export function attachTooltip(host, tip, getState) {

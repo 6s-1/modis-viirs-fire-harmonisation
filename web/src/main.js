@@ -1,11 +1,13 @@
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
+import "./fonts.js";
 import "./style.css";
 import { MONTHS, aggregate, fmt, fmtShort, h3Id, loadData, monthDays, population, rawRecorded, uncertaintyFactors } from "./data.js";
 import { renderExposureList, loadPlaces } from "./exposure.js";
 import { cellToBoundary } from "h3-js";
 import { attachTooltip, renderCalendar } from "./calendar.js";
 import { renderCompare } from "./compare.js";
+import { attachInfoTips, infoIcon } from "./info.js";
 import { calendarPNG, coverage, fileTime, hotspotIndex, hotspotPlan, hotspotsCSV, liveCSV, monthlyCSV, saveBlob, utcStamp } from "./downloads.js";
 import { addGridLayers, attachGridHover, gridLegend, updateGrid } from "./grid.js";
 import { addLiveLayer, attachLiveHover, fetchLive, liveAvailable } from "./live.js";
@@ -21,21 +23,6 @@ const STYLE = "https://tiles.openfreemap.org/styles/positron";
 const OUTSIDE = "Harmonised history is available for Canada in this version.";
 
 const $ = (id) => document.getElementById(id);
-
-// The globe should fill its half with dark space around it: radius ~38% of the panel's smaller side.
-const START = { lng: -96, lat: 58 };
-function fitGlobe() {
-  const el = map.getContainer();
-  const target = 0.38 * Math.min(el.clientWidth, el.clientHeight);
-  map.jumpTo({ center: [START.lng, START.lat], zoom: 1.5 });
-  for (let k = 0; k < 3; k++) {
-    // a point 89 degrees from the centre sits just inside the globe's edge
-    const c = map.project([START.lng, START.lat]), e = map.project([START.lng, START.lat - 89]);
-    const r = Math.hypot(e.x - c.x, e.y - c.y);
-    if (!(r > 0)) break;
-    map.jumpTo({ center: [START.lng, START.lat], zoom: map.getZoom() + Math.log2(target / r) });
-  }
-}
 
 // Collapsible sections remember their state in this browser.
 document.querySelectorAll("details[data-remember]").forEach((el) => {
@@ -63,9 +50,14 @@ if (import.meta.env.DEV) window.__ember = { map, get state() { return state; } }
 map.touchZoomRotate.disableRotation();
 map.keyboard.disableRotation();
 map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
-map.on("style.load", () => { map.setProjection({ type: "globe" }); neutralBasemap(); fitGlobe(); });
+map.on("style.load", () => {
+  map.setProjection({ type: "globe" });
+  neutralBasemap();
+  const cam = canadaCamera(); // open already in on all of Canada
+  if (cam) map.jumpTo(cam);
+});
 
-// Mid-grey basemap so both ends of the fire scale stand out (pale yellow low end, dark red
+// Mid-grey basemap so both ends of the fire scale stand out (light orange low end, dark red
 // high end): land ~ rgb(160,163,168), water darker, no blue or green tints.
 function neutralBasemap() {
   const paint = { background: ["background-color", "#a0a3a8"], water: ["fill-color", "#6f747c"], park: ["fill-color", "#9a9da2"],
@@ -189,7 +181,7 @@ function clearBox(fly = true) {
   drawBox(null);
   clearMarker.remove();
   if (state.d) update();
-  if (fly) fitToData();
+  if (fly) flyToCamera(canadaCamera()); // back to exactly the opening view
 }
 
 // Fit the camera so the cells with data (or the box, if none) fill ~90% of the map's shorter side,
@@ -203,14 +195,47 @@ function kmBetween(a, b) {
   const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * r) * Math.cos(b.lat * r) * Math.sin(dLon / 2) ** 2;
   return 2 * 6371 * Math.asin(Math.sqrt(h));
 }
+// Padding rule shared by every fit: the bounds fill ~90% of the map's shorter side, centred.
+function cameraFor(b) {
+  const el = map.getContainer(), W = el.clientWidth, H = el.clientHeight;
+  const side = 0.9 * Math.min(W, H);
+  const px = Math.max((W - side) / 2, 0), py = Math.max((H - side) / 2, 0);
+  return map.cameraForBounds([[b.west, b.south], [b.east, b.north]], { padding: { top: py, bottom: py, left: px, right: px }, maxZoom: 9 });
+}
+// All of Canada on the globe. cameraForBounds works in flat Mercator terms, which on a globe centres
+// Canada too far north and leaves it small, so the fit is refined on the globe itself: Canada's
+// outermost points are projected and the camera is moved until they fill the same padding square
+// (90% of the map's shorter side), centred. The map is put back where it was; the caller moves it.
+const CANADA_EXTREMES = [[-141, 69.6], [-141, 60.3], [-133, 54.6], [-123.4, 48.3], [-95.2, 49], [-82.6, 41.7], [-67, 44.6],
+  [-59.8, 43.9], [-52.6, 47.5], [-55.6, 52.2], [-61.6, 56.6], [-64.7, 60.3], [-61.5, 66.6], [-63, 82.4], [-70, 83.1],
+  [-90, 81.7], [-110, 78.6], [-120, 74.3], [-125.5, 71.9], [-135, 69.5]];
+function canadaCamera() {
+  const el = map.getContainer(), W = el.clientWidth, H = el.clientHeight;
+  if (!W || !H) return null;
+  const first = cameraFor(CANADA);
+  if (!first) return null;
+  const saved = { center: map.getCenter(), zoom: map.getZoom() };
+  const side = 0.9 * Math.min(W, H);
+  let cam = { center: maplibregl.LngLat.convert(first.center), zoom: first.zoom };
+  for (let k = 0; k < 5; k++) {
+    map.jumpTo(cam);
+    const xy = CANADA_EXTREMES.map((p) => map.project(p));
+    const x0 = Math.min(...xy.map((q) => q.x)), x1 = Math.max(...xy.map((q) => q.x));
+    const y0 = Math.min(...xy.map((q) => q.y)), y1 = Math.max(...xy.map((q) => q.y));
+    const scale = Math.min(side / (x1 - x0), side / (y1 - y0));
+    cam = { center: map.unproject([(x0 + x1) / 2, (y0 + y1) / 2]), zoom: cam.zoom + Math.log2(scale) };
+    if (Math.abs(Math.log2(scale)) < 0.005) break;
+  }
+  map.jumpTo(saved);
+  return cam;
+}
 function fitToData() {
   const e = state.agg && state.agg.extent;
   const half = 0.12; // display cells are ~0.25 degrees across; pad centres by half a cell
   const b = e ? { south: e.south - half, north: e.north + half, west: e.west - half * 2, east: e.east + half * 2 } : selBox();
-  const el = map.getContainer(), W = el.clientWidth, H = el.clientHeight;
-  const side = 0.9 * Math.min(W, H);
-  const px = Math.max((W - side) / 2, 0), py = Math.max((H - side) / 2, 0);
-  const cam = map.cameraForBounds([[b.west, b.south], [b.east, b.north]], { padding: { top: py, bottom: py, left: px, right: px }, maxZoom: 9 });
+  flyToCamera(cameraFor(b));
+}
+function flyToCamera(cam) {
   if (!cam) return;
   if (reduceMotion.matches) { map.jumpTo({ center: cam.center, zoom: cam.zoom }); return; }
   const from = map.getCenter(), to = maplibregl.LngLat.convert(cam.center);
@@ -274,8 +299,6 @@ function update() {
     const q = uncertaintyFactors(d, agg.canadaKm2, "year", d.months[i].source);
     lo += agg.totals[i] * (q ? q[0] : 1); hi += agg.totals[i] * (q ? q[2] : 1);
   }
-  const areaTip = state.box ? `Canada inside the box (land and lakes): the area searched, not the area burned.${partlyOutside ? ` Part of the box is outside Canada. ${OUTSIDE}` : ""}`
-    : "All of Canada (land and lakes): the area searched, not the area burned. Draw a box to look at a smaller area.";
   const lowTip = `Less than ${fmt(minArea)} km² of Canada in the box: estimated years are low confidence.`;
   const areaTxt = agg.canadaKm2 >= 1e6 ? `${(agg.canadaKm2 / 1e6).toFixed(2)}M` : fmt(agg.canadaKm2);
   const dets = [["terra", "Terra"], ["aqua", "Aqua"], ["snpp", "S-NPP"], ["noaa20", "NOAA-20"]].map(([p, name]) => {
@@ -286,19 +309,19 @@ function update() {
   }).filter(([, t]) => t > 0);
   const pop = population(d, agg, d.months[a].y, d.months[b].y);
   const yrs = d.months[a].y === d.months[b].y ? `${d.months[a].y}` : `${d.months[a].y}–${d.months[b].y}`;
-  const popLine = pop ? `<div class="sub" title="WorldPop 2020, 1 km, UN-adjusted: a modelled estimate of where people live, not a census count. Fire cells: ~1 km cells with at least one fire cell-day in ${yrs} (whole years).">
-      ${fmtShort(pop.all)} people live here · ${fmtShort(pop.fire)} in ~1 km cells with fire, ${yrs} <span class="dim">(WorldPop 2020, modelled)</span></div>` : "";
-  const hotTip = dets.length ? `Raw hotspot detections, ${rangeLabel()}: ${dets.map(([n, t]) => `${n} ${Math.round(t).toLocaleString("en-CA")}`).join(", ")}. `
-    + "Hotspots count every flagged pixel on every overpass; cell-days count each ~1 km cell once a day. "
-    + "Hotspots are counted by grid cell like the cell-days, so they can differ slightly from the hotspot CSV, which uses each detection's exact position." : "";
-  const info = hotTip ? ` <span class="info-i" tabindex="0" role="img" aria-label="${hotTip}" title="${hotTip}">i</span>` : "";
-  const where = state.box ? `${areaTxt} km² searched` : `all of Canada, ${areaTxt} km²`;
-  $("summary").innerHTML = (!inCanada ? `<p class="notice">${OUTSIDE}</p>` : agg.cells.length ? `
-    <div class="big" title="Harmonised fire cell-days (VIIRS-equivalent), ${rangeLabel()}">${fmt(total)}${hi - lo > 0.005 * total ? ` <span class="rng">(${fmtShort(lo)}–${fmtShort(hi)})</span>` : ""}
-      <span class="unit">fire cell-days</span>${info}</div>
-    <div class="sub">${rangeLabel()} · <span class="info" title="${areaTip}">${where}</span>${lowConfidence ? ` <span class="badge low" title="${lowTip}">low conf.</span>` : ""}</div>${popLine}`
-    : `<div class="big">0 <span class="unit">fire cell-days</span></div>
-    <div class="sub">${rangeLabel()} · <span class="info" title="${areaTip}">${where}</span> · no fire detected</div>${popLine}`);
+  // first line: the number, its range and the unit; everything else sits behind the info icon
+  const details = [
+    `<strong>${rangeLabel()}</strong>${agg.cells.length ? "" : " · no fire detected"}`,
+    `${state.box ? `${areaTxt} km² of Canada in the box` : `All of Canada, ${areaTxt} km²`}: the area searched, not burned.${state.box && partlyOutside ? " Part of the box is outside Canada." : ""}`,
+    lowConfidence ? `<strong>Low confidence:</strong> ${lowTip}` : "",
+    pop ? `${fmtShort(pop.all)} people live here; ${fmtShort(pop.fire)} in ~1 km cells with fire, ${yrs}. <span class="muted">WorldPop 2020, modelled.</span>` : "",
+    dets.length ? `Raw hotspot detections: ${dets.map(([n, t]) => `${n} ${Math.round(t).toLocaleString("en-CA")}`).join(", ")}.` : "",
+    `<span class="muted">VIIRS-equivalent fire cell-days: each ~1 km cell counts once on each day it has fire. Hotspots count every flagged pixel on every overpass.</span>`,
+  ].filter(Boolean).join("<br>");
+  const info = infoIcon(details, lowConfidence ? "warn" : "");
+  $("summary").innerHTML = !inCanada ? `<p class="notice">${OUTSIDE}</p>`
+    : `<div class="big">${fmt(total)}${agg.cells.length && hi - lo > 0.005 * total ? ` <span class="rng">(${fmtShort(lo)}–${fmtShort(hi)})</span>` : ""}
+      <span class="unit">fire cell-days</span>${info}</div>`;
   for (const id of ["sec-calendar", "sec-compare", "sec-downloads"]) $(id).hidden = !inCanada;
   if (!inCanada) { refreshGrid(); return; }
 
@@ -383,8 +406,12 @@ function highlightExposure(rank) {
   expMarkers.forEach((m) => m.getElement().classList.toggle("hi", m._rank === rank));
   document.querySelectorAll("#exposure tr[data-rank]").forEach((tr) => tr.classList.toggle("hi", +tr.dataset.rank === rank));
 }
+// Outlines and numbered badges appear only when "Show on map" is ticked (off by default).
+let expTop = [];
 function drawExposure(top) {
+  expTop = top;
   expMarkers.splice(0).forEach((m) => m.remove());
+  if (!$("exp-show").checked) top = [];
   const feats = top.map(({ i, rank }) => ({ type: "Feature", properties: { rank, i },
     geometry: { type: "Polygon", coordinates: [cellToBoundary(h3Id(state.d, i), true)] } }));
   const src = map.getSource("exp");
@@ -401,6 +428,7 @@ function drawExposure(top) {
     expMarkers.push(m);
   }
 }
+$("exp-show").addEventListener("change", () => drawExposure(expTop));
 function renderExposure() {
   if (!state.d || !state.mapReady) return;
   const isLive = state.app === "live";
@@ -440,7 +468,7 @@ function updatePop() {
     geometry: { type: "Polygon", coordinates: [cellToBoundary(h3Id(d, i), true)] } }));
   src.setData({ type: "FeatureCollection", features: feats });
 }
-const popLegendHTML = () => `<p class="legend-title"><span class="info" title="People living in each ~250 km² grid cell. WorldPop 2020, 1 km, UN-adjusted: a modelled estimate, not a census count.">People per grid cell · WorldPop 2020, modelled</span></p>
+const popLegendHTML = () => `<p class="legend-title">People per grid cell${infoIcon("People living in each ~250 km² grid cell. WorldPop 2020, 1 km, UN-adjusted: a modelled estimate, not a census count.")}</p>
   <ul class="legend">${POP_COLORS.map((c, k) => `<li><span class="sw" style="background:${c}"></span>${POP_LABELS[k]}</li>`).join("")}</ul>`;
 function renderLegends() {
   const parts = [];
@@ -496,15 +524,18 @@ function renderLive() {
   const areaTxt = agg.canadaKm2 >= 1e6 ? `${(agg.canadaKm2 / 1e6).toFixed(2)}M` : fmt(agg.canadaKm2);
   const where = state.box ? `${areaTxt} km² searched` : `all of Canada, ${areaTxt} km²`;
   const pop = d.pop ? agg.gridCells.reduce((s, i) => s + d.pop[i], 0) : 0;
-  $("summary").innerHTML = `
-    <div class="big">${fmt(feats.length)} <span class="unit">live hotspots</span><span class="live-tag">near real time, not harmonised</span></div>
-    <div class="sub">${WINDOW_LABEL[live.hours]} (${t(startMs)} – ${t(Date.now())} UTC) · <span class="info" title="Canada only: points outside Canada are removed.">${where}</span></div>
-    <div class="sub">NOAA-20 ${fmt(n20)} · NOAA-21 ${fmt(n21)}${pop ? ` · ${fmtShort(pop)} people live here <span class="dim">(WorldPop 2020, modelled)</span>` : ""}</div>`;
+  const details = [
+    `<strong>${WINDOW_LABEL[live.hours][0].toUpperCase()}${WINDOW_LABEL[live.hours].slice(1)}</strong>: ${t(startMs)} – ${t(Date.now())} UTC`,
+    `${where}; points outside Canada removed.`,
+    `NOAA-20 ${fmt(n20)} · NOAA-21 ${fmt(n21)}`,
+    pop ? `${fmtShort(pop)} people live here. <span class="muted">WorldPop 2020, modelled.</span>` : "",
+    `<span class="muted">Near real time from NASA FIRMS (VIIRS): provisional and not harmonised.</span>`,
+  ].filter(Boolean).join("<br>");
+  $("summary").innerHTML = `<div class="big">${fmt(feats.length)} <span class="unit">live hotspots</span>${infoIcon(details)}</div>`;
   live.meta = renderLiveChart($("livechart"), feats, live.hours);
   live.span = { start: startMs, end: Date.now() };
   $("dl-live").disabled = false;
-  state.liveLegend = `<p class="legend-title">Live hotspots · ${WINDOW_LABEL[live.hours]}</p>
-    <ul class="legend"><li><span class="sw key-live"></span>near real time, not harmonised (NOAA-20, NOAA-21)</li></ul>`;
+  state.liveLegend = `<ul class="legend"><li><span class="sw key-live"></span>live hotspot${infoIcon(`Near real time, not harmonised: VIIRS on NOAA-20 and NOAA-21, ${WINDOW_LABEL[live.hours]}.`)}</li></ul>`;
   updatePop();
   renderLegends();
   renderExposure();
@@ -522,6 +553,7 @@ document.querySelectorAll('input[name="live"]').forEach((r) => r.addEventListene
 }));
 
 // ---- start
+attachInfoTips($("tip"));
 attachTooltip($("calendar"), $("tip"), () => ({ d: state.d, agg: state.agg, mode: state.mode, colour: state.colour, cal: state.cal }));
 loadData("harmonised/")
   .then((d) => {

@@ -1,4 +1,5 @@
 // About page. All numbers come from about.json, written by pipeline/about_data.py.
+import "./fonts.js";
 import "./style.css";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -61,7 +62,7 @@ function render(a) {
     fire cell-days in the same fires. Laid end to end, the raw record would jump in 2012. The app converts the whole
     record to <strong>VIIRS-equivalent fire cell-days</strong>, so years can be compared. Use the "Raw sensors" view to see
     the unconverted counts.</p>
-    <p>Colours run from <strong>pale yellow (least fire) through orange and red to dark red (most)</strong>. The
+    <p>Colours run from <strong>light orange (least fire) through orange and red to dark red (most)</strong>. The
     classes are set from the values in the current selection and date range, so the same colour can mean different
     counts in different areas; the legend gives the numbers. "Compared with normal" uses a separate scale: purple for
     below the usual level for that month, grey for about normal, brown to orange for above.</p>

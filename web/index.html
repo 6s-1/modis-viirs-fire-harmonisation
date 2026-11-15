@@ -8,12 +8,11 @@
     <!-- FAVICON SLOT: replace public/favicon.svg (or point this link at a PNG/ICO) -->
     <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
   </head>
-  <body>
+  <body class="app">
     <header class="site-top">
       <!-- LOGO SLOT: put an <img src="./logo.svg" alt="Ember"> (about 28 px tall) inside this span -->
       <span class="logo-slot" id="logo-slot" aria-hidden="true"></span>
       <h1>Ember</h1>
-      <span class="tagline">Harmonised MODIS + VIIRS fire activity for Canada</span>
       <span class="muted small" id="data-end"></span>
       <a class="about-link" href="./about.html">About the data</a>
     </header>
@@ -50,7 +49,6 @@
                 <span class="brow-h">Longitude</span>
                 <label>West <input id="west" type="number" step="any" inputmode="decimal" placeholder="-141.5" /></label>
                 <label>East <input id="east" type="number" step="any" inputmode="decimal" placeholder="-52" /></label>
-                <button type="submit" class="ghost">Apply</button>
               </div>
               <p id="bounds-error" class="error" role="alert"></p>
             </form>
@@ -69,22 +67,12 @@
                 <label><input type="radio" name="live" value="168" /> 7 d</label>
               </div>
             </div>
+            <div class="apply-row">
+              <button type="submit" form="bounds" class="ghost">Apply</button>
+            </div>
           </div>
           <div id="summary">Loading data…</div>
         </section>
-
-        <section class="sec sec-static" id="sec-downloads" aria-labelledby="dl-h">
-          <div class="dl-row">
-            <h2 id="dl-h">Downloads</h2>
-            <button id="dl-monthly" type="button" class="ghost hist-only" title="Harmonised monthly values per grid cell in the box and date range, with source flag, likely range and hotspot detections per sensor">Monthly per cell · CSV</button>
-            <button id="dl-hotspots" type="button" class="ghost hist-only" title="Satellite hotspots in the box and date range (vegetation fire, low-confidence class removed)">Hotspots · CSV</button>
-            <button id="dl-png" type="button" class="ghost hist-only" title="The harmonised calendar for this box as an image">Calendar · PNG</button>
-            <button id="dl-live" type="button" class="ghost live-only" disabled title="The near-real-time hotspots shown on the map for this area and window (not harmonised)">Live hotspots · CSV</button>
-          </div>
-          <p id="dl-status" class="muted small" aria-live="polite"></p>
-        </section>
-
-
 
         <details class="sec" id="sec-calendar" open data-remember>
           <summary><h2><span class="hist-only">Calendar</span><span class="live-only">Live hotspots</span></h2></summary>
@@ -110,6 +98,7 @@
 
         <details class="sec" id="sec-exposure" open data-remember>
           <summary><h2>Areas with fire, ranked by people exposed</h2></summary>
+          <label class="chk exp-show"><input type="checkbox" id="exp-show" /> Show on map</label>
           <div id="exposure"><p class="muted small">Loading…</p></div>
         </details>
 
@@ -118,6 +107,16 @@
           <div id="compare"></div>
         </details>
 
+        <section class="sec sec-static" id="sec-downloads" aria-labelledby="dl-h">
+          <div class="dl-row">
+            <h2 id="dl-h">Downloads</h2>
+            <button id="dl-monthly" type="button" class="ghost hist-only" title="Harmonised monthly values per grid cell in the box and date range, with source flag, likely range and hotspot detections per sensor">Monthly per cell · CSV</button>
+            <button id="dl-hotspots" type="button" class="ghost hist-only" title="Satellite hotspots in the box and date range (vegetation fire, low-confidence class removed)">Hotspots · CSV</button>
+            <button id="dl-png" type="button" class="ghost hist-only" title="The harmonised calendar for this box as an image">Calendar · PNG</button>
+            <button id="dl-live" type="button" class="ghost live-only" disabled title="The near-real-time hotspots shown on the map for this area and window (not harmonised)">Live hotspots · CSV</button>
+          </div>
+          <p id="dl-status" class="muted small" aria-live="polite"></p>
+        </section>
 
       </aside>
     </main>

@@ -2,6 +2,7 @@
 // with recent fire, ranked by the people living in them (WorldPop 2020, modelled). Recent fire is
 // the live layer when it is on, otherwise the latest month in the record. Exposure only.
 
+import { infoIcon } from "./info.js";
 import { latLngToCell } from "h3-js";
 import { MONTHS, cellIndexOf, fmt, fmtShort, monthDays } from "./data.js";
 
@@ -74,11 +75,11 @@ export function renderExposureList(el, d, box, liveFeats, liveHours, onPick, onH
       <tbody>${top.map((r, k) => `<tr data-rank="${k + 1}"><td class="rank"><span class="exp-num">${k + 1}</span></td><th scope="row"><button type="button" class="linkish" data-i="${r.i}">${placeName(d.lat[r.i], d.lon[r.i])}</button></th>
         <td>${Math.round(r.c).toLocaleString("en-CA")}</td><td>${r.people >= 1 ? fmtShort(Math.round(r.people)) : "0"}</td></tr>`).join("")}</tbody></table>`
     : `<p class="muted small">No hotspots in the selection for ${basis}.</p>`;
-  el.innerHTML = `<p class="small exp-note">Exposure only. Response priorities are set by emergency management agencies.</p>
-    ${table}
-    <p class="muted small">${rows.length > TOP ? `Top ${TOP} of ${fmt(rows.length)} areas in the selection. ` : ""}Areas are ~250 km² grid cells; fire is ${basis};
-      people are WorldPop 2020 modelled estimates for the cell. Place: nearest place of 500+ people (GeoNames).
-      Hotspots in towns can be industrial heat or other sources that are not wildfire. Click an area to zoom to it.</p>`;
+  const about = infoIcon(`Exposure only: response priorities are set by emergency management agencies.<br>
+    Areas are ~250 km² grid cells; fire is ${basis}.<br>People: WorldPop 2020 modelled estimates for the cell.<br>
+    Place: nearest place of 500+ people (GeoNames).<br><span class="muted">Hotspots in towns can be industrial heat or other sources that are not wildfire. Click an area to zoom to it.</span>`);
+  el.innerHTML = `${table}
+    <p class="muted small exp-foot">${rows.length > TOP ? `Top ${TOP} of ${fmt(rows.length)} areas` : top.length ? `${top.length} area${top.length > 1 ? "s" : ""}` : ""}${about}</p>`;
   el.querySelectorAll("button[data-i]").forEach((b) => b.addEventListener("click", () => onPick(+b.dataset.i)));
   el.querySelectorAll("tr[data-rank]").forEach((tr) => {
     tr.addEventListener("mouseenter", () => onHover(+tr.dataset.rank));
