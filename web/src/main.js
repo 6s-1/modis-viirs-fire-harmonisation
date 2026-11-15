@@ -6,7 +6,7 @@ import { renderExposureList, loadPlaces } from "./exposure.js";
 import { cellToBoundary } from "h3-js";
 import { attachTooltip, renderCalendar } from "./calendar.js";
 import { renderCompare } from "./compare.js";
-import { calendarPNG, fileStem, hotspotIndex, hotspotPlan, hotspotsCSV, monthlyCSV, saveBlob } from "./downloads.js";
+import { calendarPNG, coverage, fileTime, hotspotIndex, hotspotPlan, hotspotsCSV, liveCSV, monthlyCSV, saveBlob, utcStamp } from "./downloads.js";
 import { addGridLayers, attachGridHover, gridLegend, updateGrid } from "./grid.js";
 import { addLiveLayer, attachLiveHover, fetchLive, liveAvailable } from "./live.js";
 import { liveWindow, renderLiveChart } from "./livechart.js";
@@ -318,19 +318,24 @@ function update() {
 
 // ---- downloads
 $("dl-monthly").addEventListener("click", () => {
-  saveBlob(monthlyCSV(state.d, state.agg, state.range), `ember_fire-cell-days_${fileStem(selBox(), state.d, state.range)}.csv`);
+  const cov = coverage(state.d, state.box, state.range);
+  saveBlob(monthlyCSV(state.d, state.agg, state.range, cov), `ember_fire-cell-days_${cov.tag}_${cov.periodTag}.csv`);
 });
 $("dl-png").addEventListener("click", async () => {
   const d = state.d, b = selBox();
+  const cov = coverage(d, state.box, [0, d.months.length - 1]); // the PNG always shows the whole record
   const cal = state.mode === "raw" ? renderCalendar(document.createElement("div"), d, state.agg, {
     years: state.cal.totals.map((t) => t.y), medianYears: [], range: state.range, lowConfidence: false,
     legendEl: document.createElement("div") }) : state.cal; // the PNG is always the harmonised calendar
   const blob = await calendarPNG(d, state.agg, cal, {
     years: cal.totals.map((t) => t.y), lowConfidence: state.agg.canadaKm2 < d.manifest.uncertainty.low_confidence_below_km2,
     title: "Ember · burning activity calendar (harmonised)",
-    subtitle: `Box S ${b.south.toFixed(2)}, N ${b.north.toFixed(2)}, W ${b.west.toFixed(2)}, E ${b.east.toFixed(2)} · Canada inside the box ${fmt(state.agg.canadaKm2)} km² (area searched, not burned)`,
+    subtitle: state.box
+      ? `Box S ${b.south.toFixed(2)}, N ${b.north.toFixed(2)}, W ${b.west.toFixed(2)}, E ${b.east.toFixed(2)} · Canada inside the box ${fmt(state.agg.canadaKm2)} km² (area searched, not burned)`
+      : `All of Canada · ${fmt(state.agg.canadaKm2)} km² (area searched, not burned)`,
+    caption: `Period ${cov.period} (data to ${cov.dataEnd}) · Generated ${utcStamp()}`,
   });
-  saveBlob(blob, `ember_fire-calendar_${fileStem(b, d, [0, d.months.length - 1])}.png`);
+  saveBlob(blob, `ember_fire-calendar_${cov.tag}_${cov.periodTag}.png`);
 });
 $("dl-hotspots").addEventListener("click", async () => {
   const st = $("dl-status"), btn = $("dl-hotspots");
@@ -340,15 +345,25 @@ $("dl-hotspots").addEventListener("click", async () => {
     if (!plan.tiles.length) { st.textContent = "No hotspots in this box and date range."; return; }
     if (plan.tooBig) { st.textContent = `This would read up to ${fmt(plan.rows)} hotspots. Narrow the box or the date range (limit 1.5 million).`; return; }
     st.textContent = `Reading ${plan.tiles.length} tiles (${(plan.bytes / 1e6).toFixed(1)} MB)…`;
+    const cov = coverage(state.d, state.box, state.range);
     const { blob, rows } = await hotspotsCSV(selBox(), state.d, state.range, plan,
-      (done, n, kept) => { st.textContent = `Reading tiles ${done}/${n} · ${fmt(kept)} hotspots so far…`; });
-    saveBlob(blob, `ember_hotspots_${fileStem(selBox(), state.d, state.range)}.csv`);
+      (done, n, kept) => { st.textContent = `Reading tiles ${done}/${n} · ${fmt(kept)} hotspots so far…`; }, cov);
+    saveBlob(blob, `ember_hotspots_${cov.tag}_${cov.periodTag}.csv`);
     st.textContent = `Saved ${fmt(rows)} hotspots.`;
   } catch (err) {
     st.textContent = `Hotspot download failed: ${err.message}`;
   } finally {
     btn.disabled = false;
   }
+});
+
+$("dl-live").addEventListener("click", () => {
+  if (!live.span) return;
+  const cov = coverage(state.d, state.box, state.range);
+  const win = live.hours >= 168 ? "7d" : `${live.hours}h`;
+  saveBlob(liveCSV(live.feats, { area: cov.area, windowLabel: WINDOW_LABEL[live.hours], ...live.span }),
+    `ember_live-hotspots_${cov.tag}_${win}_${fileTime(live.span.start)}_${fileTime(live.span.end)}.csv`);
+  $("dl-status").textContent = `Saved ${fmt(live.feats.length)} live hotspots.`;
 });
 
 // Zoom to an area from the exposure list: the cell's bounds padded by about one cell on each side.
@@ -457,6 +472,7 @@ async function loadLive() {
   if (!liveOk) { liveDown(); return; }
   document.body.classList.remove("live-down");
   $("summary").innerHTML = `<p class="muted small">Loading live hotspots…</p>`;
+  $("dl-live").disabled = true; $("dl-status").textContent = "";
   const b = selBox();
   try {
     const feats = await fetchLive([b.west, b.south, b.east, b.north], live.hours);
@@ -485,6 +501,8 @@ function renderLive() {
     <div class="sub">${WINDOW_LABEL[live.hours]} (${t(startMs)} – ${t(Date.now())} UTC) · <span class="info" title="Canada only: points outside Canada are removed.">${where}</span></div>
     <div class="sub">NOAA-20 ${fmt(n20)} · NOAA-21 ${fmt(n21)}${pop ? ` · ${fmtShort(pop)} people live here <span class="dim">(WorldPop 2020, modelled)</span>` : ""}</div>`;
   live.meta = renderLiveChart($("livechart"), feats, live.hours);
+  live.span = { start: startMs, end: Date.now() };
+  $("dl-live").disabled = false;
   state.liveLegend = `<p class="legend-title">Live hotspots · ${WINDOW_LABEL[live.hours]}</p>
     <ul class="legend"><li><span class="sw key-live"></span>near real time, not harmonised (NOAA-20, NOAA-21)</li></ul>`;
   updatePop();

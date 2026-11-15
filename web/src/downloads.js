@@ -1,6 +1,6 @@
 // Downloads: harmonised monthly values per cell, raw hotspots from static tiles, calendar as PNG.
 
-import { MONTHS, SOURCE_LABEL, fmt, h3Id, isEstimated, uncertaintyFactors } from "./data.js";
+import { MONTHS, SOURCE_LABEL, fmt, h3Id, isEstimated, monthDays, uncertaintyFactors } from "./data.js";
 import { RAMP } from "./calendar.js";
 
 const MAX_HOTSPOT_ROWS = 1_500_000;
@@ -16,17 +16,43 @@ export function saveBlob(blob, name) {
 }
 
 const ym = (info) => `${info.y}-${String(info.m).padStart(2, "0")}`;
-export const fileStem = (box, d, range) =>
-  `S${box.south.toFixed(2)}_N${box.north.toFixed(2)}_W${box.west.toFixed(2)}_E${box.east.toFixed(2)}_${ym(d.months[range[0]])}_${ym(d.months[range[1]])}`;
+const pad2 = (n) => String(n).padStart(2, "0");
+
+// What a download covers, used for its file name and its header lines.
+// box = null means all of Canada.
+export function coverage(d, box, range) {
+  const a = d.months[range[0]], b = d.months[range[1]], last = d.lastMonth;
+  const bounds = (bx) => `S ${bx.south.toFixed(2)}, N ${bx.north.toFixed(2)}, W ${bx.west.toFixed(2)}, E ${bx.east.toFixed(2)}`;
+  return {
+    tag: box ? `S${box.south.toFixed(2)}_N${box.north.toFixed(2)}_W${box.west.toFixed(2)}_E${box.east.toFixed(2)}` : "canada",
+    area: box ? `box ${bounds(box)} (degrees; Canada inside the box only)` : "all of Canada",
+    period: `${ym(a)} to ${ym(b)}`,
+    periodTag: `${ym(a)}_${ym(b)}`,
+    dataEnd: `${last.y}-${pad2(last.m)}-${pad2(monthDays(last))}`,
+  };
+}
+export const utcStamp = (ms = Date.now()) => new Date(ms).toISOString().slice(0, 16).replace("T", " ") + " UTC";
+export const fileTime = (ms) => `${new Date(ms).toISOString().slice(0, 16).replace(":", "")}Z`; // 2026-11-14T0900Z
+
+// "# key: value" lines at the top of a CSV (pandas: read_csv(..., comment="#")).
+export const csvHeader = (pairs) => pairs.map(([k, v]) => `# ${k}: ${v}`).join("\n") + "\n";
 
 // One row per display cell and month with fire in the selection and date range: harmonised
 // cell-days with source and likely range, and raw hotspot detections per satellite.
-export function monthlyCSV(d, agg, range) {
+export function monthlyCSV(d, agg, range, cov) {
   const cellArea = d.manifest.grid.cell_area_km2;
   const sensors = ["terra", "aqua", "snpp", "noaa20"];
   const head = ["cell_h3", "cell_lat", "cell_lon", "ecozone", "province", "year", "month", "fire_cell_days",
     "source", "partial_month", "likely_low", "likely_high", ...sensors.map((p) => `hotspots_${p}`)];
-  const lines = [head.join(",")];
+  const lines = [csvHeader([
+    ["Ember", "harmonised monthly fire cell-days per grid cell"],
+    ["area", cov.area],
+    ["period", cov.period],
+    ["data end", cov.dataEnd],
+    ["generated", utcStamp()],
+    ["units", "fire_cell_days, likely_low, likely_high = VIIRS-equivalent fire cell-days (an ~0.74 km² cell with fire on a day counts once); hotspots_* = raw detections per satellite"],
+    ["grid", `H3 resolution 5 cells (~${Math.round(d.manifest.grid.cell_area_km2)} km²); cell_lat, cell_lon = cell centre`],
+  ]) + head.join(",")];
   const q = (src) => uncertaintyFactors(d, cellArea, "month", src);
   const pIdx = sensors.map((p) => d.platforms.indexOf(p));
   for (const i of agg.cells) {
@@ -82,12 +108,19 @@ export async function hotspotPlan(box, d, range) {
     tooBig: tiles.reduce((s, t) => s + t.rows, 0) > MAX_HOTSPOT_ROWS };
 }
 
-export async function hotspotsCSV(box, d, range, plan, onProgress) {
+export async function hotspotsCSV(box, d, range, plan, onProgress, cov) {
   const a = d.months[range[0]], b = d.months[range[1]];
   const start = `${ym(a)}-01`;
   const endDay = new Date(Date.UTC(b.y, b.m, 0)).getUTCDate();
   const end = `${ym(b)}-${String(endDay).padStart(2, "0")}`;
-  const parts = [plan.idx.columns.join(",") + "\n"];
+  const parts = [csvHeader([
+    ["Ember", "satellite fire hotspots (NASA FIRMS), vegetation fire only, low-confidence class removed"],
+    ["area", cov.area],
+    ["period", `${start} to ${end < cov.dataEnd ? end : cov.dataEnd}`],
+    ["data end", cov.dataEnd],
+    ["generated", utcStamp()],
+    ["units", "one row per hotspot; latitude, longitude in degrees; acq_date and acq_time_utc (HHMM) in UTC; frp_mw in MW; raw detections, not harmonised"],
+  ]) + plan.idx.columns.join(",") + "\n"];
   let kept = 0, done = 0;
   for (const t of plan.tiles) {
     const r = await fetch(`hotspots/${t.y}/${t.lat0}_${t.lon0}.csv.gz`);
@@ -115,9 +148,9 @@ export async function hotspotsCSV(box, d, range, plan, onProgress) {
 
 // Calendar as a PNG, drawn on a canvas (light theme).
 export function calendarPNG(d, agg, cal, opts) {
-  const { years, title, subtitle, lowConfidence } = opts;
+  const { years, title, subtitle, lowConfidence, caption } = opts;
   const cw = 46, ch = 20, gap = 2, left = 120, top = 118, totW = 190, pad = 20;
-  const W = left + 12 * (cw + gap) + totW + pad, H = top + (years.length + 1) * (ch + gap) + 80;
+  const W = left + 12 * (cw + gap) + totW + pad, H = top + (years.length + 1) * (ch + gap) + 96;
   const scaleK = 2;
   const cv = document.createElement("canvas");
   cv.width = W * scaleK; cv.height = H * scaleK;
@@ -170,8 +203,29 @@ export function calendarPNG(d, agg, cal, opts) {
   const fy = top + (years.length + 1) * (ch + gap) + 10;
   g.fillStyle = INK2; g.font = "11px system-ui, sans-serif";
   g.fillText("Data: NASA FIRMS (MODIS C6.1, VIIRS 375 m) harmonised to VIIRS-equivalent fire cell-days. * part of a year.", pad, fy);
-  g.fillText(`Estimated years show a likely range for this selection box area. Generated ${new Date().toISOString().slice(0, 10)}.`, pad, fy + 16);
+  g.fillText("Estimated years show a likely range for this selection box area.", pad, fy + 16);
+  g.fillStyle = INK; g.fillText(caption, pad, fy + 32);
   return new Promise((res) => cv.toBlob(res, "image/png"));
+}
+
+// Near-real-time hotspots currently shown in live mode.
+export function liveCSV(feats, { area, windowLabel, start, end }) {
+  const lines = [csvHeader([
+    ["Ember", "live hotspots, NASA FIRMS near real time, VIIRS on NOAA-20 and NOAA-21; not harmonised, provisional"],
+    ["area", `${area}; points outside Canada removed`],
+    ["window", windowLabel],
+    ["start", utcStamp(start)],
+    ["end", utcStamp(end)],
+    ["generated", utcStamp()],
+    ["units", "one row per hotspot; latitude, longitude in degrees; acq_time_utc ISO 8601; frp in MW; confidence as given by FIRMS (n nominal, h high, l low)"],
+  ]) + "latitude,longitude,acq_time_utc,satellite,frp,confidence,daynight"];
+  const rows = [...feats].sort((a, b) => a.properties.t - b.properties.t);
+  for (const f of rows) {
+    const [lon, lat] = f.geometry.coordinates, p = f.properties;
+    lines.push([lat.toFixed(5), lon.toFixed(5), new Date(p.t).toISOString().slice(0, 16) + "Z", p.sat,
+      Number.isFinite(+p.frp) ? (+p.frp).toFixed(2) : "", p.conf ?? "", p.dn ?? ""].join(","));
+  }
+  return new Blob([lines.join("\n") + "\n"], { type: "text/csv" });
 }
 
 export { SOURCE_LABEL, RAMP };

@@ -15,7 +15,9 @@ the present and shows it as a burning activity calendar for any area of Canada.
 - Draw a box on the globe or type bounds, pick a date range.
 - The box fills with grid cells coloured by fire activity; the calendar shows years by months.
 - Compare the latest months with the historical median; switch between harmonised and raw sensor counts.
-- Download monthly values per cell (CSV), the raw hotspots in the box (CSV) or the calendar (PNG).
+- Download monthly values per cell (CSV), the raw hotspots in the box (CSV), the calendar (PNG) or, in live mode,
+  the live hotspots (CSV). File names give the area (`canada` or the box bounds) and the period; each CSV starts
+  with `#` lines for the area, period, data end, generation time (UTC) and units (`pandas.read_csv(f, comment="#")`).
 - Click a grid cell to see that cell alone; see recent near-real-time hotspots; see people living in the area
   and a list of areas with fire ranked by people exposed (exposure only, not a priority list).
 
