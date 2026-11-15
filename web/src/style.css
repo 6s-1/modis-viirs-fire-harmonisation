@@ -449,3 +449,9 @@ body.mode-live.live-down #live-window { display: none !important; }
 .headline .info-i { vertical-align: 2px; }
 .exp-foot { display: flex; align-items: center; gap: 2px; margin: 6px 0 0; }
 .tip { max-width: 300px; line-height: 1.45; }
+
+/* selection form: Latitude, Longitude, Dates rows, then Apply on its own row, right-aligned to the rows */
+.area { display: grid; width: fit-content; max-width: 100%; }
+.apply-row { display: flex; justify-content: flex-end; margin: 2px 0 0; }
+.area { border-bottom: 0; padding-bottom: 6px; margin-bottom: 0; }
+#summary { border-top: 1px solid var(--line); padding-top: 10px; margin-top: 4px; }
