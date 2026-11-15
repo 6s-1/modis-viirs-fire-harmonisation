@@ -1,6 +1,6 @@
 // The fire grid: display cells (~250 km²) coloured with the fire ramp. In Historical it holds
 // harmonised cell-days for the date range; in Live, near-real-time hotspot counts per cell.
-// The features are built once and drawn on every map (one globe, or two in compare and swipe).
+// The features are built once and drawn on every map (one globe, or two in compare).
 
 import { cellToBoundary, cellToParent } from "h3-js";
 import { cellValues, fmt, h3Id } from "./data.js";
@@ -24,7 +24,7 @@ const cellFeature = (d, i, props) => ({ type: "Feature", properties: { i, ...pro
 
 // Historical: harmonised cell-days per cell over the date range.
 // coarse: roll the display cells up to their H3 parents (res 4, ~7x fewer, ~1,770 km2 each).
-// Two synchronised globes draw twice the geometry, so compare and swipe use the coarse grid.
+// Two synchronised globes draw twice the geometry, so compare uses the coarse grid.
 export function buildGrid(d, agg, range, { coarse = false } = {}) {
   const vals = cellValues(d, agg.gridCells.filter((i) => d.canada[i] || d.rowStart[i + 1] > d.rowStart[i]), range);
   if (!coarse) {

@@ -12,7 +12,8 @@ import { calendarPNG, coverage, fileTime, hotspotIndex, hotspotPlan, hotspotsCSV
 import { addGridLayers, attachGridHover, buildGrid, buildLiveGrid, gridLegendHTML, setGrid } from "./grid.js";
 import { initLayersControl, overlays, setLiveMode } from "./layers.js";
 import { addTrendLayers, attachTrendHover, buildTrend, setTrend, trendLegendHTML } from "./trend.js";
-import { attachSwipe, lockCameras, layerPicker, view } from "./views.js";
+import { fixPair, lockCameras, layerPicker, repaintPickers, view } from "./views.js";
+import { readUrl, writeUrl } from "./urlstate.js";
 import { addLiveLayer, attachLiveHover, fetchLive, liveAvailable } from "./live.js";
 import { liveWindow, renderLiveChart, setLivePlaceNamer } from "./livechart.js";
 
@@ -294,10 +295,10 @@ function flyToCamera(cam) {
   map.flyTo({ center: cam.center, zoom: cam.zoom, duration, curve: 1.42, easing: easeInOutCubic, essential: true });
 }
 
-// ---- views: one globe, two locked globes (compare), or one globe with a divider (swipe)
-// On a narrow window compare becomes swipe, so a phone gets one globe with a divider.
+// ---- views: one globe, or two locked globes (compare). On a narrow window the two globes stack
+// as the layout already does, still locked together.
 const narrow = window.matchMedia("(max-width: 960px)");
-let unlock = null, swipe = null;
+let unlock = null;
 
 function ensureSecondMap() {
   if (maps[1]) return maps[1];
@@ -318,27 +319,15 @@ function onViewPick() {
   renderLegends();
 }
 
-// The swipe view clips the second map to the right of the divider; both maps sit on top of
-// each other, so the reader sees one globe split in two.
-function setSplit(frac) {
-  const slot = $("map-slot-b");
-  slot.style.clipPath = `inset(0 0 0 ${(frac * 100).toFixed(2)}%)`;
-}
-
 function setView(mode) {
-  if (mode === "compare" && narrow.matches) mode = "swipe"; // no room to stack two globes
   if (mode === view.mode) return;
   view.mode = mode;
   const stack = $("map-stack");
   stack.dataset.view = mode;
-  $("compare-btn").setAttribute("aria-pressed", String(mode === "compare" || (mode === "swipe" && narrow.matches)));
-  $("swipe-btn").setAttribute("aria-pressed", String(mode === "swipe" && !narrow.matches));
-  $("swipe-btn").hidden = narrow.matches; // on a phone Compare already gives the swipe
+  $("compare-btn").setAttribute("aria-pressed", String(mode === "compare"));
   if (mode === "single") {
     if (unlock) { unlock(); unlock = null; }
-    if (swipe) { swipe.handle.remove(); swipe = null; }
     $("map-slot-b").hidden = true;
-    $("map-slot-b").style.clipPath = "";
     document.querySelectorAll(".view-pick").forEach((el) => { el.hidden = true; });
     if (maps[1]) maps[1].resize();
     maps[0].resize();
@@ -348,28 +337,12 @@ function setView(mode) {
   }
   ensureSecondMap();
   document.querySelectorAll(".view-pick").forEach((el) => { el.hidden = false; });
-  if (mode === "swipe") {
-    if (!swipe) swipe = attachSwipe(stack, setSplit);
-    setSplit(view.split);
-  } else if (swipe) {
-    swipe.handle.remove();
-    swipe = null;
-    $("map-slot-b").style.clipPath = "";
-  }
   if (!unlock) unlock = lockCameras(maps);
   requestAnimationFrame(() => { for (const m of maps) m.resize(); });
   refreshGrid(); // the grid is coarser while two globes are shown
   onViewPick();
 }
 $("compare-btn").addEventListener("click", () => setView(view.mode === "compare" ? "single" : "compare"));
-$("swipe-btn").addEventListener("click", () => setView(view.mode === "swipe" ? "single" : "swipe"));
-narrow.addEventListener("change", () => {
-  $("swipe-btn").hidden = narrow.matches;
-  if (view.mode === "compare" && narrow.matches) { view.mode = "x"; setView("compare"); }
-  else if (view.mode === "swipe" && !narrow.matches) { view.mode = "x"; setView("compare"); }
-});
-
-$("swipe-btn").hidden = narrow.matches;
 
 // ---- date range, observed-only toggle, harmonised / raw view
 const monthValue = (info) => `${info.y}-${String(info.m).padStart(2, "0")}`;
@@ -395,7 +368,7 @@ document.querySelectorAll('input[name="colour"]').forEach((r) => r.addEventListe
 function refreshGrid() {
   if (!state.mapReady || !state.agg) return;
   const isLive = state.app === "live";
-  const coarse = view.mode !== "single"; // two globes: fewer, larger cells so both stay smooth
+  const coarse = view.mode === "compare"; // two globes: fewer, larger cells so both stay smooth
   const g = (state.grid = isLive ? state.liveGrid || { features: [], scale: null, n: 0 } : buildGrid(state.d, state.agg, state.range, { coarse }));
   for (const m of maps) setGrid(m, g.features);
   state.fireLegend = !g.n || !g.scale ? ""
@@ -413,7 +386,7 @@ const trendYears = () => {
   return t && t.years.length ? `${t.years[0]}–${t.years[t.years.length - 1]}` : rangeLabel();
 };
 const wantsTrend = () => (view.mode === "single" ? overlays.trend : view.top === "trend" || view.bottom === "trend");
-const wantsPeople = () => (view.mode === "single" ? overlays.people : view.top === "people" || view.bottom === "people");
+const wantsPeople = () => view.mode !== "single" && (view.top === "people" || view.bottom === "people");
 function updateTrend() {
   if (!wantsTrend() || state.app === "live" || !state.d || !state.agg) {
     state.trend = null;
@@ -597,7 +570,7 @@ const liveReady = liveAvailable().then((ok) => (liveOk = ok));
 
 // Which layers each map shows. The fire grid is the base and always on; overlays follow their
 // toggles in the Layers control. Nothing else appears unless it is turned on.
-// In single view the overlay toggles decide what each map shows. In compare and swipe each map
+// In single view the overlay toggles decide what each map shows. In compare each map
 // shows one chosen layer, so the pickers decide instead; the toggles that are not a map's subject
 // still apply on top of it.
 function layersFor(m) {
@@ -605,7 +578,7 @@ function layersFor(m) {
   const overlayShow = {
     fire: true,
     trend: overlays.trend && !live,
-    people: overlays.people,
+    people: false, // not an overlay: population is a compare-globe layer only
     detections: overlays.detections && live,
   };
   if (view.mode === "single") return overlayShow;
@@ -656,7 +629,6 @@ function renderLegends() {
   if (maps[1]) $("grid-legend-b").innerHTML = legendFor(maps[1]);
 }
 initLayersControl($("layers-btn"), $("layers-panel"), (id) => {
-  if (id === "people") updatePop();
   if (id === "trend") updateTrend();
   if (id === "badges") drawExposure(expTop);
   applyLayers();
