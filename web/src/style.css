@@ -359,7 +359,7 @@ table.data.exposure { min-width: 0; width: 100%; }
 .exposure .rank-h { width: 28px; }
 .exp-num, .exp-badge {
   display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%;
-  font: 600 11px/1 system-ui, sans-serif; background: #ffffff; color: #0b0d12; border: 1.5px solid #0b0d12;
+  font: 600 11px/1 var(--font, system-ui), sans-serif; background: #ffffff; color: #0b0d12; border: 1.5px solid #0b0d12;
 }
 .exp-badge { cursor: pointer; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5); }
 .exp-badge.hi, .exposure tr.hi .exp-num { background: var(--accent); color: var(--accent-ink); }
@@ -479,3 +479,97 @@ body.mode-live.live-down #live-window { display: none !important; }
 .lg-keylist .sw { flex: none; width: 16px; height: 12px; }
 .key-star { box-shadow: none !important; text-align: center; line-height: 16px; color: var(--ink); font-size: 1.05rem; font-weight: 600; }
 @media (max-width: 560px) { .lg-keys { padding-left: 0; border-left: 0; border-top: 1px solid var(--line); padding-top: 10px; flex-basis: 100%; } }
+
+/* ======================================================================
+   Typography and polish. IBM Plex Sans for the interface, IBM Plex Mono for
+   labels, inputs and stamps. One type scale; sections are distinct cards.
+   ====================================================================== */
+:root {
+  --font: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --fs-2xs: 10.5px; --fs-xs: 11.5px; --fs-s: 12.5px; --fs-m: 13.5px; --fs-l: 15px; --fs-xl: 17px; --fs-2xl: 21px; --fs-big: 34px;
+  --card: #0f1118; --card-line: #22262f; --field: #090b10;
+}
+body { font-family: var(--font); font-size: var(--fs-m); line-height: 1.5; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+.big, .cal, .anoms, table.data, .lg-lab, .verdict-nums, .tip, input, .exp-foot { font-variant-numeric: tabular-nums; }
+
+/* header */
+.site-top { align-items: center; gap: 14px; padding: 14px 22px 12px; }
+.site-top h1 { font-size: var(--fs-2xl); font-weight: 600; letter-spacing: -0.02em; line-height: 1; }
+#data-end { font-family: var(--mono); font-size: var(--fs-xs); color: var(--muted); letter-spacing: 0.01em; }
+.about-link { font-size: var(--fs-s); font-weight: 500; text-decoration: none; }
+.about-link:hover { text-decoration: underline; }
+
+/* eyebrow labels: section titles, card kickers, legend titles */
+.sec h2, .kicker, .lg-title, .legend-title {
+  font-family: var(--mono); font-size: var(--fs-2xs); font-weight: 500; letter-spacing: 0.09em; text-transform: uppercase; color: var(--ink-2);
+}
+.kicker, .lg-title { color: var(--muted); }
+.legend-title { text-transform: none; letter-spacing: 0.02em; font-size: var(--fs-xs); margin-bottom: 4px; }
+
+/* cards */
+.side { gap: 12px; padding-bottom: 4px; }
+.sec {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.022), rgba(255, 255, 255, 0) 56px), var(--card);
+  border: 1px solid var(--card-line); border-radius: 12px; padding: 14px 16px 16px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03), 0 10px 30px rgba(0, 0, 0, 0.28);
+  backdrop-filter: none;
+}
+.sec[open] > summary { margin-bottom: 12px; }
+.sec > summary { min-height: 18px; }
+.sec-static { padding: 14px 16px; }
+#sel-h { margin-bottom: 12px; }
+.sec-controls { gap: 8px 10px; margin-bottom: 4px; }
+
+/* the headline number */
+.big { font-size: var(--fs-big); font-weight: 600; letter-spacing: -0.03em; line-height: 1.05; display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 8px; }
+.big .rng { font-size: var(--fs-s); letter-spacing: 0; color: var(--muted); }
+.big .unit { font-size: var(--fs-m); letter-spacing: 0; color: var(--ink-2); }
+.big .info-i { align-self: center; margin-left: 2px; }
+#summary { padding-top: 14px; margin-top: 8px; }
+
+/* chart headlines */
+.headline { font-size: var(--fs-xl); font-weight: 600; letter-spacing: -0.012em; line-height: 1.3; margin-bottom: 6px; }
+.headline.sm { font-size: var(--fs-l); }
+.verdict-sm { font-size: var(--fs-m); }
+.verdict-nums { font-size: var(--fs-s); }
+.subcap { font-size: var(--fs-s); }
+.ctitle { font-family: var(--mono); font-size: var(--fs-2xs); font-weight: 500; letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); margin-top: 22px; }
+.cblock { padding-bottom: 18px; }
+.cblock + .cblock { padding-top: 18px; border-top-color: var(--card-line); }
+.ychart .tick { font-family: var(--font); font-size: 10.5px; }
+
+/* controls */
+button { font-size: var(--fs-s); font-weight: 500; padding: 6px 13px; letter-spacing: 0.005em; }
+button.ghost { background: rgba(15, 17, 24, 0.86); border-color: var(--card-line); }
+.viewtoggle { border-color: var(--card-line); background: var(--field); }
+.viewtoggle label { font-size: var(--fs-s); padding: 4px 12px; line-height: 1.5; }
+.modebar label { font-size: var(--fs-m); padding: 6px 18px; font-weight: 500; }
+.brow { gap: 6px 12px; margin-bottom: 8px; }
+.brow-h { font-size: var(--fs-xs); font-weight: 500; color: var(--ink-2); width: 76px; }
+.brow label { font-size: var(--fs-xs); color: var(--muted); }
+.bounds input, .range input, .area .brow input {
+  font-family: var(--mono); font-size: var(--fs-s); height: 30px; padding: 0 9px; border-radius: 7px;
+  background: var(--field); border-color: var(--card-line);
+}
+.bounds input:hover, .range input:hover { border-color: #353a46; }
+.chk { font-size: var(--fs-s); }
+
+/* legends, tables, tooltip */
+.legend { font-size: var(--fs-xs); gap: 4px 12px; }
+.lg-lab { font-size: var(--fs-xs); }
+.lg-keylist { font-size: var(--fs-xs); }
+.cal { font-size: var(--fs-xs); }
+.cal thead th { font-family: var(--mono); font-size: var(--fs-2xs); letter-spacing: 0.04em; }
+table.data { font-size: var(--fs-s); }
+table.data thead th { font-family: var(--mono); font-size: var(--fs-2xs); font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.anoms { font-size: var(--fs-s); }
+.small, .muted.small { font-size: var(--fs-xs); }
+.tip { font-size: var(--fs-s); padding: 8px 10px; border-color: var(--card-line); border-radius: 9px; }
+.info-i { font: 600 9.5px/1 var(--font); font-style: normal; width: 15px; height: 15px; border-color: #5d626d; }
+.map-legend { background: rgba(15, 17, 24, 0.88); border-color: var(--card-line); padding: 9px 11px; }
+@media (max-width: 480px) {
+  .brow-h { width: 100%; }
+  .area .brow input[type="number"] { width: 96px; }
+  .site-top { gap: 8px 12px; padding: 12px 16px 10px; }
+}

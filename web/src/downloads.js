@@ -147,7 +147,8 @@ export async function hotspotsCSV(box, d, range, plan, onProgress, cov) {
 }
 
 // Calendar as a PNG, drawn on a canvas (light theme).
-export function calendarPNG(d, agg, cal, opts) {
+export async function calendarPNG(d, agg, cal, opts) {
+  await Promise.all(["400 12px", "600 18px"].map((f) => document.fonts.load(`${f} "IBM Plex Sans"`))).catch(() => {});
   const { years, title, subtitle, lowConfidence, caption } = opts;
   const cw = 46, ch = 20, gap = 2, left = 120, top = 118, totW = 190, pad = 20;
   const W = left + 12 * (cw + gap) + totW + pad, H = top + (years.length + 1) * (ch + gap) + 96;
@@ -159,8 +160,8 @@ export function calendarPNG(d, agg, cal, opts) {
   // dark surface, as in the app; filled cells get a faint outline so the dark red end stays visible
   const INK = "#eef0f3", INK2 = "#b9bdc6", ZERO = null, LINE = "#2a2e38";
   g.fillStyle = "#0b0d12"; g.fillRect(0, 0, W, H);
-  g.fillStyle = INK; g.font = "600 18px system-ui, sans-serif"; g.fillText(title, pad, 32);
-  g.fillStyle = INK2; g.font = "12px system-ui, sans-serif"; g.fillText(subtitle, pad, 52);
+  g.fillStyle = INK; g.font = "600 18px 'IBM Plex Sans', system-ui, sans-serif"; g.fillText(title, pad, 32);
+  g.fillStyle = INK2; g.font = "12px 'IBM Plex Sans', system-ui, sans-serif"; g.fillText(subtitle, pad, 52);
   g.fillText("Fire cell-days per month. Pale yellow = least fire, dark red = most. Dashed outline: estimated from MODIS.", pad, 70);
   // legend
   let x = pad;
@@ -168,21 +169,21 @@ export function calendarPNG(d, agg, cal, opts) {
   const swatch = (col, x0, y0, w, h) => {
     if (col) { g.fillStyle = col; g.fillRect(x0, y0, w, h); g.strokeStyle = "rgba(255,255,255,0.14)"; g.lineWidth = 1; g.strokeRect(x0 + 0.5, y0 + 0.5, w - 1, h - 1); } else { g.strokeStyle = LINE; g.lineWidth = 1; g.strokeRect(x0 + 0.5, y0 + 0.5, w - 1, h - 1); }
   };
-  g.font = "11px system-ui, sans-serif";
+  g.font = "11px 'IBM Plex Sans', system-ui, sans-serif";
   for (const [lab, col] of legend) {
     swatch(col, x, 82, 16, 12);
     g.fillStyle = INK2; g.fillText(lab, x + 20, 92);
     x += 26 + g.measureText(lab).width + (lab === "no fire" ? 14 : 0); // gap: "no fire" is outside the ramp
   }
   // header
-  g.fillStyle = INK2; g.font = "11px system-ui, sans-serif"; g.textAlign = "center";
+  g.fillStyle = INK2; g.font = "11px 'IBM Plex Sans', system-ui, sans-serif"; g.textAlign = "center";
   MONTHS.forEach((m, k) => g.fillText(m, left + k * (cw + gap) + cw / 2, top - 6));
   g.textAlign = "left"; g.fillText("Year total", left + 12 * (cw + gap) + 6, top - 6);
   const maxT = Math.max(...cal.totals.map((t) => t.s).filter(Number.isFinite), 1);
   const colorOf = (v) => (v > 0 ? cal.scale.color(v) : null);
   cal.totals.forEach((t, r) => {
     const yy = top + r * (ch + gap);
-    g.fillStyle = INK; g.textAlign = "right"; g.font = "12px system-ui, sans-serif";
+    g.fillStyle = INK; g.textAlign = "right"; g.font = "12px 'IBM Plex Sans', system-ui, sans-serif";
     g.fillText(`${t.y}${t.est ? ` ${t.estLabel === "est." ? "est." : "part est."}${lowConfidence ? " · low conf." : ""}` : ""}`, left - 8, yy + 14);
     g.textAlign = "left";
     for (let m = 1; m <= 12; m++) {
@@ -197,11 +198,11 @@ export function calendarPNG(d, agg, cal, opts) {
     }
     const tx = left + 12 * (cw + gap) + 4;
     g.fillStyle = "#1a1d25"; g.fillRect(tx, yy + 3, ((totW - 10) * (t.s || 0)) / maxT, ch - 6);
-    g.fillStyle = INK; g.font = "11px system-ui, sans-serif";
+    g.fillStyle = INK; g.font = "11px 'IBM Plex Sans', system-ui, sans-serif";
     g.fillText(`${fmt(t.s)}${t.partial ? "*" : ""}${t.est && t.s > 0 ? ` (${fmt(t.lo)}–${fmt(t.hi)})` : ""}`, tx + 4, yy + 14);
   });
   const fy = top + (years.length + 1) * (ch + gap) + 10;
-  g.fillStyle = INK2; g.font = "11px system-ui, sans-serif";
+  g.fillStyle = INK2; g.font = "11px 'IBM Plex Sans', system-ui, sans-serif";
   g.fillText("Data: NASA FIRMS (MODIS C6.1, VIIRS 375 m) harmonised to VIIRS-equivalent fire cell-days. * part of a year.", pad, fy);
   g.fillText("Estimated years show a likely range for this selection box area.", pad, fy + 16);
   g.fillStyle = INK; g.fillText(caption, pad, fy + 32);

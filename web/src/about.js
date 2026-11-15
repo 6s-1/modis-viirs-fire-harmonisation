@@ -1,4 +1,5 @@
 // About page. All numbers come from about.json, written by pipeline/about_data.py.
+import "./fonts.js";
 import "./style.css";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
