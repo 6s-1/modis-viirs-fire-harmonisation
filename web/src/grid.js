@@ -3,6 +3,7 @@
 import { cellToBoundary } from "h3-js";
 import { cellValues, fmt, h3Id } from "./data.js";
 import { makeScale } from "./calendar.js";
+import { infoIcon } from "./info.js";
 
 const ZERO = { light: "rgba(0,0,0,0)", dark: "rgba(0,0,0,0)" }; // no fire: outline only
 const dark = () => true; // the app uses a dark space theme
@@ -34,10 +35,9 @@ export function updateGrid(map, d, agg, range) {
 
 export function gridLegend(el, scale, rangeLabel) {
   const sw = scale.colors.map((c, k) => `<li><span class="sw" style="background:${c}"></span>${scale.label(k)}</li>`).join("");
-  el.innerHTML = `<p class="legend-title"><span class="info" title="Harmonised fire cell-days per grid cell (~250 km²) over ${rangeLabel}. Pale yellow is the least fire, dark red the most.">Grid · ${rangeLabel}</span></p>
-    <ul class="legend"><li class="nofire"><span class="sw key-zero"></span>no fire</li>${sw}
-      <li title="Includes months estimated from MODIS"><span class="sw key-est"></span>estimated</li></ul>
-    <p class="legend-note">Colours are relative to the current selection and date range.</p>`;
+  el.innerHTML = `<ul class="legend"><li class="nofire"><span class="sw key-zero"></span>no fire</li>${sw}
+      <li><span class="sw key-est"></span>estimated</li>
+      <li>${infoIcon(`Fire cell-days per ~250 km² grid cell, ${rangeLabel}.<br>Colours are relative to the current selection and date range.<br><span class="muted">Dashed outline: includes months estimated from MODIS.</span>`)}</li></ul>`;
 }
 
 export function attachGridHover(map, tip, getRangeLabel) {

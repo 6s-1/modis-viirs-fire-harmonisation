@@ -5,6 +5,7 @@
 // Blocks are patched in place on a new selection, so bars and lines glide to their new values.
 
 import { MONTHS, fmt, fmtShort, fmtSig, median, monthDays, quantile } from "./data.js";
+import { infoIcon } from "./info.js";
 
 const LONG = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const MEASURED_FROM = 2012;
@@ -116,10 +117,10 @@ function trendBlock(d, totals, yearFilter, observedOnly) {
     sub = `${used.length} complete years in the selection; the test needs at least 6.`;
   } else if (sig) {
     headline = `${fit.b > 0 ? "Rising" : "Falling"} about ${per(fit.b)} since ${y0} (statistically significant)`;
-    sub = `Likely range ${sg(fit.lo)} to ${sg(fit.hi)} a year${typical > 0 ? `, about ${Math.round((Math.abs(fit.b) / typical) * 100)}% of a typical year` : ""} · Mann–Kendall ${pTxt}, ${used.length} years`;
+    sub = `Estimate ${fit.b > 0 ? "+" : "−"}${per(fit.b)}${typical > 0 ? ` (about ${Math.round((Math.abs(fit.b) / typical) * 100)}% of a typical year)` : ""}<br>Likely range ${sg(fit.lo)} to ${sg(fit.hi)} a year<br>Mann–Kendall ${pTxt} · ${used.length} years, ${y0}–${y1}<br><span class="muted">Theil–Sen slope; likely range is the 95% interval.</span>`;
   } else {
     headline = `No clear trend since ${y0}`;
-    sub = `Best estimate ${fit.b >= 0 ? "+" : "−"}${per(fit.b)} (likely range ${sg(fit.lo)} to ${sg(fit.hi)}), not statistically significant · Mann–Kendall ${pTxt}, ${used.length} years`;
+    sub = `Estimate ${fit.b >= 0 ? "+" : "−"}${per(fit.b)}, not statistically significant<br>Likely range ${sg(fit.lo)} to ${sg(fit.hi)} a year<br>Mann–Kendall ${pTxt} · ${used.length} years, ${y0}–${y1}<br><span class="muted">Theil–Sen slope; likely range is the 95% interval.</span>`;
   }
 
   const W = 560, H = 200, padL = 44, padR = 58, padT = 18, padB = 22;
@@ -165,8 +166,7 @@ function trendBlock(d, totals, yearFilter, observedOnly) {
 
   return `<section class="cblock" data-b="trend">
     <p class="kicker">Trend</p>
-    <p class="headline">${headline}</p>
-    <p class="subcap">${sub}</p>
+    <p class="headline">${headline}${infoIcon(sub)}</p>
     ${estToggle}
     <svg viewBox="0 0 ${W} ${H}" class="ychart" role="img" aria-label="Fire cell-days per year with the trend line. ${headline}.">
       <defs><pattern id="hatch" width="4" height="4" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
@@ -235,15 +235,13 @@ function anomalyBlock(d, agg, years) {
 
   return `<section class="cblock" data-b="anom">
     <p class="kicker">Unusual months</p>
-    <p class="headline">${headline}</p>
+    <p class="headline">${headline}${infoIcon(`A month counts as unusually high when it is above the 90th percentile and above twice the median of the same month in the other years shown, and at least ${ANOM_MIN} cell-days. Partial months are left out.`)}</p>
     ${sub ? `<p class="subcap">${sub}</p>` : ""}
     <svg viewBox="0 0 ${W} ${H}" class="ychart" role="img" aria-label="Fire cell-days per month, unusually high months highlighted. ${headline}.">
       ${estZone}${axis(max, y, padL, W - padR)}${bars}${rug}${xt}
       <path d="M0,0" class="xh" hidden/><rect x="${padL}" y="${padT}" width="${W - padL - padR}" height="${H - padT - padB + 6}" class="hit" data-xh="anom"/></svg>
     <ul class="legend"><li><span class="sw key-mbar"></span>month</li><li><span class="sw key-anom"></span>unusually high</li></ul>
     ${list}
-    <p class="note">A month counts as unusually high when it is above the 90th percentile and above twice the median of
-      the same month in the other years shown, and at least ${ANOM_MIN} cell-days. Partial months are left out.</p>
   </section>`;
 }
 
@@ -350,8 +348,7 @@ function cumulative(d, agg, yearsShown, yearFilter) {
   crosshair("ytd", MONTHS.map((_, k) => x(k + 1)), rows, padT, H - padB);
   return `<div class="sub-chart" data-c="ytd">
     <p class="ctitle">Year to date</p>
-    <p class="headline sm">${headline}</p>
-    ${sub ? `<p class="subcap">${sub}</p>` : ""}
+    <p class="headline sm">${headline}${sub ? infoIcon(sub) : ""}</p>
     <svg viewBox="0 0 ${W} ${H}" class="ychart" role="img" aria-label="Cumulative fire cell-days through the year for every year, ${Y} highlighted. ${headline}.">
       ${axis(max, yy, padL, W - padR)}${back}${front}${xt}
       <path d="M0,0" class="xh" hidden/><rect x="${padL}" y="${padT}" width="${W - padL - padR}" height="${H - padT - padB}" class="hit" data-xh="ytd"/></svg>
@@ -397,8 +394,7 @@ function seasonal(d, agg, medianYears) {
   }), padT, H - padB);
   return `<div class="sub-chart" data-c="season">
     <p class="ctitle">Seasonal profile</p>
-    <p class="headline sm">${headline}</p>
-    ${sub ? `<p class="subcap">${sub}</p>` : ""}
+    <p class="headline sm">${headline}${sub ? infoIcon(sub) : ""}</p>
     <svg viewBox="0 0 ${W} ${H}" class="ychart" role="img" aria-label="Typical fire cell-days by month with ${Y} overlaid. ${headline}.">
       ${axis(max, y, padL, W - padR)}<path d="${band}" class="iqr"/><path d="${medPath}" class="medcurve"/><path d="${curPath}" class="nowcurve"/>${dots}${endLab}${xt}
       <path d="M0,0" class="xh" hidden/><rect x="${padL}" y="${padT}" width="${W - padL - padR}" height="${H - padT - padB}" class="hit" data-xh="season"/></svg>
@@ -484,9 +480,7 @@ function rawYearly(d, agg, years) {
     .filter((s) => Number.isFinite(s.pts[j])).map((s) => `<br><strong>${fmt(s.pts[j])}</strong> ${s.name}`).join("")}`), padT, H - padB);
   return `<section class="cblock" data-b="raw">
     <p class="kicker">Yearly totals by satellite, raw</p>
-    <p class="headline">Each satellite's own count, not converted</p>
-    <p class="subcap">VIIRS sees about four times more fire cell-days than MODIS, so the raw record steps up in 2012.
-      Trends and unusual months are in the harmonised view.</p>
+    <p class="headline">Each satellite's own count, not converted${infoIcon("VIIRS sees about four times more fire cell-days than MODIS, so the raw record steps up in 2012. Trends and unusual months are in the harmonised view.")}</p>
     <svg viewBox="0 0 ${W} ${H}" class="ychart" role="img" aria-label="Raw fire cell-days per year for each satellite">
       ${axis(max, y, padL, W - padR)}${stepLine}${lines}${labels}${xt}
       <path d="M0,0" class="xh" hidden/><rect x="${padL}" y="${padT}" width="${W - padL - padR}" height="${H - padT - padB}" class="hit" data-xh="raw"/></svg>
@@ -539,6 +533,7 @@ function bind(el) {
   const hideXh = () => el.querySelectorAll(".xh:not([hidden])").forEach((p) => p.setAttribute("hidden", ""));
   const hide = () => { tipEl.hidden = true; hideXh(); };
   el.addEventListener("pointermove", (e) => {
+    if (e.target.closest(".info-i")) return;
     const t = e.target.closest("[data-tip]");
     if (t) { hideXh(); show(TIPS[+t.dataset.tip], e.clientX, e.clientY); return; }
     const o = e.target.closest("[data-xh]");
@@ -560,7 +555,7 @@ function bind(el) {
     const li = e.target.closest("[data-hl]");
     if (li) highlight(li.dataset.hl);
   });
-  el.addEventListener("focusout", () => { tipEl.hidden = true; highlight(null); });
+  el.addEventListener("focusout", (e) => { if (!e.target.closest(".info-i")) tipEl.hidden = true; highlight(null); });
   const highlight = (m) => {
     el.querySelectorAll(".mbar.hl").forEach((n) => n.classList.remove("hl"));
     if (m != null) el.querySelectorAll(`.mbar[data-m="${m}"]`).forEach((n) => n.classList.add("hl"));

@@ -1,5 +1,6 @@
 // Ember burning activity calendar: years as rows, months as columns, colour = harmonised cell-days.
 
+import { infoIcon } from "./info.js";
 import { MONTHS, SOURCE_LABEL, fmt, fmtShort, fmtSig, isEstimated, median, recordedSensor, uncertaintyFactors } from "./data.js";
 
 export const SENSOR_LABEL = { terra: "MODIS Terra", aqua: "MODIS Aqua", snpp: "VIIRS S-NPP", noaa20: "VIIRS NOAA-20", viirs: "VIIRS" };
@@ -140,7 +141,7 @@ function marks(harm, lowConfidence) {
 }
 
 function renderRatioLegend(el, lowConfidence, harm, medSpan) {
-  el.innerHTML = `<p class="legend-title"><span class="info" title="Each month divided by the median of the same calendar month over complete months ${medSpan}. 1× = a normal month for this area.">Compared with normal · × median of the same month, ${medSpan}</span></p>
+  el.innerHTML = `<p class="legend-title">× median of the same month${infoIcon(`Each month divided by the median of the same calendar month over complete months ${medSpan}. 1× is a normal month for this area.`)}</p>
     <ul class="legend" aria-label="Ratio colour scale"><li><strong>below normal</strong></li>${RATIO_COLORS.map((c, k) => `<li><span class="sw" style="background:${c}"></span>${RATIO_LABELS[k]}</li>`).join("")}<li><strong>above normal</strong></li></ul>
     ${marks(harm, lowConfidence)}`;
 }
@@ -149,7 +150,7 @@ const DEFINITION = "Fire cell-days: ~1 km grid cells with at least one fire dete
 
 function renderLegend(el, scale, lowConfidence, harm = true) {
   const sw = scale.colors.map((c, k) => `<li><span class="sw" style="background:${c}"></span>${scale.label(k)}</li>`).join("");
-  el.innerHTML = `<p class="legend-title"><span class="info" title="${DEFINITION}">${harm ? "Fire cell-days per month" : "Raw fire cell-days per month"}</span></p>
+  el.innerHTML = `<p class="legend-title">${harm ? "Fire cell-days per month" : "Raw fire cell-days per month"}${infoIcon(DEFINITION)}</p>
     <ul class="legend" aria-label="Colour scale"><li class="nofire"><span class="sw key-zero"></span>no fire</li>${sw}</ul>
     ${marks(harm, lowConfidence)}`;
 }

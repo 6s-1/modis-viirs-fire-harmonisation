@@ -444,3 +444,8 @@ body.mode-live.live-down #live-window { display: none !important; }
   #compare path, #compare rect, #compare circle { transition: none; }
   #compare .fadein { animation: none; }
 }
+.info-i.warn { color: var(--warn-ink); border-color: var(--warn-ink); background: var(--warn-bg); }
+.legend .info-i, .legend-title .info-i { margin-left: 4px; vertical-align: 0; }
+.headline .info-i { vertical-align: 2px; }
+.exp-foot { display: flex; align-items: center; gap: 2px; margin: 6px 0 0; }
+.tip { max-width: 300px; line-height: 1.45; }

@@ -2,6 +2,7 @@
 // stacked by satellite (NOAA-20, NOAA-21). Unharmonised.
 
 import { fmt } from "./data.js";
+import { infoIcon } from "./info.js";
 
 const SATS = [["NOAA-20", "#e8a33d"], ["NOAA-21", "#c9cdd4"]];
 const H = 3600e3, D = 24 * H;
@@ -55,9 +56,8 @@ export function renderLiveChart(el, feats, hours) {
   const total = bins.reduce((s, [a, b]) => s + a + b, 0);
   const startTxt = new Date(win.start).toISOString().slice(0, 16).replace("T", " ");
   const endTxt = new Date(Math.min(win.end, Date.now())).toISOString().slice(0, 16).replace("T", " ");
-  el.innerHTML = `<p class="caption">${fmt(total)} hotspots per ${win.unit} in the selection, ${startTxt} – ${endTxt} UTC ·
-      near real time, not harmonised</p>
-    <svg viewBox="0 0 ${W} ${Hh}" class="ychart" role="img" aria-label="Live hotspots per ${win.unit} by satellite">${ticks}${bars}${lab}</svg>
-    <ul class="legend">${SATS.map(([n, c]) => `<li><span class="sw" style="background:${c}"></span>${n}</li>`).join("")}</ul>`;
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${Hh}" class="ychart" role="img" aria-label="Live hotspots per ${win.unit} by satellite">${ticks}${bars}${lab}</svg>
+    <ul class="legend">${SATS.map(([n, c]) => `<li><span class="sw" style="background:${c}"></span>${n}</li>`).join("")}
+      <li>${infoIcon(`${fmt(total)} hotspots, counted per ${win.unit}, ${startTxt} – ${endTxt} UTC.<br><span class="muted">Near real time, not harmonised.</span>`)}</li></ul>`;
   return { total, start: win.start, end: Math.min(win.end, Date.now()) };
 }

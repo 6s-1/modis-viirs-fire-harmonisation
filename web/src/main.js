@@ -6,6 +6,7 @@ import { renderExposureList, loadPlaces } from "./exposure.js";
 import { cellToBoundary } from "h3-js";
 import { attachTooltip, renderCalendar } from "./calendar.js";
 import { renderCompare } from "./compare.js";
+import { attachInfoTips, infoIcon } from "./info.js";
 import { calendarPNG, coverage, fileTime, hotspotIndex, hotspotPlan, hotspotsCSV, liveCSV, monthlyCSV, saveBlob, utcStamp } from "./downloads.js";
 import { addGridLayers, attachGridHover, gridLegend, updateGrid } from "./grid.js";
 import { addLiveLayer, attachLiveHover, fetchLive, liveAvailable } from "./live.js";
@@ -274,8 +275,6 @@ function update() {
     const q = uncertaintyFactors(d, agg.canadaKm2, "year", d.months[i].source);
     lo += agg.totals[i] * (q ? q[0] : 1); hi += agg.totals[i] * (q ? q[2] : 1);
   }
-  const areaTip = state.box ? `Canada inside the box (land and lakes): the area searched, not the area burned.${partlyOutside ? ` Part of the box is outside Canada. ${OUTSIDE}` : ""}`
-    : "All of Canada (land and lakes): the area searched, not the area burned. Draw a box to look at a smaller area.";
   const lowTip = `Less than ${fmt(minArea)} km² of Canada in the box: estimated years are low confidence.`;
   const areaTxt = agg.canadaKm2 >= 1e6 ? `${(agg.canadaKm2 / 1e6).toFixed(2)}M` : fmt(agg.canadaKm2);
   const dets = [["terra", "Terra"], ["aqua", "Aqua"], ["snpp", "S-NPP"], ["noaa20", "NOAA-20"]].map(([p, name]) => {
@@ -286,19 +285,19 @@ function update() {
   }).filter(([, t]) => t > 0);
   const pop = population(d, agg, d.months[a].y, d.months[b].y);
   const yrs = d.months[a].y === d.months[b].y ? `${d.months[a].y}` : `${d.months[a].y}–${d.months[b].y}`;
-  const popLine = pop ? `<div class="sub" title="WorldPop 2020, 1 km, UN-adjusted: a modelled estimate of where people live, not a census count. Fire cells: ~1 km cells with at least one fire cell-day in ${yrs} (whole years).">
-      ${fmtShort(pop.all)} people live here · ${fmtShort(pop.fire)} in ~1 km cells with fire, ${yrs} <span class="dim">(WorldPop 2020, modelled)</span></div>` : "";
-  const hotTip = dets.length ? `Raw hotspot detections, ${rangeLabel()}: ${dets.map(([n, t]) => `${n} ${Math.round(t).toLocaleString("en-CA")}`).join(", ")}. `
-    + "Hotspots count every flagged pixel on every overpass; cell-days count each ~1 km cell once a day. "
-    + "Hotspots are counted by grid cell like the cell-days, so they can differ slightly from the hotspot CSV, which uses each detection's exact position." : "";
-  const info = hotTip ? ` <span class="info-i" tabindex="0" role="img" aria-label="${hotTip}" title="${hotTip}">i</span>` : "";
-  const where = state.box ? `${areaTxt} km² searched` : `all of Canada, ${areaTxt} km²`;
-  $("summary").innerHTML = (!inCanada ? `<p class="notice">${OUTSIDE}</p>` : agg.cells.length ? `
-    <div class="big" title="Harmonised fire cell-days (VIIRS-equivalent), ${rangeLabel()}">${fmt(total)}${hi - lo > 0.005 * total ? ` <span class="rng">(${fmtShort(lo)}–${fmtShort(hi)})</span>` : ""}
-      <span class="unit">fire cell-days</span>${info}</div>
-    <div class="sub">${rangeLabel()} · <span class="info" title="${areaTip}">${where}</span>${lowConfidence ? ` <span class="badge low" title="${lowTip}">low conf.</span>` : ""}</div>${popLine}`
-    : `<div class="big">0 <span class="unit">fire cell-days</span></div>
-    <div class="sub">${rangeLabel()} · <span class="info" title="${areaTip}">${where}</span> · no fire detected</div>${popLine}`);
+  // first line: the number, its range and the unit; everything else sits behind the info icon
+  const details = [
+    `<strong>${rangeLabel()}</strong>${agg.cells.length ? "" : " · no fire detected"}`,
+    `${state.box ? `${areaTxt} km² of Canada in the box` : `All of Canada, ${areaTxt} km²`}: the area searched, not burned.${state.box && partlyOutside ? " Part of the box is outside Canada." : ""}`,
+    lowConfidence ? `<strong>Low confidence:</strong> ${lowTip}` : "",
+    pop ? `${fmtShort(pop.all)} people live here; ${fmtShort(pop.fire)} in ~1 km cells with fire, ${yrs}. <span class="muted">WorldPop 2020, modelled.</span>` : "",
+    dets.length ? `Raw hotspot detections: ${dets.map(([n, t]) => `${n} ${Math.round(t).toLocaleString("en-CA")}`).join(", ")}.` : "",
+    `<span class="muted">VIIRS-equivalent fire cell-days: each ~1 km cell counts once on each day it has fire. Hotspots count every flagged pixel on every overpass.</span>`,
+  ].filter(Boolean).join("<br>");
+  const info = infoIcon(details, lowConfidence ? "warn" : "");
+  $("summary").innerHTML = !inCanada ? `<p class="notice">${OUTSIDE}</p>`
+    : `<div class="big">${fmt(total)}${agg.cells.length && hi - lo > 0.005 * total ? ` <span class="rng">(${fmtShort(lo)}–${fmtShort(hi)})</span>` : ""}
+      <span class="unit">fire cell-days</span>${info}</div>`;
   for (const id of ["sec-calendar", "sec-compare", "sec-downloads"]) $(id).hidden = !inCanada;
   if (!inCanada) { refreshGrid(); return; }
 
@@ -440,7 +439,7 @@ function updatePop() {
     geometry: { type: "Polygon", coordinates: [cellToBoundary(h3Id(d, i), true)] } }));
   src.setData({ type: "FeatureCollection", features: feats });
 }
-const popLegendHTML = () => `<p class="legend-title"><span class="info" title="People living in each ~250 km² grid cell. WorldPop 2020, 1 km, UN-adjusted: a modelled estimate, not a census count.">People per grid cell · WorldPop 2020, modelled</span></p>
+const popLegendHTML = () => `<p class="legend-title">People per grid cell${infoIcon("People living in each ~250 km² grid cell. WorldPop 2020, 1 km, UN-adjusted: a modelled estimate, not a census count.")}</p>
   <ul class="legend">${POP_COLORS.map((c, k) => `<li><span class="sw" style="background:${c}"></span>${POP_LABELS[k]}</li>`).join("")}</ul>`;
 function renderLegends() {
   const parts = [];
@@ -496,15 +495,18 @@ function renderLive() {
   const areaTxt = agg.canadaKm2 >= 1e6 ? `${(agg.canadaKm2 / 1e6).toFixed(2)}M` : fmt(agg.canadaKm2);
   const where = state.box ? `${areaTxt} km² searched` : `all of Canada, ${areaTxt} km²`;
   const pop = d.pop ? agg.gridCells.reduce((s, i) => s + d.pop[i], 0) : 0;
-  $("summary").innerHTML = `
-    <div class="big">${fmt(feats.length)} <span class="unit">live hotspots</span><span class="live-tag">near real time, not harmonised</span></div>
-    <div class="sub">${WINDOW_LABEL[live.hours]} (${t(startMs)} – ${t(Date.now())} UTC) · <span class="info" title="Canada only: points outside Canada are removed.">${where}</span></div>
-    <div class="sub">NOAA-20 ${fmt(n20)} · NOAA-21 ${fmt(n21)}${pop ? ` · ${fmtShort(pop)} people live here <span class="dim">(WorldPop 2020, modelled)</span>` : ""}</div>`;
+  const details = [
+    `<strong>${WINDOW_LABEL[live.hours][0].toUpperCase()}${WINDOW_LABEL[live.hours].slice(1)}</strong>: ${t(startMs)} – ${t(Date.now())} UTC`,
+    `${where}; points outside Canada removed.`,
+    `NOAA-20 ${fmt(n20)} · NOAA-21 ${fmt(n21)}`,
+    pop ? `${fmtShort(pop)} people live here. <span class="muted">WorldPop 2020, modelled.</span>` : "",
+    `<span class="muted">Near real time from NASA FIRMS (VIIRS): provisional and not harmonised.</span>`,
+  ].filter(Boolean).join("<br>");
+  $("summary").innerHTML = `<div class="big">${fmt(feats.length)} <span class="unit">live hotspots</span>${infoIcon(details)}</div>`;
   live.meta = renderLiveChart($("livechart"), feats, live.hours);
   live.span = { start: startMs, end: Date.now() };
   $("dl-live").disabled = false;
-  state.liveLegend = `<p class="legend-title">Live hotspots · ${WINDOW_LABEL[live.hours]}</p>
-    <ul class="legend"><li><span class="sw key-live"></span>near real time, not harmonised (NOAA-20, NOAA-21)</li></ul>`;
+  state.liveLegend = `<ul class="legend"><li><span class="sw key-live"></span>live hotspot${infoIcon(`Near real time, not harmonised: VIIRS on NOAA-20 and NOAA-21, ${WINDOW_LABEL[live.hours]}.`)}</li></ul>`;
   updatePop();
   renderLegends();
   renderExposure();
@@ -522,6 +524,7 @@ document.querySelectorAll('input[name="live"]').forEach((r) => r.addEventListene
 }));
 
 // ---- start
+attachInfoTips($("tip"));
 attachTooltip($("calendar"), $("tip"), () => ({ d: state.d, agg: state.agg, mode: state.mode, colour: state.colour, cal: state.cal }));
 loadData("harmonised/")
   .then((d) => {
