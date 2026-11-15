@@ -92,11 +92,16 @@ map.on("load", () => {
   addGridLayers(map);
   attachGridHover(map, $("tip"), () => rangeLabel());
   addContextLayers();
+  map.addSource("exp", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+  map.addLayer({ id: "exp-fill", type: "fill", source: "exp", paint: { "fill-color": "#ffffff", "fill-opacity": 0.01 } });
+  map.addLayer({ id: "exp-line", type: "line", source: "exp", paint: { "line-color": "#ffffff", "line-width": 1.6 } });
+  map.addLayer({ id: "exp-hi", type: "line", source: "exp", filter: ["==", ["get", "rank"], -1], paint: { "line-color": "#2bb3a3", "line-width": 3.5 } });
+  map.on("mousemove", "exp-fill", (e) => { const f = e.features && e.features[0]; if (f) highlightExposure(+f.properties.rank); });
+  map.on("mouseleave", "exp-fill", () => highlightExposure(null));
   addLiveLayer(map);
   attachLiveHover(map, $("tip"));
   map.on("moveend", () => {
     if (live.hours) { clearTimeout(live.timer); live.timer = setTimeout(loadLive, 600); }
-    clearTimeout(state.expTimer); state.expTimer = setTimeout(renderExposure, 400);
   });
   state.mapReady = true;
   renderExposure(); // places may have loaded before the map
@@ -367,6 +372,7 @@ function update() {
   renderCompare($("compare"), d, agg, { yearFilter, totals: state.cal.totals, mode: state.mode, years, medianYears });
   $("dl-status").textContent = "";
   refreshGrid();
+  renderExposure();
 }
 
 // ---- downloads
@@ -413,9 +419,36 @@ function zoomToCell(i) {
   select({ south: s_ - dy, north: n_ + dy, west: w_ - dx, east: e_ + dx }, true);
 }
 
+// The top areas are outlined on the map with numbered badges; hovering a row, a badge or a
+// cell highlights the matching pair.
+const expMarkers = [];
+function highlightExposure(rank) {
+  if (map.getLayer("exp-hi")) map.setFilter("exp-hi", ["==", ["get", "rank"], rank || -1]);
+  expMarkers.forEach((m) => m.getElement().classList.toggle("hi", m._rank === rank));
+  document.querySelectorAll("#exposure tr[data-rank]").forEach((tr) => tr.classList.toggle("hi", +tr.dataset.rank === rank));
+}
+function drawExposure(top) {
+  expMarkers.splice(0).forEach((m) => m.remove());
+  const feats = top.map(({ i, rank }) => ({ type: "Feature", properties: { rank, i },
+    geometry: { type: "Polygon", coordinates: [cellToBoundary(h3Id(state.d, i), true)] } }));
+  const src = map.getSource("exp");
+  if (src) src.setData({ type: "FeatureCollection", features: feats });
+  for (const { i, rank } of top) {
+    const el = document.createElement("div");
+    el.className = "exp-badge";
+    el.textContent = rank;
+    el.addEventListener("mouseenter", () => highlightExposure(rank));
+    el.addEventListener("mouseleave", () => highlightExposure(null));
+    el.addEventListener("click", () => zoomToCell(i));
+    const m = new maplibregl.Marker({ element: el, anchor: "center" }).setLngLat([state.d.lon[i], state.d.lat[i]]).addTo(map);
+    m._rank = rank;
+    expMarkers.push(m);
+  }
+}
 function renderExposure() {
   if (!state.d || !state.mapReady) return;
-  renderExposureList($("exposure"), state.d, map, live.hours ? state.live : null, live.hours, zoomToCell);
+  const top = renderExposureList($("exposure"), state.d, selBox(), live.hours ? state.live : null, live.hours, zoomToCell, highlightExposure) || [];
+  drawExposure(top);
 }
 
 // ---- live fire (near real time, via the Worker); every other feature works without it

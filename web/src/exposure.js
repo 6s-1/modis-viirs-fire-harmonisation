@@ -41,13 +41,10 @@ function placeName(lat, lon) {
   return bd < 5 ? name : `${Math.round(bd)} km ${compass(best[1], best[2], lat, lon)} of ${name}`;
 }
 
-function viewBox(map) {
-  const b = map.getBounds();
-  return [Math.max(b.getWest(), CANADA[0]), Math.max(b.getSouth(), CANADA[1]), Math.min(b.getEast(), CANADA[2]), Math.min(b.getNorth(), CANADA[3])];
-}
-
-export function renderExposureList(el, d, map, liveFeats, liveHours, onPick) {
-  const [w, s, e, n] = viewBox(map);
+// Renders the list for the selection box and returns the top areas [{ i, rank }] so the map can
+// outline and number them. onPick(i) zooms to an area; onHover(rank|null) links row and map.
+export function renderExposureList(el, d, box, liveFeats, liveHours, onPick, onHover) {
+  const { west: w, south: s, east: e, north: n } = box;
   const counts = new Map();
   let basis;
   if (liveFeats) {
@@ -73,14 +70,21 @@ export function renderExposureList(el, d, map, liveFeats, liveHours, onPick) {
     .sort((a, b) => b.people - a.people || b.c - a.c);
   const top = rows.slice(0, TOP);
   const table = top.length ? `<table class="data exposure">
-      <thead><tr><th scope="col">Area</th><th scope="col">Hotspots</th><th scope="col" title="People living in the ~250 km² grid cell around the hotspots (WorldPop 2020, modelled)">People</th></tr></thead>
-      <tbody>${top.map((r) => `<tr><th scope="row"><button type="button" class="linkish" data-i="${r.i}">${placeName(d.lat[r.i], d.lon[r.i])}</button></th>
+      <thead><tr><th scope="col" class="rank-h">#</th><th scope="col">Area</th><th scope="col">Hotspots</th><th scope="col" title="People living in the ~250 km² grid cell around the hotspots (WorldPop 2020, modelled)">People</th></tr></thead>
+      <tbody>${top.map((r, k) => `<tr data-rank="${k + 1}"><td class="rank"><span class="exp-num">${k + 1}</span></td><th scope="row"><button type="button" class="linkish" data-i="${r.i}">${placeName(d.lat[r.i], d.lon[r.i])}</button></th>
         <td>${Math.round(r.c).toLocaleString("en-CA")}</td><td>${r.people >= 1 ? fmtShort(Math.round(r.people)) : "0"}</td></tr>`).join("")}</tbody></table>`
-    : `<p class="muted small">No hotspots in view for ${basis}.</p>`;
+    : `<p class="muted small">No hotspots in the selection for ${basis}.</p>`;
   el.innerHTML = `<p class="small exp-note">Exposure only. Response priorities are set by emergency management agencies.</p>
     ${table}
-    <p class="muted small">${rows.length > TOP ? `Top ${TOP} of ${fmt(rows.length)} areas in view. ` : ""}Areas are ~250 km² grid cells; fire is ${basis};
+    <p class="muted small">${rows.length > TOP ? `Top ${TOP} of ${fmt(rows.length)} areas in the selection. ` : ""}Areas are ~250 km² grid cells; fire is ${basis};
       people are WorldPop 2020 modelled estimates for the cell. Place: nearest place of 500+ people (GeoNames).
-      Hotspots in towns can be industrial heat or other sources that are not wildfire. Select an area to see its history.</p>`;
+      Hotspots in towns can be industrial heat or other sources that are not wildfire. Click an area to zoom to it.</p>`;
   el.querySelectorAll("button[data-i]").forEach((b) => b.addEventListener("click", () => onPick(+b.dataset.i)));
+  el.querySelectorAll("tr[data-rank]").forEach((tr) => {
+    tr.addEventListener("mouseenter", () => onHover(+tr.dataset.rank));
+    tr.addEventListener("mouseleave", () => onHover(null));
+    tr.addEventListener("focusin", () => onHover(+tr.dataset.rank));
+    tr.addEventListener("focusout", () => onHover(null));
+  });
+  return top.map((r, k) => ({ i: r.i, rank: k + 1 }));
 }
