@@ -96,7 +96,8 @@ function setupMap(map) {
   map.addLayer({ id: "selection-line", type: "line", source: "selection", paint: { "line-color": "#2bb3a3", "line-width": 2 } });
   addGridLayers(map);
   attachGridHover(map, $("tip"), () => ({ unit: state.app === "live" ? "hotspots" : "cell-days",
-    label: state.app === "live" ? WINDOW_LABEL[live.hours] : rangeLabel() }));
+    label: state.app === "live" ? WINDOW_LABEL[live.hours] : rangeLabel(),
+    place: (i) => (state.d && i !== undefined && state.d.lat[i] !== undefined ? placeName(state.d.lat[i], state.d.lon[i]) : "") }), () => maps);
   map.addSource("exp", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
   map.addLayer({ id: "exp-fill", type: "fill", source: "exp", paint: { "fill-color": "#ffffff", "fill-opacity": 0.01 } });
   map.addLayer({ id: "exp-line", type: "line", source: "exp", paint: { "line-color": "#ffffff", "line-width": 1.6 } });
