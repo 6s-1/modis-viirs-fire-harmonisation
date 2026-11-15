@@ -42,13 +42,13 @@
             <form id="bounds" class="bounds" aria-label="Area bounds in degrees">
               <div class="brow">
                 <span class="brow-h">Latitude</span>
-                <label>South <input id="south" type="number" step="any" inputmode="decimal" placeholder="41.5" /></label>
-                <label>North <input id="north" type="number" step="any" inputmode="decimal" placeholder="83.5" /></label>
+                <label>South <input id="south" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="41.5" /></label>
+                <label>North <input id="north" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="83.5" /></label>
               </div>
               <div class="brow">
                 <span class="brow-h">Longitude</span>
-                <label>West <input id="west" type="number" step="any" inputmode="decimal" placeholder="-141.5" /></label>
-                <label>East <input id="east" type="number" step="any" inputmode="decimal" placeholder="-52" /></label>
+                <label>West <input id="west" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="-141.5" /></label>
+                <label>East <input id="east" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="-52" /></label>
               </div>
               <p id="bounds-error" class="error" role="alert"></p>
             </form>

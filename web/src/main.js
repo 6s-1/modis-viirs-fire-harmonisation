@@ -144,12 +144,17 @@ map.on("mouseup", (e) => {
 const fields = ["south", "north", "west", "east"];
 $("bounds").addEventListener("submit", (e) => {
   e.preventDefault();
-  const b = Object.fromEntries(fields.map((f) => [f, parseFloat($(f).value)]));
-  const err = !fields.every((f) => Number.isFinite(b[f])) ? "Enter all four bounds."
+  // A blank field keeps the current selection's value; a typed minus sign or comma decimal is accepted.
+  const cur = selBox();
+  const read = (f) => { const t = $(f).value.trim().replace("−", "-").replace(",", "."); return t === "" ? cur[f] : Number(t); };
+  const b = Object.fromEntries(fields.map((f) => [f, read(f)]));
+  const err = !fields.every((f) => Number.isFinite(b[f])) ? "Bounds must be numbers in degrees."
     : b.south < -90 || b.north > 90 || b.south >= b.north ? "South must be below north, within −90 to 90."
     : b.west < -180 || b.east > 180 || b.west >= b.east ? "West must be less than east, within −180 to 180." : "";
   $("bounds-error").textContent = err;
-  if (!err) select(b, true);
+  if (err) return;
+  if (fields.every((f) => b[f] === CANADA[f])) { if (state.box) clearBox(); return; } // all of Canada is no box
+  select(b, true);
 });
 for (const [id, b] of Object.entries(PRESETS)) $(id).addEventListener("click", () => select(b, true));
 
@@ -168,6 +173,7 @@ const clearMarker = new maplibregl.Marker({ element: clearEl, anchor: "center" }
 
 function select(b, fly) {
   state.box = b;
+  $("bounds-error").textContent = "";
   fields.forEach((f) => { $(f).value = Math.round(b[f] * 100) / 100; });
   drawBox(b);
   clearMarker.setLngLat([b.east, b.north]).addTo(map);
@@ -177,7 +183,8 @@ function select(b, fly) {
 
 function clearBox(fly = true) {
   state.box = null;
-  fields.forEach((f) => { $(f).value = ""; });
+  $("bounds-error").textContent = "";
+  fields.forEach((f) => { $(f).value = CANADA[f]; }); // the form always shows the current selection
   drawBox(null);
   clearMarker.remove();
   if (state.d) update();

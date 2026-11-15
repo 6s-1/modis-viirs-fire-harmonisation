@@ -342,7 +342,7 @@ table.data thead th { color: var(--ink-2); font-weight: 500; }
 .brow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin: 0 0 6px; border: 0; padding: 0; }
 .brow-h { width: 72px; flex: none; font-size: 0.74rem; color: var(--ink-2); }
 .brow label { display: flex; flex-direction: row; align-items: center; gap: 6px; font-size: 0.74rem; color: var(--muted); }
-.area .brow input[type="number"] { width: 104px; }
+.area .brow input[inputmode="decimal"] { width: 104px; }
 .area .brow input[type="month"] { width: 150px; }
 @media (max-width: 420px) { .brow-h { width: 100%; } }
 
@@ -570,7 +570,7 @@ table.data thead th { font-family: var(--mono); font-size: var(--fs-2xs); font-w
 .map-legend { background: rgba(15, 17, 24, 0.88); border-color: var(--card-line); padding: 9px 11px; }
 @media (max-width: 480px) {
   .brow-h { width: 100%; }
-  .area .brow input[type="number"] { width: 96px; }
+  .area .brow input[inputmode="decimal"] { width: 96px; }
   .site-top { gap: 8px 12px; padding: 12px 16px 10px; }
 }
 .exp-show { margin: 0 0 8px; }
