@@ -25,7 +25,8 @@ export function renderLiveChart(el, feats, hours) {
     bins[k][f.properties.sat === "NOAA-21" ? 1 : 0]++;
   }
   const W = 560, Hh = 200, padL = 40, padR = 70, padB = 24, padT = 10;
-  const max = Math.max(1, ...bins.map(([a, b]) => a + b));
+  const peak = Math.max(0, ...bins.map(([a, b]) => a + b));
+  const max = Math.max(2, peak % 2 ? peak + 1 : peak); // even, so the middle tick is a whole number
   const bw = (W - padL - padR) / n;
   const y = (v) => padT + (Hh - padT - padB) * (1 - v / max);
   const label = (k) => {
@@ -34,7 +35,7 @@ export function renderLiveChart(el, feats, hours) {
       : `${String(t.getUTCHours()).padStart(2, "0")}:00`;
   };
   const ticks = [0, max / 2, max].map((v) => `<g><line x1="${padL}" x2="${W - padR}" y1="${y(v)}" y2="${y(v)}" class="grid"/>
-      <text x="${padL - 6}" y="${y(v) + 4}" class="tick" text-anchor="end">${fmt(Math.round(v))}</text></g>`).join("");
+      <text x="${padL - 6}" y="${y(v) + 4}" class="tick" text-anchor="end">${Math.round(v).toLocaleString("en-CA")}</text></g>`).join("");
   const every = win.unit === "day" ? 1 : hours > 24 ? 6 : 3;
   const bars = bins.map(([a, b], k) => {
     const x = padL + k * bw + 0.5, w = Math.max(bw - 1, 1);

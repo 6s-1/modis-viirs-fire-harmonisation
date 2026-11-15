@@ -43,7 +43,7 @@ document.querySelectorAll("details[data-remember]").forEach((el) => {
   try { const v = localStorage.getItem(key); if (v !== null) el.open = v === "1"; } catch { /* storage unavailable */ }
   el.addEventListener("toggle", () => { try { localStorage.setItem(key, el.open ? "1" : "0"); } catch { /* ignore */ } });
 });
-const state = { app: "historical", d: null, box: null, agg: null, cal: null, range: null, observedOnly: false, mode: "harmonised", colour: "activity", mapReady: false };
+const state = { showPop: false, app: "historical", d: null, box: null, agg: null, cal: null, range: null, observedOnly: false, mode: "harmonised", colour: "activity", mapReady: false };
 
 // ---- map: globe, north up, no rotation or pitch, starts on Canada
 const map = new maplibregl.Map({
@@ -98,6 +98,22 @@ map.on("load", () => {
   map.addLayer({ id: "exp-hi", type: "line", source: "exp", filter: ["==", ["get", "rank"], -1], paint: { "line-color": "#2bb3a3", "line-width": 3.5 } });
   map.on("mousemove", "exp-fill", (e) => { const f = e.features && e.features[0]; if (f) highlightExposure(+f.properties.rank); });
   map.on("mouseleave", "exp-fill", () => highlightExposure(null));
+  map.addSource("pop", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+  map.addLayer({ id: "pop-fill", type: "fill", source: "pop", layout: { visibility: "none" },
+    paint: { "fill-color": ["get", "color"], "fill-opacity": 0.88 } }, "exp-fill");
+  map.addLayer({ id: "pop-line", type: "line", source: "pop", layout: { visibility: "none" },
+    paint: { "line-color": "#2a2e38", "line-width": 0.4, "line-opacity": 0.6 } }, "exp-fill");
+  map.on("mousemove", "pop-fill", (e) => {
+    const f = e.features && e.features[0];
+    if (!f) return;
+    const tip = $("tip");
+    tip.innerHTML = `<strong>${fmt(+f.properties.p)}</strong> people live in this grid cell<br><span class="muted">WorldPop 2020, modelled estimate</span>`;
+    tip.hidden = false;
+    const r = tip.getBoundingClientRect();
+    tip.style.left = `${Math.min(e.originalEvent.clientX + 14, innerWidth - r.width - 8)}px`;
+    tip.style.top = `${Math.min(e.originalEvent.clientY + 14, innerHeight - r.height - 8)}px`;
+  });
+  map.on("mouseleave", "pop-fill", () => { $("tip").hidden = true; });
   addLiveLayer(map);
   attachLiveHover(map, $("tip"));
   state.mapReady = true;
@@ -227,14 +243,17 @@ document.querySelectorAll('input[name="colour"]').forEach((r) => r.addEventListe
 function refreshGrid() {
   if (!state.mapReady || !state.agg) return;
   const g = updateGrid(map, state.d, state.agg, state.range);
-  if (g.n) gridLegend($("grid-legend"), g.scale, rangeLabel());
-  else $("grid-legend").innerHTML = "";
+  const tmp = document.createElement("div");
+  if (g.n) gridLegend(tmp, g.scale, rangeLabel());
+  state.fireLegend = tmp.innerHTML;
+  updatePop();
+  renderLegends();
 }
 
 function update() {
   const d = state.d;
   const agg = (state.agg = aggregate(d, selBox()));
-  if (state.app === "live") { setGridVisible(false); loadLive(); return; }
+  if (state.app === "live") { setGridVisible(false); updatePop(); renderLegends(); loadLive(); return; }
   setGridVisible(true);
   const firstYear = state.observedOnly ? OBSERVED_FROM : d.firstYear;
   const years = [];
@@ -382,10 +401,46 @@ const WINDOW_LABEL = { 24: "last 24 hours", 48: "last 48 hours", 168: "last 7 da
 let liveOk = null; // null = not checked yet
 const liveReady = liveAvailable().then((ok) => (liveOk = ok));
 
-function setGridVisible(on) {
-  for (const id of ["grid-fill", "grid-line", "grid-est"]) if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", on ? "visible" : "none");
-  if (map.getLayer("live")) map.setLayoutProperty("live", "visibility", on ? "none" : "visible");
+// Which map layers show: the fire grid in Historical (unless people are shown), live points in
+// Live, and the population shading whenever "Show where people live" is on (both modes).
+function setGridVisible(historical) {
+  const set = (ids, on) => ids.forEach((id) => map.getLayer(id) && map.setLayoutProperty(id, "visibility", on ? "visible" : "none"));
+  set(["grid-fill", "grid-line", "grid-est"], historical && !state.showPop);
+  set(["live"], !historical);
+  set(["pop-fill", "pop-line"], state.showPop);
 }
+
+// People per display cell (WorldPop 2020): own blue scale so it never reads as fire.
+const POP_EDGES = [100, 1000, 10000, 100000];
+const POP_COLORS = ["#d6e6f8", "#9ac2ee", "#5596de", "#2a67b4", "#123f7a"];
+const POP_LABELS = ["< 100", "100–1k", "1k–10k", "10k–100k", "> 100k"];
+function popColor(v) { let k = 0; while (k < POP_EDGES.length && v >= POP_EDGES[k]) k++; return POP_COLORS[k]; }
+function updatePop() {
+  const src = map.getSource("pop");
+  if (!src) return;
+  if (!state.showPop || !state.d) { src.setData({ type: "FeatureCollection", features: [] }); return; }
+  const d = state.d;
+  const feats = state.agg.gridCells.filter((i) => d.pop[i] >= 1).map((i) => ({ type: "Feature",
+    properties: { color: popColor(d.pop[i]), p: Math.round(d.pop[i]) },
+    geometry: { type: "Polygon", coordinates: [cellToBoundary(h3Id(d, i), true)] } }));
+  src.setData({ type: "FeatureCollection", features: feats });
+}
+const popLegendHTML = () => `<p class="legend-title"><span class="info" title="People living in each ~250 km² grid cell. WorldPop 2020, 1 km, UN-adjusted: a modelled estimate, not a census count.">People per grid cell · WorldPop 2020, modelled</span></p>
+  <ul class="legend">${POP_COLORS.map((c, k) => `<li><span class="sw" style="background:${c}"></span>${POP_LABELS[k]}</li>`).join("")}</ul>`;
+function renderLegends() {
+  const parts = [];
+  if (state.showPop) parts.push(popLegendHTML());
+  if (state.app === "live") parts.push(state.liveLegend || "");
+  else if (!state.showPop) parts.push(state.fireLegend || "");
+  $("grid-legend").innerHTML = parts.join("");
+}
+$("pop-toggle").addEventListener("click", () => {
+  state.showPop = !state.showPop;
+  $("pop-toggle").setAttribute("aria-pressed", String(state.showPop));
+  updatePop();
+  setGridVisible(state.app !== "live");
+  renderLegends();
+});
 const inBox = (f, b) => { const [x, y] = f.geometry.coordinates; return x >= b.west && x <= b.east && y >= b.south && y <= b.north; };
 
 function liveDown() {
@@ -430,8 +485,10 @@ function renderLive() {
     <div class="sub">${WINDOW_LABEL[live.hours]} (${t(startMs)} – ${t(Date.now())} UTC) · <span class="info" title="Canada only: points outside Canada are removed.">${where}</span></div>
     <div class="sub">NOAA-20 ${fmt(n20)} · NOAA-21 ${fmt(n21)}${pop ? ` · ${fmtShort(pop)} people live here <span class="dim">(WorldPop 2020, modelled)</span>` : ""}</div>`;
   live.meta = renderLiveChart($("livechart"), feats, live.hours);
-  $("grid-legend").innerHTML = `<p class="legend-title">Live hotspots · ${WINDOW_LABEL[live.hours]}</p>
+  state.liveLegend = `<p class="legend-title">Live hotspots · ${WINDOW_LABEL[live.hours]}</p>
     <ul class="legend"><li><span class="sw key-live"></span>near real time, not harmonised (NOAA-20, NOAA-21)</li></ul>`;
+  updatePop();
+  renderLegends();
   renderExposure();
 }
 

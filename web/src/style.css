@@ -365,3 +365,6 @@ body.mode-live .hist-only, body:not(.mode-live) .live-only { display: none !impo
 body.mode-live.live-down #sec-calendar, body.mode-live.live-down #sec-exposure, body.mode-live.live-down #sec-downloads,
 body.mode-live.live-down #live-window { display: none !important; }
 .live-tag { font-size: 0.72rem; color: var(--warn-ink); background: var(--warn-bg); padding: 1px 6px; border-radius: 4px; margin-left: 6px; vertical-align: 3px; }
+
+#pop-toggle[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.map-legend .legend-title + .legend + .legend-title { margin-top: 6px; }
