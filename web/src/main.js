@@ -38,13 +38,18 @@ const state = { app: "historical", d: null, box: null, agg: null, cal: null, ran
 function makeMap(container) {
   const m = new maplibregl.Map({
     container, style: STYLE, center: [-96, 58], zoom: 1.5, bearing: 0, pitch: 0, maxPitch: 0,
-    dragRotate: false, pitchWithRotate: false, touchPitch: false, attributionControl: { compact: true },
+    dragRotate: false, pitchWithRotate: false, touchPitch: false, attributionControl: false,
   });
   m.touchZoomRotate.disableRotation();
   m.keyboard.disableRotation();
   m.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
+  m.addControl(new maplibregl.AttributionControl({ compact: true }), "top-right"); // under zoom, clear of the corners below
   m.on("style.load", () => { m.setProjection({ type: "globe" }); neutralBasemap(m); });
-  m.on("load", () => setupMap(m));
+  m.on("load", () => {
+    // the compact attribution starts collapsed (an "i" button) so it never spreads across the map
+    m.getContainer().querySelectorAll(".maplibregl-compact-show").forEach((el) => el.classList.remove("maplibregl-compact-show"));
+    setupMap(m);
+  });
   attachDrawing(m);
   return m;
 }

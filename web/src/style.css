@@ -270,7 +270,6 @@ table.data thead th { color: var(--ink-2); font-weight: 500; }
 
 /* phones: smaller floating legend over the map */
 @media (max-width: 640px) {
-  .map-legend { bottom: 30px; right: 8px; padding: 6px 8px; max-width: calc(100% - 16px); }
 }
 
 .sub.dim { font-size: 0.72rem; color: var(--muted); opacity: 0.85; }
@@ -592,3 +591,32 @@ table.data thead th { font-family: var(--mono); font-size: var(--fs-2xs); font-w
 .lp-row.off, .lp-base { color: var(--muted); cursor: default; }
 .lp-note { margin-left: auto; padding-left: 10px; font-size: var(--fs-2xs); color: var(--muted); }
 #layers-btn[aria-expanded="true"] { border-color: var(--accent); }
+
+/* map controls in the four corners: layers top left, zoom top right, legend bottom left,
+   selection tools bottom right. The centre of the globe stays clear. */
+.corner-tl { top: 12px; left: 12px; }
+.corner-br { right: 12px; bottom: 12px; }
+.corner-bl { left: 12px; bottom: 12px; right: auto; }
+.map-tools { top: auto; left: auto; display: flex; gap: 4px; flex-wrap: nowrap; max-width: none; padding: 4px;
+  background: rgba(15, 17, 24, 0.88); border: 1px solid var(--card-line); border-radius: 999px; backdrop-filter: blur(6px); }
+.map-tools button { padding: 5px 12px; }
+.map-tools button.ghost { background: transparent; border-color: transparent; }
+.map-tools button.ghost:hover { border-color: var(--card-line); }
+.map-legend { max-width: min(320px, calc(100% - 24px)); }
+.maplibregl-ctrl-top-right .maplibregl-ctrl-attrib { margin-top: 6px; }
+@media (max-width: 640px) {
+  .map-legend { left: 8px; bottom: 8px; right: auto; max-width: calc(100% - 16px); }
+  .corner-br { right: 8px; bottom: auto; top: 8px; margin-right: 44px; } /* phones: tools move up beside zoom so the legend has the bottom */
+  .corner-tl { top: 8px; left: 8px; }
+  .map-tools button { padding: 4px 10px; }
+}
+/* calendar fits the 40% side panel: narrower total column */
+table.cal { min-width: 480px; border-spacing: 1.5px; }
+.cal td.tot { min-width: 72px; }
+.cal td.tot .rng { display: none; }
+@media (max-width: 640px) { .map-legend .legend { font-size: 10.5px; gap: 2px 8px; } .map-legend { padding: 6px 8px; } }
+table.cal { table-layout: fixed; width: 100%; min-width: 440px; }
+.cal thead th:first-child { width: 78px; }
+.cal thead th:last-child { width: 66px; }
+.cal td.tot { min-width: 0; overflow: hidden; text-overflow: clip; }
+.map-ui.layers { position: absolute; }
