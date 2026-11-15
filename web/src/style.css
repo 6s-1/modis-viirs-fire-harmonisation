@@ -693,3 +693,24 @@ table.cal { table-layout: fixed; width: 100%; min-width: 440px; }
 .lv-cont { fill: #6a6f7a; }
 .reading .lead { color: var(--ink); font-size: var(--fs-m); font-weight: 600; }
 .sb-bar.partial { opacity: 0.6; }
+
+/* "Why it burned" card: in the side panel, below the fire chart */
+#sec-why { padding: 0; overflow: hidden; }
+.wc { padding: 14px 16px 12px; }
+.wc-head { display: flex; align-items: flex-start; gap: 12px; }
+.wc-head > div { min-width: 0; }
+.wc-kicker { margin: 0 0 2px; font-family: var(--mono); font-size: var(--fs-2xs); letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); }
+.wc-place { margin: 0 0 10px; font-size: var(--fs-l); font-weight: 600; color: var(--ink); line-height: 1.25; }
+.wc-close { margin-left: auto; flex: none; width: 28px; height: 28px; padding: 0; border-radius: 50%;
+  background: var(--raise); color: var(--ink-2); border: 1px solid var(--card-line); font-size: 16px; line-height: 1; cursor: pointer; }
+.wc-close:hover { color: var(--ink); border-color: var(--muted); }
+.wc-rows { margin: 0; font-size: var(--fs-s); }
+.wc-row { display: flex; gap: 12px; align-items: baseline; padding: 5px 0; border-top: 1px solid var(--card-line); }
+.wc-row:first-child { border-top: 0; }
+.wc-row dt { flex: 1 1 auto; color: var(--muted); min-width: 0; }
+.wc-row dd { margin: 0; flex: none; text-align: right; color: var(--ink); font-variant-numeric: tabular-nums; }
+.wc-live { margin: 0 0 10px; padding: 10px 12px; border: 1px solid var(--card-line); border-radius: 9px; background: rgba(255, 255, 255, 0.02); }
+.wc-live .wc-rows { font-size: var(--fs-xs); }
+.wc-past { margin-top: 12px; }
+.wc-foot { margin: 10px 0 0; font-size: var(--fs-xs); color: var(--muted); display: flex; align-items: center; gap: 2px; }
+.cal td.v { cursor: pointer; }

@@ -14,6 +14,7 @@ import { initLayersControl, overlays, setLiveMode } from "./layers.js";
 import { raisePlaces, setPlacesVisible } from "./places.js";
 import { addTrendLayers, attachTrendHover, buildTrend, setTrend, trendLegendHTML } from "./trend.js";
 import { addHoverLayers, footprint, raiseHover, scheduleHover, setHover } from "./hover.js";
+import { closeWhyCard, renderWhyCard } from "./whycard.js";
 import { fixPair, lockCameras, layerPicker, repaintPickers, view } from "./views.js";
 import { readUrl, writeUrl } from "./urlstate.js";
 import { addLiveLayer, attachLiveHover, fetchLive, liveAvailable, liveReason } from "./live.js";
@@ -136,6 +137,14 @@ function setupMap(map) {
       if (f) linkHover(map, f.properties.h3 || null);
     });
     map.on("mouseleave", layer, () => linkHover(map, null));
+  }
+  for (const layer of ["grid-fill", "trend-fill", "pop-fill"]) {
+    map.on("click", layer, (e) => {
+      const f = e.features && e.features[0];
+      if (f && f.properties.i !== undefined) openWhyForCell(+f.properties.i);
+    });
+    map.on("mouseenter", layer, () => { map.getCanvas().style.cursor = drawing ? "crosshair" : "pointer"; });
+    map.on("mouseleave", layer, () => { map.getCanvas().style.cursor = drawing ? "crosshair" : ""; });
   }
   map._ready = true;
   // bring this map up to date with whatever has been computed so far
@@ -311,6 +320,50 @@ function flyToCamera(cam) {
   const duration = Math.min(2500, Math.max(1000, 900 + 260 * dz + 0.25 * kmBetween(from, to)));
   map.flyTo({ center: cam.center, zoom: cam.zoom, duration, curve: 1.42, easing: easeInOutCubic, essential: true });
 }
+
+// ---- "Why it burned": opened by a cell on the map or a month in the calendar. It renders in the
+// side panel below the fire chart, outlines the cell on every globe and is closed by its button
+// or Esc.
+let whyCell = null;
+function openWhyForCell(i) {
+  whyCell = i;
+  const d = state.d;
+  const place = placeName(d.lat[i], d.lon[i]) || "This area";
+  const liveCtx = state.app === "live" ? {
+    windowLabel: WINDOW_LABEL[live.hours],
+    feats: (live.feats || []).filter((f) => {
+      const [lon, lat] = f.geometry.coordinates;
+      return cellIndexOf(d, latLngToCell(lat, lon, 5)) === i;
+    }),
+  } : null;
+  renderWhyCard($("sec-why"), d, state.agg, {
+    i, place, range: state.range, scope: "cell",
+    windowLabel: state.app === "live" ? WINDOW_LABEL[live.hours] : rangeLabel(),
+    recordLabel: `${MONTHS[d.months[0].m - 1]} ${d.months[0].y} – ${MONTHS[d.lastMonth.m - 1]} ${d.lastMonth.y}`,
+  }, liveCtx);
+  linkHover(maps[0], h3Id(d, i)); // keep the clicked cell outlined
+  $("sec-why").scrollIntoView({ behavior: reduceMotion.matches ? "auto" : "smooth", block: "nearest" });
+  $("sec-why").querySelector(".wc-close").addEventListener("click", closeWhy);
+  $("sec-why").querySelector(".wc-close").focus({ preventScroll: true });
+}
+// a month in the calendar: the selection box, that month only
+function openWhyForMonth(mi) {
+  whyCell = null;
+  const d = state.d, info = d.months[mi];
+  renderWhyCard($("sec-why"), d, state.agg, {
+    place: state.box ? "Selected box" : "All of Canada", range: [mi, mi], scope: "month",
+    windowLabel: `${MONTHS[info.m - 1]} ${info.y}`,
+  }, null);
+  $("sec-why").scrollIntoView({ behavior: reduceMotion.matches ? "auto" : "smooth", block: "nearest" });
+  $("sec-why").querySelector(".wc-close").addEventListener("click", closeWhy);
+  $("sec-why").querySelector(".wc-close").focus({ preventScroll: true });
+}
+function closeWhy() {
+  whyCell = null;
+  closeWhyCard($("sec-why"));
+  linkHover(maps[0], null);
+}
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("sec-why").hidden) closeWhy(); });
 
 // ---- linked hover: the hovered ground is outlined on every globe, translated to the resolution
 // each one draws at. The resolution a globe shows depends on its layer and the view mode.
@@ -827,6 +880,16 @@ function saveUrl() {
 setLiveMode($("layers-panel"), false);
 attachInfoTips($("tip"));
 attachTooltip($("calendar"), $("tip"), () => ({ d: state.d, agg: state.agg, mode: state.mode, colour: state.colour, cal: state.cal }));
+// a month in the calendar opens the card for that month, by click or by keyboard
+$("calendar").addEventListener("click", (e) => {
+  const td = e.target.closest("td[data-i]");
+  if (td) openWhyForMonth(Number(td.dataset.i));
+});
+$("calendar").addEventListener("keydown", (e) => {
+  if (e.key !== "Enter" && e.key !== " ") return;
+  const td = e.target.closest("td[data-i]");
+  if (td) { e.preventDefault(); openWhyForMonth(Number(td.dataset.i)); }
+});
 loadData("harmonised/")
   .then((d) => {
     state.d = d;
