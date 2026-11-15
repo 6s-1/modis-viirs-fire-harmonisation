@@ -406,8 +406,12 @@ function highlightExposure(rank) {
   expMarkers.forEach((m) => m.getElement().classList.toggle("hi", m._rank === rank));
   document.querySelectorAll("#exposure tr[data-rank]").forEach((tr) => tr.classList.toggle("hi", +tr.dataset.rank === rank));
 }
+// Outlines and numbered badges appear only when "Show on map" is ticked (off by default).
+let expTop = [];
 function drawExposure(top) {
+  expTop = top;
   expMarkers.splice(0).forEach((m) => m.remove());
+  if (!$("exp-show").checked) top = [];
   const feats = top.map(({ i, rank }) => ({ type: "Feature", properties: { rank, i },
     geometry: { type: "Polygon", coordinates: [cellToBoundary(h3Id(state.d, i), true)] } }));
   const src = map.getSource("exp");
@@ -424,6 +428,7 @@ function drawExposure(top) {
     expMarkers.push(m);
   }
 }
+$("exp-show").addEventListener("change", () => drawExposure(expTop));
 function renderExposure() {
   if (!state.d || !state.mapReady) return;
   const isLive = state.app === "live";

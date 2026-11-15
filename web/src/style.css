@@ -573,3 +573,4 @@ table.data thead th { font-family: var(--mono); font-size: var(--fs-2xs); font-w
   .area .brow input[type="number"] { width: 96px; }
   .site-top { gap: 8px 12px; padding: 12px 16px 10px; }
 }
+.exp-show { margin: 0 0 8px; }
