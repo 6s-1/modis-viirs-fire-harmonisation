@@ -47,14 +47,29 @@ function nbacTable(a) {
     <tbody>${body}</tbody></table></div>`;
 }
 
+const TOC = [["calendar", "What the calendar shows"], ["built", "How it is built"],
+  ["tests", "How well it works"], ["nbac", "Check against burned area"], ["limits", "Limits"],
+  ["emergency", "Evacuation information"], ["live", "Live fire and people"], ["credits", "AI tools"],
+  ["sources", "Data credits"], ["refs", "References"]];
+
+// The contents list. On a wide screen it sits beside the column and stays put while the page
+// scrolls; narrower, it collapses to a plain list at the top.
+function contents() {
+  return `<nav class="about-toc" aria-label="Contents">
+    <p class="toc-title">Contents</p>
+    <ol>${TOC.map(([id, lab]) => `<li><a href="#sec-${id}">${lab}</a></li>`).join("")}</ol>
+  </nav>`;
+}
+
 function render(a) {
   const adoptedModis = a.comparison[1], adoptedTerra = a.comparison[3], prev = a.comparison[0];
   const end = a.data_end;
   const endDays = Math.max(...Object.values(end.days));
   const ea = a.nbac_canada_annual_error_pct;
   const minKm2 = n(a.low_confidence_below_km2);
-  return `
-  <section>
+  return `${contents()}
+  <div class="about-col">
+  <section id="sec-calendar">
     <h2>What the calendar shows</h2>
     <p>Each square is a <strong>fire cell-day count</strong>: how many ~1 km grid cells had at least one satellite fire
     detection on a given day, added up over the month. It measures how widespread detected burning was, not area burned.</p>
@@ -69,7 +84,7 @@ function render(a) {
     below the usual level for that month, grey for about normal, brown to orange for above.</p>
   </section>
 
-  <section>
+  <section id="sec-built">
     <h2>How it is built</h2>
     <ol>
       <li><strong>Clean the detections.</strong> From NASA FIRMS we keep detections flagged as presumed vegetation fire and drop
@@ -95,7 +110,7 @@ function render(a) {
     </ol>
   </section>
 
-  <section>
+  <section id="sec-tests">
     <h2>How well it works: hidden years</h2>
     <p>To test the estimates honestly we hide years the model has not seen and compare its estimate with what VIIRS actually
     recorded. Below, the previous method (a VIIRS/Aqua table without fire intensity) and the adopted one are tested the same way.</p>
@@ -114,7 +129,7 @@ function render(a) {
       <figcaption>Raw MODIS Aqua, raw VIIRS and the harmonised series for all of Canada.</figcaption></figure>
   </section>
 
-  <section>
+  <section id="sec-nbac">
     <h2>An independent check against burned area</h2>
     <p>The National Burned Area Composite (NBAC) maps the area burned by fires in Canada each year. It is not used to build the
     record. For each ecozone we fit one hectares-per-cell-day ratio on 2012–2025 and apply it unchanged to earlier years. If
@@ -126,7 +141,7 @@ function render(a) {
     after 2012. So the conversion does not introduce a step. Small fire years in an ecozone are noisy in every series.</p>
   </section>
 
-  <section>
+  <section id="sec-limits">
     <h2>Limits</h2>
     <ul>
       <li><strong>Extreme northern fire years are underestimated.</strong> In 2014, when large fires burned in the Northwest
@@ -150,7 +165,7 @@ function render(a) {
     </ul>
   </section>
 
-  <section>
+  <section id="sec-emergency">
     <h2>Evacuation and emergency information</h2>
     <p>This app shows fire history and recent detections. It is not an emergency service. For evacuation orders, alerts and
     routes, follow your provincial or territorial emergency service:</p>
@@ -172,7 +187,7 @@ function render(a) {
     </ul>
   </section>
 
-  <section>
+  <section id="sec-live">
     <h2>Live fire and people exposed</h2>
     <ul>
       <li><strong>Live fire</strong> shows near-real-time VIIRS hotspots from NOAA-20 and NOAA-21 (NASA FIRMS) for the last 24 hours,
@@ -187,16 +202,16 @@ function render(a) {
     </ul>
   </section>
 
-  <section>
+  <section id="sec-credits">
     <h2>Use of AI tools</h2>
     <p>Ember was built with the help of an AI coding assistant (Claude), under my direction, for writing and debugging
       code, running data checks and drafting text. The method, the data choices, the design and every final decision
       are mine. The logo and the mascot are my own drawings, converted to SVG with AI help.</p>
 
-    <h2>Data freshness</h2>
+    <h2 id="sec-freshness">Data freshness</h2>
     <p>Historical data to ${endDays} ${MONTHS[end.m - 1]} ${end.y}; live data from NASA FIRMS, near real time.</p>
 
-    <h2>Data credits</h2>
+    <h2 id="sec-sources">Data credits</h2>
     <ul>
       <li><strong>Active fire detections:</strong> NASA Fire Information for Resource Management System (FIRMS), part of NASA's Earth
         Science Data and Information System (ESDIS). MODIS Collection 6.1 (Terra, Aqua) and VIIRS 375 m Collection 2 (S-NPP, NOAA-20),
@@ -226,7 +241,7 @@ function render(a) {
     </ul>
   </section>
 
-  <section>
+  <section id="sec-refs">
     <h2>References</h2>
     <ul class="refs">
       <li>Giglio, L., Schroeder, W., &amp; Justice, C. O. (2016). The collection 6 MODIS active fire detection algorithm and fire
@@ -244,7 +259,8 @@ function render(a) {
     </ul>
     <p class="muted small">Figures last generated ${a.generated}. Source code and the full pipeline:
       <a href="https://github.com/6s-1/modis-viirs-fire-harmonisation">github.com/6s-1/modis-viirs-fire-harmonisation</a>.</p>
-  </section>`;
+  </section>
+  </div>`;
 }
 
 fetch("about/about.json")

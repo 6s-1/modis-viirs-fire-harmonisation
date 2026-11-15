@@ -250,17 +250,45 @@ h3.gap { margin-top: 10px; }
 }
 
 /* about page */
-.about { max-width: 860px; padding: 0 20px 40px; }
-.about section { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 4px 18px 14px; margin: 0 0 18px; font-size: 0.92rem; }
-.about h2 { font-size: 1.05rem; color: var(--ink); margin: 14px 0 6px; }
+/* The About page is a reading column, centred in the window, with the contents list beside it
+   on a wide screen. Sections are separated cards so each question is its own block. */
+.about { max-width: 68rem; margin: 0 auto; padding: 0 20px 56px; }
+.about-col { max-width: 46rem; margin: 0 auto; }
+.about section { background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+  padding: 6px 22px 20px; margin: 0 0 22px; font-size: 0.92rem; scroll-margin-top: 20px; }
+.about h2 { font-size: var(--fs-l); font-weight: 600; color: var(--ink); margin: 18px 0 8px;
+  letter-spacing: -0.01em; scroll-margin-top: 20px; }
+.about section > h2:first-child { margin-top: 12px; }
+/* a hairline above a heading that starts a new topic inside one card */
+.about h2[id]:not(:first-child) { border-top: 1px solid var(--line); padding-top: 18px; margin-top: 24px; }
+.about p { line-height: 1.6; }
+
+/* contents list: in the flow on narrow screens, pinned to the left margin on wide ones */
+.about-toc { margin: 0 auto 22px; max-width: 46rem; background: var(--surface);
+  border: 1px solid var(--line); border-radius: 12px; padding: 12px 18px 14px; }
+.toc-title { margin: 0 0 6px; font-family: var(--mono); font-size: var(--fs-2xs); font-weight: 500;
+  letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.about-toc ol { margin: 0; padding: 0; list-style: none; columns: 2; column-gap: 24px; }
+.about-toc li { margin: 3px 0; break-inside: avoid; font-size: var(--fs-s); }
+.about-toc a { color: var(--ink-2); text-decoration: none; }
+.about-toc a:hover { color: var(--ink); text-decoration: underline; }
+@media (min-width: 1100px) {
+  .about { max-width: 63rem; }
+  .about-toc { position: sticky; top: 16px; float: left; width: 13rem; margin: 0 0 22px; }
+  .about-toc ol { columns: 1; }
+  .about-col { margin-left: 15rem; margin-right: 0; }
+}
 .about li { margin: 6px 0; }
 .about figure { margin: 14px 0; }
 .about figure img { width: 100%; height: auto; border-radius: 8px; background: #fcfcfb; }
 .about figcaption { font-size: 0.8rem; color: var(--muted); margin-top: 4px; }
 .about .site-top { padding-left: 0; }
-.tablewrap { overflow-x: auto; margin: 10px 0; }
+/* the header shares the column's width so the page reads as one centred block */
+body:has(.about) .site-top { max-width: 63rem; margin: 0 auto; width: 100%; }
+.tablewrap { overflow-x: auto; margin: 16px 0; display: flex; justify-content: center; }
+.tablewrap > table.data { flex: 0 1 auto; }
 table.data { border-collapse: collapse; font-size: 0.82rem; width: 100%; min-width: 520px; font-variant-numeric: tabular-nums; }
-table.data.narrow { min-width: 0; max-width: 520px; }
+table.data.narrow { min-width: 0; max-width: 520px; width: auto; }
 table.data caption { text-align: left; color: var(--muted); font-size: 0.78rem; padding-bottom: 6px; caption-side: top; }
 table.data th, table.data td { padding: 5px 8px; border-bottom: 1px solid var(--line); text-align: right; }
 table.data th[scope="row"], table.data thead th:first-child { text-align: left; font-weight: 500; }
