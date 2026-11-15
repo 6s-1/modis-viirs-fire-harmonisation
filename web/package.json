@@ -1,9 +1,9 @@
 {
-  "name": "fire-activity-calendar",
+  "name": "ember",
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Harmonised MODIS and VIIRS fire activity calendar for Canada",
+  "description": "Ember: harmonised MODIS + VIIRS fire activity for Canada",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

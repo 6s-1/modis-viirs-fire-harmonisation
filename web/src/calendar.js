@@ -1,14 +1,14 @@
-// Burning activity calendar: years as rows, months as columns, colour = harmonised cell-days.
+// Ember burning activity calendar: years as rows, months as columns, colour = harmonised cell-days.
 
 import { MONTHS, SOURCE_LABEL, fmt, fmtShort, fmtSig, isEstimated, median, recordedSensor, uncertaintyFactors } from "./data.js";
 
 export const SENSOR_LABEL = { terra: "MODIS Terra", aqua: "MODIS Aqua", snpp: "VIIRS S-NPP", noaa20: "VIIRS NOAA-20", viirs: "VIIRS" };
 const SENSOR_SHORT = { terra: "Terra", aqua: "Aqua", viirs: "VIIRS" };
 
-// Fire scale: six classes at even steps along inferno (t = 0.20 ... 0.97), dark purple to pale
-// yellow. Adjacent classes differ by 14-18 L*, so they stay distinct in greyscale; zero is not
-// a class (empty outlined cell, "no fire"). Brighter = more fire.
-export const RAMP = ["#420a68", "#801f6c", "#bf3952", "#ec6726", "#fcac11", "#f3f68a"];
+// Fire scale: six classes from pale yellow (least) through orange and red to dark red (most).
+// Lightness falls steadily (OKLab L 95 -> 36), so the order also reads in greyscale; zero is not
+// a class (empty outlined cell, "no fire"). Darker red = more fire.
+export const RAMP = ["#fff1a8", "#fecb5c", "#fd9638", "#ec5527", "#c81e1f", "#8c0d18"];
 
 // Diverging scale for "compared with normal": ratio to the median of the same month.
 // Purple = below normal, orange = above, neutral grey at 1x. Both arms get stronger further from 1x.
@@ -145,7 +145,7 @@ function renderRatioLegend(el, lowConfidence, harm, medSpan) {
     ${marks(harm, lowConfidence)}`;
 }
 
-const DEFINITION = "Fire cell-days: ~1 km grid cells with at least one fire detection on a day, summed over the month. Brighter (yellow) means more fire.";
+const DEFINITION = "Fire cell-days: ~1 km grid cells with at least one fire detection on a day, summed over the month. Pale yellow is the least fire, dark red the most.";
 
 function renderLegend(el, scale, lowConfidence, harm = true) {
   const sw = scale.colors.map((c, k) => `<li><span class="sw" style="background:${c}"></span>${scale.label(k)}</li>`).join("");

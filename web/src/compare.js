@@ -1,13 +1,254 @@
-// Comparison with past years: plain-language verdicts with bullet charts, the cumulative
-// year-to-date chart, the seasonal profile and yearly totals.
+// Compared with past years, in three blocks, each led by a one-sentence headline:
+//   Trend      yearly totals with a Theil–Sen trend line, its likely range and a Mann–Kendall test
+//   Anomalies  every month against the same month in other years
+//   This year  latest months, year to date and the seasonal profile against typical
+// Blocks are patched in place on a new selection, so bars and lines glide to their new values.
 
-import { MONTHS, fmt, fmtShort, median, monthDays, quantile } from "./data.js";
+import { MONTHS, fmt, fmtShort, fmtSig, median, monthDays, quantile } from "./data.js";
 
 const LONG = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const MEASURED_FROM = 2012;
 const span = (ys) => (ys.length ? `${Math.min(...ys)}–${Math.max(...ys)}` : "");
-const short = (ys) => (ys.length ? `${Math.min(...ys)}–${String(Math.max(...ys)).slice(2)}` : "");
+const f1 = (v) => v.toFixed(1);
+const sg = (v) => `${v < 0 ? "−" : ""}${fmtSig(Math.abs(v))}`;
 
-// Words for a ratio to the median.
+// Anomaly rule: above the 90th percentile AND above twice the median of the same month in the
+// other years, and at least this many cell-days.
+const ANOM_MIN = 10, ANOM_MIN_YEARS = 5, ANOM_TOP = 5;
+
+// ---------- statistics
+
+// Standard normal CDF (Abramowitz & Stegun 7.1.26, error < 1.5e-7).
+function phi(z) {
+  const t = 1 / (1 + 0.3275911 * Math.abs(z) / Math.SQRT2);
+  const erf = 1 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-(z * z) / 2);
+  return z >= 0 ? (1 + erf) / 2 : (1 - erf) / 2;
+}
+
+// Mann–Kendall trend test with the ties correction; two-sided p.
+export function mannKendall(vs) {
+  const n = vs.length;
+  let S = 0;
+  for (let i = 0; i < n - 1; i++) for (let j = i + 1; j < n; j++) S += Math.sign(vs[j] - vs[i]);
+  const ties = new Map();
+  for (const v of vs) ties.set(v, (ties.get(v) || 0) + 1);
+  let tie = 0;
+  for (const t of ties.values()) if (t > 1) tie += t * (t - 1) * (2 * t + 5);
+  const varS = (n * (n - 1) * (2 * n + 5) - tie) / 18;
+  const z = varS > 0 ? (S > 0 ? (S - 1) / Math.sqrt(varS) : S < 0 ? (S + 1) / Math.sqrt(varS) : 0) : 0;
+  return { S, varS, z, p: 2 * (1 - phi(Math.abs(z))) };
+}
+
+// Theil–Sen slope with its 95% range (Gilbert 1987), each line through its own median intercept.
+export function theilSen(xs, vs, varS) {
+  const slopes = [];
+  for (let i = 0; i < xs.length - 1; i++) for (let j = i + 1; j < xs.length; j++) {
+    if (xs[j] !== xs[i]) slopes.push((vs[j] - vs[i]) / (xs[j] - xs[i]));
+  }
+  slopes.sort((a, b) => a - b);
+  const N = slopes.length;
+  const b = median(slopes);
+  const C = 1.96 * Math.sqrt(varS);
+  const at = (k) => slopes[Math.min(Math.max(k, 0), N - 1)];
+  const lo = at(Math.round((N - C) / 2) - 1), hi = at(Math.round((N + C) / 2));
+  const icpt = (s) => median(xs.map((x, k) => vs[k] - s * x));
+  return { b, a: icpt(b), lo, aLo: icpt(lo), hi, aHi: icpt(hi) };
+}
+
+// ---------- small drawing helpers
+
+// Round "nice" top of the axis so the three ticks are readable numbers.
+function niceMax(v) {
+  if (!(v > 0)) return 1;
+  const p = 10 ** Math.floor(Math.log10(v));
+  for (const k of [1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10]) if (k * p >= v) return k * p;
+  return 10 * p;
+}
+
+// A column with a 4 px rounded top, anchored to the baseline. Always the same path commands,
+// so a change of height animates.
+function col(x, w, yTop, yBase) {
+  const r = Math.max(0, Math.min(4, w / 2, yBase - yTop));
+  return `M${f1(x)},${f1(yBase)}V${f1(yTop + r)}Q${f1(x)},${f1(yTop)} ${f1(x + r)},${f1(yTop)}H${f1(x + w - r)}Q${f1(x + w)},${f1(yTop)} ${f1(x + w)},${f1(yTop + r)}V${f1(yBase)}Z`;
+}
+
+function axis(max, y, x0, x1) {
+  return [0, max / 2, max].map((v) => `<path d="M${x0},${f1(y(v))}H${x1}" class="grid${v === 0 ? " base" : ""}"/>
+    <text x="${x0 - 6}" y="${f1(y(v) + 3.5)}" class="tick" text-anchor="end">${fmtShort(v)}</text>`).join("");
+}
+
+// Tooltips and crosshairs are registered per render and looked up by the delegated listeners.
+let TIPS = [], XH = {};
+const tip = (html) => { TIPS.push(html); return `data-tip="${TIPS.length - 1}"`; };
+const crosshair = (key, xs, rows, top, bottom) => { XH[key] = { xs, rows, top, bottom }; };
+
+function ordinal(n) {
+  const s = ["th", "st", "nd", "rd"], v = n % 100;
+  return `${n}${s[(v - 20) % 10] || s[v] || s[0]}`;
+}
+
+// ---------- 1) trend
+
+let includeEst = false;
+
+function trendBlock(d, totals, yearFilter, observedOnly) {
+  // years before 2012 are estimated from MODIS; 2012 counts as measured (only its first months are estimated)
+  const rows = totals.filter((t) => Number.isFinite(t.s)).sort((a, b) => a.y - b.y)
+    .map((t) => ({ ...t, est: t.est && t.y < MEASURED_FROM, partEst: t.est && t.y >= MEASURED_FROM }));
+  const estYears = rows.filter((t) => t.est).map((t) => t.y);
+  const useEst = includeEst && !observedOnly;
+  const inTrend = (t) => !t.partial && t.y < d.lastYear && yearFilter(t.y) && (useEst || t.y >= MEASURED_FROM);
+  const used = rows.filter(inTrend);
+  const y0 = used.length ? used[0].y : MEASURED_FROM, y1 = used.length ? used[used.length - 1].y : d.lastYear - 1;
+
+  let fit = null, mk = null;
+  if (used.length >= 6) {
+    mk = mannKendall(used.map((t) => t.s));
+    fit = theilSen(used.map((t) => t.y), used.map((t) => t.s), mk.varS);
+  }
+  const typical = median(used.map((t) => t.s));
+  const sig = fit && mk.p < 0.05 && fit.b !== 0;
+  const pTxt = mk ? (mk.p < 0.001 ? "p < 0.001" : `p = ${mk.p.toFixed(mk.p < 0.01 ? 3 : 2)}`) : "";
+  const per = (v) => `${fmtSig(Math.abs(v))} cell-days a year`;
+  let headline, sub;
+  if (!fit) {
+    headline = "Too few complete years to test for a trend";
+    sub = `${used.length} complete years in the selection; the test needs at least 6.`;
+  } else if (sig) {
+    headline = `${fit.b > 0 ? "Rising" : "Falling"} about ${per(fit.b)} since ${y0} (statistically significant)`;
+    sub = `Likely range ${sg(fit.lo)} to ${sg(fit.hi)} a year${typical > 0 ? `, about ${Math.round((Math.abs(fit.b) / typical) * 100)}% of a typical year` : ""} · Mann–Kendall ${pTxt}, ${used.length} years`;
+  } else {
+    headline = `No clear trend since ${y0}`;
+    sub = `Best estimate ${fit.b >= 0 ? "+" : "−"}${per(fit.b)} (likely range ${sg(fit.lo)} to ${sg(fit.hi)}), not statistically significant · Mann–Kendall ${pTxt}, ${used.length} years`;
+  }
+
+  const W = 560, H = 200, padL = 44, padR = 58, padT = 18, padB = 22;
+  const max = niceMax(Math.max(1, ...rows.map((t) => (t.est ? t.hi : t.s))));
+  const y = (v) => padT + (H - padT - padB) * (1 - Math.max(v, 0) / max);
+  const bw = (W - padL - padR) / Math.max(rows.length, 1);
+  const cw = Math.min(24, Math.max(2, bw * 0.62));
+  const cx = (k) => padL + k * bw + bw / 2;
+  const kOf = new Map(rows.map((t, k) => [t.y, k]));
+  const xOfYear = (yr) => cx(0) + (yr - rows[0].y) * bw;
+
+  // estimated years: a quiet background band with a label
+  const estK = estYears.map((yr) => kOf.get(yr));
+  const estBand = estK.length ? `<rect x="${f1(padL + Math.min(...estK) * bw)}" y="${padT - 14}" width="${f1((Math.max(...estK) - Math.min(...estK) + 1) * bw)}" height="${H - padB - padT + 14}" class="est-zone"/>
+    <text x="${f1(padL + Math.min(...estK) * bw + 4)}" y="${padT - 4}" class="tick">estimated from MODIS</text>` : "";
+
+  const every = rows.length > 16 ? 5 : rows.length > 8 ? 2 : 1;
+  const bars = rows.map((t, k) => {
+    const x = cx(k) - cw / 2;
+    const cls = `tbar${t.est ? " est" : ""}${t.partial ? " partial" : ""}${inTrend(t) ? "" : " off"}`;
+    const whisk = t.est ? `M${f1(cx(k))},${f1(y(t.hi))}V${f1(y(t.lo))}` : `M${f1(cx(k))},${f1(y(t.s))}V${f1(y(t.s))}`;
+    const status = t.partial ? (t.y === d.lastYear ? "to date, not in the trend" : "part year, not in the trend")
+      : t.est ? `estimated from MODIS${inTrend(t) ? "" : ", not in the trend"}` : t.partEst ? `measured (${t.estLabel})` : "measured";
+    const html = `<strong>${fmt(t.s)}</strong> cell-days${t.est ? ` <span class="muted">(likely ${fmt(t.lo)}–${fmt(t.hi)})</span>` : ""}<br>
+      <span class="muted">${t.y} · ${status}</span>${fit && inTrend(t) ? `<br><span class="muted">trend line ${fmt(Math.max(0, fit.a + fit.b * t.y))}</span>` : ""}`;
+    return `<path d="${col(x, cw, y(t.s), y(0))}" class="${cls}"/><path d="${whisk}" class="err${t.est ? "" : " none"}"/>
+      ${t.y % every === 0 ? `<text x="${f1(cx(k))}" y="${H - 7}" class="tick" text-anchor="middle">${t.y}</text>` : ""}
+      <rect x="${f1(padL + k * bw)}" y="${padT}" width="${f1(bw)}" height="${H - padT - padB}" class="hit" tabindex="0"
+        aria-label="${t.y}: ${fmt(t.s)} cell-days, ${status}" ${tip(html)}/>`;
+  }).join("");
+
+  let line = "", band = "", endLab = "";
+  if (fit) {
+    const xa = xOfYear(y0), xb = xOfYear(y1);
+    const at = (a, b, yr) => y(a + b * yr);
+    band = `<path d="M${f1(xa)},${f1(at(fit.aLo, fit.lo, y0))}L${f1(xb)},${f1(at(fit.aLo, fit.lo, y1))}L${f1(xb)},${f1(at(fit.aHi, fit.hi, y1))}L${f1(xa)},${f1(at(fit.aHi, fit.hi, y0))}Z" class="tband"/>`;
+    line = `<path d="M${f1(xa)},${f1(at(fit.a, fit.b, y0))}L${f1(xb)},${f1(at(fit.a, fit.b, y1))}" class="tline${sig ? "" : " weak"}"/>`;
+    endLab = `<text x="${f1(xb + bw / 2 + 4)}" y="${f1(at(fit.a, fit.b, y1) + 3.5)}" class="tick strong">trend</text>`;
+  }
+
+  const estToggle = estYears.length ? `<label class="chk${observedOnly ? " disabled" : ""}"${observedOnly ? ` title="Switch the calendar to All years to include them"` : ""}>
+      <input type="checkbox" id="trend-est"${useEst ? " checked" : ""}${observedOnly ? " disabled" : ""}/> Include estimated years (${span(estYears.filter((yr) => !rows.find((t) => t.y === yr).partial))})</label>` : "";
+
+  return `<section class="cblock" data-b="trend">
+    <p class="kicker">Trend</p>
+    <p class="headline">${headline}</p>
+    <p class="subcap">${sub}</p>
+    ${estToggle}
+    <svg viewBox="0 0 ${W} ${H}" class="ychart" role="img" aria-label="Fire cell-days per year with the trend line. ${headline}.">
+      <defs><pattern id="hatch" width="4" height="4" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
+        <rect width="4" height="4" class="hatch-bg"/><line x1="0" y1="0" x2="0" y2="4" class="hatch-line"/></pattern>
+        <clipPath id="trend-clip"><rect x="${padL}" y="${padT}" width="${W - padL}" height="${H - padT - padB}"/></clipPath></defs>
+      ${estBand}${axis(max, y, padL, W - padR + 20)}${bars}
+      <g clip-path="url(#trend-clip)" class="nohit">${band}${line}</g>${endLab}</svg>
+    <ul class="legend">
+      <li><span class="sw key-bar"></span>measured</li>
+      ${estYears.length ? `<li><span class="sw key-hatch"></span>estimated, with likely range</li>` : ""}
+      <li><span class="sw key-light"></span>${d.lastYear} to date</li>
+      ${fit ? `<li><span class="sw key-trend${sig ? "" : " dash"}"></span>trend ${y0}–${y1}</li><li><span class="sw key-tband"></span>likely range of the trend</li>` : ""}
+    </ul>
+  </section>`;
+}
+
+// ---------- 2) anomalies
+
+function anomalyBlock(d, agg, years) {
+  const shown = new Set(years);
+  const ms = d.months.map((info, i) => ({ info, i })).filter(({ info }) => shown.has(info.y));
+  const byM = MONTHS.map(() => []);
+  for (const { info, i } of ms) if (!info.partial) byM[info.m - 1].push({ y: info.y, v: agg.totals[i] });
+
+  const rows = ms.map(({ info, i }) => {
+    const v = agg.totals[i];
+    const base = byM[info.m - 1].filter((o) => o.y !== info.y).map((o) => o.v);
+    const ok = !info.partial && base.length >= ANOM_MIN_YEARS;
+    const med = ok ? median(base) : NaN, q90 = ok ? quantile(base, 0.9) : NaN;
+    const anom = ok && v > q90 && v > 2 * med && v >= ANOM_MIN;
+    return { info, i, v, med, q90, anom, r: v / Math.max(med, 1) };
+  });
+  const anoms = rows.filter((r) => r.anom);
+  const top = [...anoms].sort((a, b) => b.r - a.r).slice(0, ANOM_TOP);
+  const label = (r) => `${MONTHS[r.info.m - 1]} ${r.info.y}`;
+  // a typical value under 1 cell-day makes a ratio meaningless, so say so instead
+  const times = (r) => (r.med < 1 ? "" : r.r >= 10 ? `${Math.round(r.r)}×` : `${r.r.toFixed(1)}×`);
+  const vsTyp = (r) => (r.med < 1 ? "where there is usually almost none" : `${times(r)} typical`);
+  const latest = anoms[anoms.length - 1];
+  const headline = anoms.length
+    ? `${anoms.length === 1 ? "One month was" : `${anoms.length} months were`} unusually high for the time of year; the biggest was ${label(top[0])}${top[0].med < 1 ? ` (${fmt(top[0].v)} cell-days ${vsTyp(top[0])})` : ` at ${vsTyp(top[0])}`}`
+    : "No month stood out as unusually high for its time of year";
+  const sub = anoms.length ? `Most recent: ${label(latest)} (${fmt(latest.v)} cell-days, ${vsTyp(latest)}).` : "";
+
+  const W = 560, H = 150, padL = 44, padR = 10, padT = 14, padB = 22;
+  const n = Math.max(rows.length, 1);
+  const bw = (W - padL - padR) / n;
+  const max = niceMax(Math.max(1, ...rows.map((r) => r.v)));
+  const y = (v) => padT + (H - padT - padB) * (1 - Math.max(v, 0) / max);
+  const x = (k) => padL + k * bw;
+  const w = Math.max(bw - (bw > 3 ? 1 : 0.3), 0.8);
+  const estK = rows.map((r, k) => (r.info.y < MEASURED_FROM ? k : -1)).filter((k) => k >= 0);
+  const estZone = estK.length ? `<rect x="${f1(x(estK[0]))}" y="${padT - 10}" width="${f1((estK[estK.length - 1] - estK[0] + 1) * bw)}" height="${H - padB - padT + 10}" class="est-zone"/>
+    <text x="${f1(x(estK[0]) + 4)}" y="${padT - 1}" class="tick">estimated</text>` : "";
+  const bars = rows.map((r, k) => `<path d="${col(x(k), w, y(r.v), y(0))}" class="mbar${r.anom ? " anom" : ""}${r.info.partial ? " partial" : ""}" data-m="${r.i}"/>`).join("");
+  const rug = rows.map((r, k) => `<rect x="${f1(x(k))}" y="${H - padB + 2}" width="${f1(Math.max(w, 1.2))}" height="3" class="rug${r.anom ? " on" : ""}"/>`).join("");
+  const xt = rows.map((r, k) => (r.info.m === 1 && r.info.y % 5 === 0 ? `<text x="${f1(x(k))}" y="${H - 6}" class="tick" text-anchor="middle">${r.info.y}</text>` : "")).join("");
+  const xs = rows.map((_, k) => x(k) + bw / 2);
+  crosshair("anom", xs, rows.map((r) => `<strong>${fmt(r.v)}</strong> cell-days<br><span class="muted">${label(r)}${r.info.y < MEASURED_FROM ? " · estimated" : ""}${r.info.partial ? " · partial month" : ""}</span>
+    ${Number.isFinite(r.med) ? `<br>${r.med < 1 ? "usually almost none" : `${times(r)} typical`} <span class="muted">(median ${fmt(r.med)}, 90th percentile ${fmt(r.q90)})</span>${r.anom ? `<br><b>Unusually high</b>` : ""}` : `<br><span class="muted">not compared</span>`}`), padT, H - padB);
+
+  const list = top.length ? `<ol class="anoms">${top.map((r) => `<li data-hl="${r.i}" tabindex="0">
+      <span class="ad">${LONG[r.info.m - 1]} ${r.info.y}${r.info.y < MEASURED_FROM ? ` <span class="est-tag">est.</span>` : ""}</span>
+      <span class="av">${fmt(r.v)}</span>
+      <span class="ar">${r.med < 1 ? `<span class="muted">usually ~0</span>` : `${times(r)} typical <span class="muted">(${fmt(r.med)})</span>`}</span></li>`).join("")}</ol>` : "";
+
+  return `<section class="cblock" data-b="anom">
+    <p class="kicker">Unusual months</p>
+    <p class="headline">${headline}</p>
+    ${sub ? `<p class="subcap">${sub}</p>` : ""}
+    <svg viewBox="0 0 ${W} ${H}" class="ychart" role="img" aria-label="Fire cell-days per month, unusually high months highlighted. ${headline}.">
+      ${estZone}${axis(max, y, padL, W - padR)}${bars}${rug}${xt}
+      <path d="M0,0" class="xh" hidden/><rect x="${padL}" y="${padT}" width="${W - padL - padR}" height="${H - padT - padB + 6}" class="hit" data-xh="anom"/></svg>
+    <ul class="legend"><li><span class="sw key-mbar"></span>month</li><li><span class="sw key-anom"></span>unusually high</li></ul>
+    ${list}
+    <p class="note">A month counts as unusually high when it is above the 90th percentile and above twice the median of
+      the same month in the other years shown, and at least ${ANOM_MIN} cell-days. Partial months are left out.</p>
+  </section>`;
+}
+
+// ---------- 3) this year vs typical
+
 function verdictWord(r) {
   if (!Number.isFinite(r)) return "about normal";
   if (r < 0.5) return "well below normal";
@@ -19,133 +260,186 @@ function verdictWord(r) {
   return "well above normal";
 }
 
-// One comparison: sentence, numbers, then a bullet chart.
 function bullet({ subject, ongoing, v, vals, years, nrt, big }) {
   const med = median(vals), q1 = quantile(vals, 0.25), q3 = quantile(vals, 0.75);
   const r = med > 0 ? v / med : v > 0 ? Infinity : 1;
   const word = med > 0 || v > 0 ? verdictWord(r) : "about normal";
   const sentence = `${subject} ${ongoing ? "is running" : "was"} ${word}`;
-  const ratio = med > 0 ? `${(v / med).toFixed(2)}×` : v > 0 ? "above a typical value of 0" : "";
-  const W = 560, H = 26, padL = 2, padR = 2;
+  const ratio = med > 0 ? `${(v / med).toFixed(2)}×` : "";
+  const W = 560, H = 26;
   const max = Math.max(v, q3 || 0, med || 0, 1e-9) * 1.08;
-  const x = (t) => padL + ((W - padL - padR) * t) / max;
-  const band = Number.isFinite(q1) ? `<rect x="${x(q1)}" y="3" width="${Math.max(x(q3) - x(q1), 1)}" height="${H - 6}" rx="3" class="bband"><title>Middle half of ${span(years)}: ${fmt(q1)}–${fmt(q3)}</title></rect>` : "";
-  const bar = `<rect x="${padL}" y="${H / 2 - 4}" width="${Math.max(x(v) - padL, 1)}" height="8" rx="2" class="bbar"><title>This year: ${fmt(v)}</title></rect>`;
-  const mark = Number.isFinite(med) ? `<line x1="${x(med)}" x2="${x(med)}" y1="2" y2="${H - 2}" class="bmed"><title>Typical (median ${span(years)}): ${fmt(med)}</title></line>` : "";
+  const x = (t) => 2 + ((W - 4) * t) / max;
+  const html = `<strong>${fmt(v)}</strong> cell-days<br><span class="muted">${subject}</span><br>typical ${fmt(med)} <span class="muted">(median ${span(years)})</span>
+    <br>middle half ${fmt(q1)}–${fmt(q3)}`;
   return `<div class="cmp${big ? "" : " small-cmp"}">
-    <p class="verdict">${sentence}${nrt ? `<span class="nrt-dot" title="Provisional near-real-time data"></span>` : ""}</p>
-    <p class="verdict-nums"><b>${fmt(v)}</b> this year · <span title="Median of ${span(years)}">${fmt(med)} typical</span>${ratio ? ` · ${ratio}` : ""}</p>
-    <svg viewBox="0 0 ${W} ${H}" class="bullet" preserveAspectRatio="none" role="img"
-      aria-label="${sentence}: ${fmt(v)} this year, typical ${fmt(med)}, middle half of past years ${fmt(q1)} to ${fmt(q3)}">${band}${bar}${mark}</svg>
+    <p class="${big ? "headline" : "verdict-sm"}">${sentence}${nrt ? `<span class="nrt-dot" title="Provisional near-real-time data"></span>` : ""}</p>
+    <p class="verdict-nums"><b>${fmt(v)}</b> this year · ${fmt(med)} typical${ratio ? ` · ${ratio}` : ""}</p>
+    <svg viewBox="0 0 ${W} ${H}" class="bullet" preserveAspectRatio="none" role="img" ${tip(html)}
+      aria-label="${sentence}: ${fmt(v)} this year, typical ${fmt(med)}, middle half of past years ${fmt(q1)} to ${fmt(q3)}">
+      <rect x="${f1(x(Number.isFinite(q1) ? q1 : 0))}" y="3" width="${f1(Number.isFinite(q1) ? Math.max(x(q3) - x(q1), 1) : 0)}" height="${H - 6}" rx="3" class="bband"/>
+      <rect x="2" y="${H / 2 - 4}" width="${f1(Math.max(x(v) - 2, 1))}" height="8" rx="2" class="bbar"/>
+      <rect x="${f1(x(Number.isFinite(med) ? med : 0) - 1.5)}" y="2" width="3" height="${H - 4}" class="bmed"/></svg>
   </div>`;
 }
 
-const BULLET_KEY = `<ul class="legend">
-  <li><span class="sw key-bbar"></span>this year</li>
-  <li><span class="sw key-bmed"></span>typical (median)</li>
-  <li><span class="sw key-bband"></span>middle half of past years</li></ul>`;
-
-function ordinal(n) {
-  const s = ["th", "st", "nd", "rd"], v = n % 100;
-  return `${n}${s[(v - 20) % 10] || s[v] || s[0]}`;
+function monthBullet(d, agg, i, yearFilter, big) {
+  const info = d.months[i];
+  const ys = [], vals = [];
+  for (let y = d.firstYear; y < info.y; y++) {
+    const j = d.monthIndex.get(y * 100 + info.m);
+    if (j === undefined || d.months[j].partial || !yearFilter(y)) continue;
+    ys.push(y);
+    vals.push(agg.totals[j]);
+  }
+  return bullet({ subject: `${LONG[info.m - 1]} ${info.y}`, ongoing: false, v: agg.totals[i], vals, years: ys,
+    nrt: info.source === "near_real_time", big });
 }
 
-// Cumulative year to date: every year as a thin line, the latest year in the accent colour.
 function cumulative(d, agg, yearsShown, yearFilter) {
   const Y = d.lastYear, last = d.lastMonth;
   const lines = [];
   for (const y of [...yearsShown].sort((a, b) => a - b)) {
-    let c = 0, est = false;
+    let c = 0;
     const pts = [];
     for (let m = 1; m <= 12; m++) {
       const i = d.monthIndex.get(y * 100 + m);
       if (i === undefined) { if (pts.length) break; continue; }
-      if (d.months[i].source.startsWith("estimated")) est = true;
       if (!pts.length) pts.push([m - 1, 0]);
       c += agg.totals[i];
       pts.push([m, c]);
     }
-    if (pts.length) lines.push({ y, pts, est: est && y < 2012, now: y === Y });
+    if (pts.length) lines.push({ y, pts, est: y < MEASURED_FROM, now: y === Y, full: pts[0][0] === 0 && pts.length === 13 });
   }
-  // rank this year against every other full year at the same point (to the last day of data)
   const nDays = monthDays(last);
   const sameDay = (y) => {
     let c = 0;
     for (let m = 1; m < last.m; m++) { const i = d.monthIndex.get(y * 100 + m); if (i !== undefined) c += agg.totals[i]; }
-    if (y === Y) { const i = d.monthIndex.get(y * 100 + last.m); if (i !== undefined) c += agg.totals[i]; } // its own days 1..N
-    else if (last.partial) c += agg.sameDays.get(y) || 0;
-    else { const i = d.monthIndex.get(y * 100 + last.m); if (i !== undefined) c += agg.totals[i]; }
+    if (y === Y || !last.partial) { const i = d.monthIndex.get(y * 100 + last.m); if (i !== undefined) c += agg.totals[i]; }
+    else c += agg.sameDays.get(y) || 0;
     return c;
   };
-  const others = lines.filter((l) => !l.now && yearFilter(l.y) && d.monthIndex.has(l.y * 100 + 1)).map((l) => l.y);
+  const others = lines.filter((l) => !l.now && l.full && yearFilter(l.y)).map((l) => l.y);
   const cur = sameDay(Y);
-  const lower = others.filter((y) => sameDay(y) < cur).length;
   const rank = others.filter((y) => sameDay(y) > cur).length + 1;
   const dateTxt = `${nDays} ${MONTHS[last.m - 1]}`;
-  const caption = others.length ? `${Y} to ${dateTxt}: ${fmt(cur)} cell-days, ${rank === 1 ? "the highest" : `the ${ordinal(rank)} highest`} of ${others.length + 1} years at this date; more than ${lower} of the ${others.length} years ${span(others)}.` : "";
+  const headline = others.length
+    ? `${Y} to ${dateTxt}: ${rank === 1 ? "the highest" : `the ${ordinal(rank)} highest`} of ${others.length + 1} years at this date`
+    : `${Y} to ${dateTxt}`;
+  const sub = others.length ? `${fmt(cur)} cell-days so far; the typical year had ${fmt(median(others.map(sameDay)))} by this date (median ${span(others)}).` : "";
 
-  const W = 560, H = 210, padL = 50, padR = 12, padB = 22, padT = 10;
-  const max = Math.max(1, ...lines.map((l) => l.pts[l.pts.length - 1][1]));
+  const W = 560, H = 190, padL = 44, padR = 40, padB = 22, padT = 10;
+  const max = niceMax(Math.max(1, ...lines.map((l) => l.pts[l.pts.length - 1][1])));
   const x = (m) => padL + (m * (W - padL - padR)) / 12;
   const yy = (v) => padT + (H - padT - padB) * (1 - v / max);
-  const ticks = [0, max / 2, max].map((v) => `<g><line x1="${padL}" x2="${W - padR}" y1="${yy(v)}" y2="${yy(v)}" class="grid"/>
-      <text x="${padL - 6}" y="${yy(v) + 4}" class="tick" text-anchor="end">${fmtShort(v)}</text></g>`).join("");
-  const path = (l) => `M${l.pts.map(([m, v]) => `${x(m).toFixed(1)},${yy(v).toFixed(1)}`).join("L")}`;
-  const back = lines.filter((l) => !l.now).map((l) => `<path d="${path(l)}" class="cum${l.est ? " est" : ""}"><title>${l.y}: ${fmt(l.pts[l.pts.length - 1][1])} cell-days${l.est ? " (estimated)" : ""}</title></path>`).join("");
+  const path = (l) => `M${l.pts.map(([m, v]) => `${f1(x(m))},${f1(yy(v))}`).join("L")}`;
+  const back = lines.filter((l) => !l.now).map((l) => `<path d="${path(l)}" class="cum${l.est ? " est" : ""}"/>`).join("");
   const nowL = lines.find((l) => l.now);
   const end = nowL ? nowL.pts[nowL.pts.length - 1] : null;
-  const front = nowL ? `<path d="${path(nowL)}" class="cum-now"><title>${Y} to ${dateTxt}: ${fmt(cur)} cell-days</title></path>
-      <text x="${x(end[0]) + 4}" y="${yy(end[1]) - 4}" class="tick strong">${Y}</text>` : "";
-  const xt = MONTHS.map((m, k) => `<text x="${x(k + 0.5)}" y="${H - 6}" class="tick" text-anchor="middle">${m[0]}</text>`).join("");
-  return `<h3 class="gap">Year to date</h3>
-    <p class="caption">${caption}</p>
-    <svg viewBox="0 0 ${W} ${H}" class="ychart" role="img" aria-label="Cumulative fire cell-days through the year for every year, ${Y} highlighted. ${caption}">${ticks}${back}${front}${xt}</svg>
-    <ul class="legend"><li><span class="sw key-cumnow"></span>${Y}</li><li><span class="sw key-cum"></span>measured years</li>
-      <li><span class="sw key-cum dash"></span>estimated years</li></ul>`;
+  const front = nowL ? `<path d="${path(nowL)}" class="cum-now"/><text x="${f1(x(end[0]) + 5)}" y="${f1(yy(end[1]) + 3.5)}" class="tick strong">${Y}</text>` : "";
+  const xt = MONTHS.map((m, k) => `<text x="${f1(x(k + 0.5))}" y="${H - 7}" class="tick" text-anchor="middle">${m[0]}</text>`).join("");
+  // crosshair: month ends 1..12
+  const full = lines.filter((l) => !l.now && l.full && yearFilter(l.y));
+  const rows = MONTHS.map((_, k) => {
+    const m = k + 1;
+    const vals = full.map((l) => [l.y, l.pts[m][1]]);
+    const hiY = vals.reduce((a, b) => (b[1] > a[1] ? b : a), [0, -1]);
+    const now = nowL && nowL.pts.find((p) => p[0] === m);
+    return `<span class="muted">to the end of ${LONG[k]}</span>${now ? `<br><strong>${fmt(now[1])}</strong> in ${Y}${m === last.m && last.partial ? ` <span class="muted">(to ${dateTxt})</span>` : ""}` : ""}
+      ${vals.length ? `<br>${fmt(median(vals.map((v) => v[1])))} typical<br>${fmt(hiY[1])} highest <span class="muted">(${hiY[0]})</span>` : ""}`;
+  });
+  crosshair("ytd", MONTHS.map((_, k) => x(k + 1)), rows, padT, H - padB);
+  return `<div class="sub-chart" data-c="ytd">
+    <p class="ctitle">Year to date</p>
+    <p class="headline sm">${headline}</p>
+    ${sub ? `<p class="subcap">${sub}</p>` : ""}
+    <svg viewBox="0 0 ${W} ${H}" class="ychart" role="img" aria-label="Cumulative fire cell-days through the year for every year, ${Y} highlighted. ${headline}.">
+      ${axis(max, yy, padL, W - padR)}${back}${front}${xt}
+      <path d="M0,0" class="xh" hidden/><rect x="${padL}" y="${padT}" width="${W - padL - padR}" height="${H - padT - padB}" class="hit" data-xh="ytd"/></svg>
+    <ul class="legend"><li><span class="sw key-cumnow"></span>${Y}</li><li><span class="sw key-cum"></span>other years</li>
+      <li><span class="sw key-cum dash"></span>estimated years</li></ul></div>`;
 }
 
-// Seasonal profile: median by month (middle-half band) over complete months, latest year on top.
 function seasonal(d, agg, medianYears) {
   const per = MONTHS.map((_, k) => medianYears.map((y) => {
     const i = d.monthIndex.get(y * 100 + k + 1);
     return i === undefined || d.months[i].partial ? NaN : agg.totals[i];
   }).filter(Number.isFinite));
-  const used = new Set();
-  medianYears.forEach((y) => MONTHS.forEach((_, k) => {
-    const i = d.monthIndex.get(y * 100 + k + 1);
-    if (i !== undefined && !d.months[i].partial) used.add(y);
-  }));
   const med = per.map((v) => median(v)), q1 = per.map((v) => quantile(v, 0.25)), q3 = per.map((v) => quantile(v, 0.75));
   const Y = d.lastYear;
   const cur = MONTHS.map((_, k) => {
     const i = d.monthIndex.get(Y * 100 + k + 1);
     return i === undefined ? null : { v: agg.totals[i], partial: d.months[i].partial, nrt: d.months[i].source === "near_real_time" };
   });
-  const W = 560, H = 190, padL = 50, padR = 12, padB = 22, padT = 12;
-  const max = Math.max(1, ...q3.filter(Number.isFinite), ...cur.filter(Boolean).map((c) => c.v));
-  const x = (k) => padL + (k * (W - padL - padR)) / 11;
-  const y = (v) => padT + (H - padT - padB) * (1 - v / max);
-  const ticks = [0, max / 2, max].map((v) => `<g><line x1="${padL}" x2="${W - padR}" y1="${y(v)}" y2="${y(v)}" class="grid"/>
-      <text x="${padL - 6}" y="${y(v) + 4}" class="tick" text-anchor="end">${fmtShort(v)}</text></g>`).join("");
-  const band = `M${q3.map((v, k) => `${x(k)},${y(v || 0)}`).join("L")}L${q1.map((v, k) => `${x(k)},${y(v || 0)}`).reverse().join("L")}Z`;
-  const medPath = `M${med.map((v, k) => `${x(k)},${y(v || 0)}`).join("L")}`;
+  const complete = cur.map((c, k) => (c && !c.partial && Number.isFinite(med[k]) ? k : -1)).filter((k) => k >= 0);
+  const above = complete.filter((k) => cur[k].v > med[k]).length;
+  const peak = med.reduce((a, v, k) => (v > med[a] ? k : a), 0);
+  const headline = complete.length
+    ? `${above} of ${complete.length} complete months in ${Y} were above typical`
+    : `No complete month yet in ${Y}`;
+  const sub = med[peak] > 0 ? `Fire here usually peaks in ${LONG[peak]} (median ${fmt(med[peak])} cell-days, ${span(medianYears)}).` : "";
+
+  const W = 560, H = 170, padL = 44, padR = 40, padB = 22, padT = 10;
+  const max = niceMax(Math.max(1, ...q3.filter(Number.isFinite), ...cur.filter(Boolean).map((c) => c.v)));
+  const x = (k) => padL + 6 + (k * (W - padL - padR - 12)) / 11;
+  const y = (v) => padT + (H - padT - padB) * (1 - (v || 0) / max);
+  const band = `M${q3.map((v, k) => `${f1(x(k))},${f1(y(v))}`).join("L")}L${q1.map((v, k) => `${f1(x(k))},${f1(y(v))}`).reverse().join("L")}Z`;
+  const medPath = `M${med.map((v, k) => `${f1(x(k))},${f1(y(v))}`).join("L")}`;
   const pts = cur.map((c, k) => (c ? [k, c] : null)).filter(Boolean);
-  const curPath = pts.length ? `M${pts.map(([k, c]) => `${x(k)},${y(c.v)}`).join("L")}` : "";
-  const dots = pts.map(([k, c]) => `<circle cx="${x(k)}" cy="${y(c.v)}" r="3" class="${c.partial ? "dot-partial" : "dot-now"}">
-      <title>${MONTHS[k]} ${Y}: ${fmt(c.v)} cell-days${c.partial ? ", partial month" : ""}${c.nrt ? ", near real time" : ""} · typical ${fmt(med[k])}</title></circle>`).join("");
-  const xt = MONTHS.map((m, k) => `<text x="${x(k)}" y="${H - 6}" class="tick" text-anchor="middle">${m[0]}</text>`).join("");
-  return `<h3 class="gap">Seasonal profile</h3>
-    <svg viewBox="0 0 ${W} ${H}" class="ychart" role="img" aria-label="Typical fire cell-days by month with ${Y} overlaid">
-      ${ticks}<path d="${band}" class="iqr"/><path d="${medPath}" class="medcurve"/><path d="${curPath}" class="nowcurve"/>${dots}${xt}</svg>
+  const curPath = pts.length ? `M${pts.map(([k, c]) => `${f1(x(k))},${f1(y(c.v))}`).join("L")}` : "M0,0";
+  const dots = pts.map(([k, c]) => `<circle cx="${f1(x(k))}" cy="${f1(y(c.v))}" r="3.5" class="${c.partial ? "dot-partial" : "dot-now"}"/>`).join("");
+  const lastPt = pts[pts.length - 1];
+  const endLab = lastPt ? `<text x="${f1(x(lastPt[0]) + 7)}" y="${f1(y(lastPt[1].v) + 3.5)}" class="tick strong">${Y}</text>` : "";
+  const xt = MONTHS.map((m, k) => `<text x="${f1(x(k))}" y="${H - 7}" class="tick" text-anchor="middle">${m[0]}</text>`).join("");
+  crosshair("season", MONTHS.map((_, k) => x(k)), MONTHS.map((_, k) => {
+    const c = cur[k];
+    return `<span class="muted">${LONG[k]}</span>${c ? `<br><strong>${fmt(c.v)}</strong> in ${Y}${c.partial ? ` <span class="muted">(partial)</span>` : ""}${c.nrt ? ` <span class="muted">· provisional</span>` : ""}` : ""}
+      <br>${fmt(med[k])} typical<br><span class="muted">middle half ${fmt(q1[k])}–${fmt(q3[k])}</span>`;
+  }), padT, H - padB);
+  return `<div class="sub-chart" data-c="season">
+    <p class="ctitle">Seasonal profile</p>
+    <p class="headline sm">${headline}</p>
+    ${sub ? `<p class="subcap">${sub}</p>` : ""}
+    <svg viewBox="0 0 ${W} ${H}" class="ychart" role="img" aria-label="Typical fire cell-days by month with ${Y} overlaid. ${headline}.">
+      ${axis(max, y, padL, W - padR)}<path d="${band}" class="iqr"/><path d="${medPath}" class="medcurve"/><path d="${curPath}" class="nowcurve"/>${dots}${endLab}${xt}
+      <path d="M0,0" class="xh" hidden/><rect x="${padL}" y="${padT}" width="${W - padL - padR}" height="${H - padT - padB}" class="hit" data-xh="season"/></svg>
     <ul class="legend">
       <li><span class="sw key-now"></span>${Y}</li>
-      <li title="Median of complete months ${span([...used])}"><span class="sw key-medcurve"></span>typical ${short([...used])}</li>
+      <li><span class="sw key-medcurve"></span>typical (median ${span(medianYears)})</li>
       <li><span class="sw key-iqr"></span>middle half of years</li>
       <li><span class="sw key-hollow"></span>partial month</li>
-    </ul>`;
+    </ul></div>`;
 }
 
-// Raw view: each satellite's own yearly cell-days. Colour = instrument, dashes = satellite.
+function thisYearBlock(d, agg, years, yearFilter, medianYears) {
+  const lastI = d.months.length - 1;
+  const last = d.months[lastI];
+  let html = "";
+  const sd = d.manifest.same_days;
+  if (last.partial && sd && sd.month === last.m) {
+    const n = monthDays(last);
+    const ys = sd.years.filter(yearFilter);
+    html += bullet({ subject: `1–${n} ${MONTHS[last.m - 1]} ${last.y}`, ongoing: true, v: agg.totals[lastI],
+      vals: ys.map((y) => agg.sameDays.get(y) || 0), years: ys, nrt: last.source === "near_real_time", big: true });
+  } else {
+    html += monthBullet(d, agg, lastI, yearFilter, true);
+  }
+  let j = lastI;
+  while (j > 0 && d.months[j].partial) j--;
+  if (j !== lastI) html += monthBullet(d, agg, j, yearFilter, false);
+  return `<section class="cblock" data-b="now">
+    <p class="kicker">This year vs typical</p>
+    ${html}
+    <ul class="legend">
+      <li><span class="sw key-bbar"></span>this year</li>
+      <li><span class="sw key-bmed"></span>typical (median)</li>
+      <li><span class="sw key-bband"></span>middle half of past years</li></ul>
+    ${cumulative(d, agg, years, yearFilter)}
+    ${seasonal(d, agg, medianYears)}
+  </section>`;
+}
+
+// ---------- raw view: each satellite's own yearly cell-days
+
 const SENSORS = [["terra", "MODIS Terra", "modis", false], ["aqua", "MODIS Aqua", "modis", true],
   ["snpp", "VIIRS S-NPP", "viirs", false], ["noaa20", "VIIRS NOAA-20", "viirs", true]];
 function rawYearly(d, agg, years) {
@@ -162,108 +456,134 @@ function rawYearly(d, agg, years) {
     });
     return { p, name, inst, dash, pts };
   });
-  const W = 560, H = 210, padL = 50, padR = 96, padB = 22, padT = 12;
-  const max = Math.max(1, ...series.flatMap((s) => s.pts.filter(Number.isFinite)));
+  const W = 560, H = 210, padL = 44, padR = 96, padB = 22, padT = 12;
+  const max = niceMax(Math.max(1, ...series.flatMap((s) => s.pts.filter(Number.isFinite))));
   const x = (j) => padL + (j * (W - padL - padR)) / Math.max(ys.length - 1, 1);
   const y = (v) => padT + (H - padT - padB) * (1 - v / max);
-  const ticks = [0, max / 2, max].map((v) => `<g><line x1="${padL}" x2="${W - padR}" y1="${y(v)}" y2="${y(v)}" class="grid"/>
-    <text x="${padL - 6}" y="${y(v) + 4}" class="tick" text-anchor="end">${fmt(v)}</text></g>`).join("");
-  const step = ys.indexOf(2012);
-  const stepLine = step > 0 ? `<line x1="${x(step)}" x2="${x(step)}" y1="${padT}" y2="${H - padB}" class="stepline"/>
-    <text x="${x(step) + 4}" y="${padT + 10}" class="tick strong">VIIRS starts</text>` : "";
+  const step = ys.indexOf(MEASURED_FROM);
+  const stepLine = step > 0 ? `<path d="M${f1(x(step))},${padT}V${H - padB}" class="stepline"/>
+    <text x="${f1(x(step) + 4)}" y="${padT + 10}" class="tick strong">VIIRS starts</text>` : "";
   const lines = series.map((s) => {
     let dpath = "", pen = false, lastJ = -1;
     s.pts.forEach((v, j) => {
       if (!Number.isFinite(v)) { pen = false; return; }
-      dpath += `${pen ? "L" : "M"}${x(j).toFixed(1)},${y(v).toFixed(1)}`;
+      dpath += `${pen ? "L" : "M"}${f1(x(j))},${f1(y(v))}`;
       pen = true; lastJ = j;
     });
     s.end = lastJ >= 0 ? { x: x(lastJ) + 6, y: y(s.pts[lastJ]) + 4 } : null;
-    const dots = s.pts.map((v, j) => Number.isFinite(v) ? `<circle cx="${x(j)}" cy="${y(v)}" r="2" class="${s.inst}"><title>${s.name} ${ys[j]}: ${fmt(v)} cell-days</title></circle>` : "").join("");
-    return `<path d="${dpath}" class="rawline ${s.inst}${s.dash ? " dash" : ""}"/>${dots}`;
+    return `<path d="${dpath || "M0,0"}" class="rawline ${s.inst}${s.dash ? " dash" : ""}"/>`;
   }).join("");
   const ends = series.filter((s) => s.end).sort((a, b) => a.end.y - b.end.y);
   for (let k = 1; k < ends.length; k++) ends[k].end.y = Math.max(ends[k].end.y, ends[k - 1].end.y + 12);
   const over = ends.length ? ends[ends.length - 1].end.y - (H - padB) : 0;
   if (over > 0) ends.forEach((s) => { s.end.y -= over; });
-  const labels = ends.map((s) => `<text x="${s.end.x}" y="${s.end.y}" class="tick strong">${s.name}</text>`).join("");
+  const labels = ends.map((s) => `<text x="${f1(s.end.x)}" y="${f1(s.end.y)}" class="tick strong">${s.name}</text>`).join("");
   const every = ys.length > 16 ? 5 : 1;
-  const xt = ys.map((yy, j) => yy % every === 0 ? `<text x="${x(j)}" y="${H - 6}" class="tick" text-anchor="middle">${yy}</text>` : "").join("");
-  return `<h3 title="Each satellite's own count, not converted. VIIRS sees about four times more fire cell-days than MODIS, so the record steps up in 2012. The comparison with normal is in the harmonised view.">Yearly totals by satellite, raw</h3>
-    <svg viewBox="0 0 ${W} ${H}" class="ychart" role="img" aria-label="Raw fire cell-days per year for each satellite">${ticks}${stepLine}${lines}${labels}${xt}</svg>
-    <ul class="legend">${SENSORS.map(([, n, inst, dash]) => `<li><span class="sw key-${inst}${dash ? " dash" : ""}"></span>${n}</li>`).join("")}</ul>`;
+  const xt = ys.map((yy, j) => (yy % every === 0 ? `<text x="${f1(x(j))}" y="${H - 7}" class="tick" text-anchor="middle">${yy}</text>` : "")).join("");
+  crosshair("raw", ys.map((_, j) => x(j)), ys.map((yr, j) => `<span class="muted">${yr}, raw cell-days</span>${series
+    .filter((s) => Number.isFinite(s.pts[j])).map((s) => `<br><strong>${fmt(s.pts[j])}</strong> ${s.name}`).join("")}`), padT, H - padB);
+  return `<section class="cblock" data-b="raw">
+    <p class="kicker">Yearly totals by satellite, raw</p>
+    <p class="headline">Each satellite's own count, not converted</p>
+    <p class="subcap">VIIRS sees about four times more fire cell-days than MODIS, so the raw record steps up in 2012.
+      Trends and unusual months are in the harmonised view.</p>
+    <svg viewBox="0 0 ${W} ${H}" class="ychart" role="img" aria-label="Raw fire cell-days per year for each satellite">
+      ${axis(max, y, padL, W - padR)}${stepLine}${lines}${labels}${xt}
+      <path d="M0,0" class="xh" hidden/><rect x="${padL}" y="${padT}" width="${W - padL - padR}" height="${H - padT - padB}" class="hit" data-xh="raw"/></svg>
+    <ul class="legend">${SENSORS.map(([, n, inst, dash]) => `<li><span class="sw key-${inst}${dash ? " dash" : ""}"></span>${n}</li>`).join("")}</ul>
+  </section>`;
+}
+
+// ---------- patching in place, so marks animate between selections
+
+const sig = (n) => (n.nodeType === 1 ? `${n.nodeName}(${[...n.childNodes].map(sig).join(",")})` : "#");
+function patch(a, b) {
+  if (a.nodeType !== 1) { if (a.nodeValue !== b.nodeValue) a.nodeValue = b.nodeValue; return; }
+  for (const { name } of [...a.attributes]) if (!b.hasAttribute(name)) a.removeAttribute(name);
+  for (const { name, value } of [...b.attributes]) if (a.getAttribute(name) !== value) a.setAttribute(name, value);
+  if (a.nodeName === "INPUT") { a.checked = b.hasAttribute("checked"); a.disabled = b.hasAttribute("disabled"); }
+  const ac = a.childNodes, bc = b.childNodes;
+  for (let k = 0; k < ac.length; k++) patch(ac[k], bc[k]);
+}
+function morph(el, html) {
+  const next = document.createElement("div");
+  next.innerHTML = html;
+  const nb = [...next.children], ob = [...el.children];
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (reduce || nb.length !== ob.length || nb.some((b, k) => b.dataset.b !== ob[k].dataset.b)) {
+    el.replaceChildren(...nb);
+    if (!reduce) nb.forEach((b) => b.classList.add("fadein"));
+    return;
+  }
+  nb.forEach((b, k) => {
+    const a = ob[k];
+    if (sig(a) === sig(b)) patch(a, b);
+    else { b.classList.add("fadein"); a.replaceWith(b); }
+  });
+}
+
+// ---------- tooltips, crosshairs and the estimated-years switch (bound once)
+
+let LAST = null;
+function bind(el) {
+  if (el.dataset.bound) return;
+  el.dataset.bound = "1";
+  const tipEl = document.getElementById("tip");
+  const show = (html, px, py) => {
+    tipEl.innerHTML = html;
+    tipEl.hidden = false;
+    const r = tipEl.getBoundingClientRect();
+    tipEl.style.left = `${Math.max(8, Math.min(px + 14, innerWidth - r.width - 8))}px`;
+    tipEl.style.top = `${Math.max(8, Math.min(py + 14, innerHeight - r.height - 8))}px`;
+  };
+  const hideXh = () => el.querySelectorAll(".xh:not([hidden])").forEach((p) => p.setAttribute("hidden", ""));
+  const hide = () => { tipEl.hidden = true; hideXh(); };
+  el.addEventListener("pointermove", (e) => {
+    const t = e.target.closest("[data-tip]");
+    if (t) { hideXh(); show(TIPS[+t.dataset.tip], e.clientX, e.clientY); return; }
+    const o = e.target.closest("[data-xh]");
+    const spec = o && XH[o.dataset.xh];
+    if (!spec) { hide(); return; }
+    const svg = o.ownerSVGElement, r = svg.getBoundingClientRect();
+    const vx = ((e.clientX - r.left) * svg.viewBox.baseVal.width) / r.width;
+    let k = 0;
+    spec.xs.forEach((xv, j) => { if (Math.abs(xv - vx) < Math.abs(spec.xs[k] - vx)) k = j; });
+    const line = svg.querySelector(".xh");
+    line.setAttribute("d", `M${f1(spec.xs[k])},${spec.top}V${spec.bottom}`);
+    line.removeAttribute("hidden");
+    show(spec.rows[k], e.clientX, e.clientY);
+  });
+  el.addEventListener("pointerleave", hide);
+  el.addEventListener("focusin", (e) => {
+    const t = e.target.closest("[data-tip]");
+    if (t) { const r = t.getBoundingClientRect(); show(TIPS[+t.dataset.tip], r.left + r.width / 2, r.top); }
+    const li = e.target.closest("[data-hl]");
+    if (li) highlight(li.dataset.hl);
+  });
+  el.addEventListener("focusout", () => { tipEl.hidden = true; highlight(null); });
+  const highlight = (m) => {
+    el.querySelectorAll(".mbar.hl").forEach((n) => n.classList.remove("hl"));
+    if (m != null) el.querySelectorAll(`.mbar[data-m="${m}"]`).forEach((n) => n.classList.add("hl"));
+  };
+  el.addEventListener("pointerover", (e) => {
+    const li = e.target.closest("[data-hl]");
+    highlight(li ? li.dataset.hl : null);
+  });
+  el.addEventListener("change", (e) => {
+    if (e.target.id !== "trend-est" || !LAST) return;
+    includeEst = e.target.checked;
+    renderCompare(...LAST);
+  });
 }
 
 export function renderCompare(el, d, agg, opts) {
+  LAST = [el, d, agg, opts];
+  bind(el);
+  TIPS = [];
+  XH = {};
   const { yearFilter, totals, mode = "harmonised", years, medianYears = [] } = opts;
-  if (mode === "raw") { el.innerHTML = rawYearly(d, agg, years); return; }
-  const lastI = d.months.length - 1;
-  const last = d.months[lastI];
-  let html = "";
-
-  // 1) latest month: if partial, compare the same days in earlier years
-  const sd = d.manifest.same_days;
-  if (last.partial && sd && sd.month === last.m) {
-    const n = monthDays(last);
-    const ys = sd.years.filter(yearFilter);
-    html += bullet({ subject: `1–${n} ${MONTHS[last.m - 1]} ${last.y}`, ongoing: true, v: agg.totals[lastI],
-      vals: ys.map((y) => agg.sameDays.get(y) || 0), years: ys, nrt: last.source === "near_real_time", big: true });
-  } else {
-    html += monthBullet(d, agg, lastI, yearFilter, true);
-  }
-  // 2) last complete month
-  let j = lastI;
-  while (j > 0 && d.months[j].partial) j--;
-  if (j !== lastI) html += monthBullet(d, agg, j, yearFilter, false);
-  html += BULLET_KEY;
-
-  html += cumulative(d, agg, years, yearFilter);
-  html += seasonal(d, agg, medianYears);
-
-  // yearly totals
-  const rows = totals.filter((t) => Number.isFinite(t.s)).sort((a, b) => a.y - b.y);
-  const medYears = rows.filter((t) => !t.partial && t.y < d.lastYear).map((t) => t.y);
-  const medY = median(rows.filter((t) => medYears.includes(t.y)).map((t) => t.s));
-  const W = 560, H = 200, padL = 50, padB = 22, padT = 12;
-  const max = Math.max(...rows.map((t) => t.est ? t.hi : t.s), medY || 0, 1);
-  const bw = (W - padL - 8) / rows.length;
-  const y = (v) => padT + (H - padT - padB) * (1 - v / max);
-  const ticks = [0, max / 2, max].map((v) => `<g><line x1="${padL}" x2="${W - 4}" y1="${y(v)}" y2="${y(v)}" class="grid"/>
-      <text x="${padL - 6}" y="${y(v) + 4}" class="tick" text-anchor="end">${fmtShort(v)}</text></g>`).join("");
-  const every = rows.length > 16 ? 5 : 1;
-  const barsSvg = rows.map((t, k) => {
-    const x = padL + k * bw + 1, w = Math.max(bw - 2, 1);
-    const lbl = `${t.y}: ${fmt(t.s)}${t.est ? ` (${fmt(t.lo)}–${fmt(t.hi)})` : ""} cell-days${t.est ? ", estimated" : ""}${t.partial ? ", part of year" : ""}`;
-    const err = t.est ? `<line x1="${x + w / 2}" x2="${x + w / 2}" y1="${y(t.hi)}" y2="${y(t.lo)}" class="err"/>` : "";
-    return `<g><rect x="${x}" y="${y(t.s)}" width="${w}" height="${Math.max(y(0) - y(t.s), 0)}" rx="2"
-        class="ybar${t.est ? " est" : ""}${t.partial ? " partial" : ""}${t.y === d.lastYear ? " current" : ""}"><title>${lbl}</title></rect>${err}
-      ${t.y % every === 0 ? `<text x="${x + w / 2}" y="${H - 6}" class="tick" text-anchor="middle">${t.y}</text>` : ""}</g>`;
-  }).join("");
-  const medLine = Number.isFinite(medY) ? `<line x1="${padL}" x2="${W - 4}" y1="${y(medY)}" y2="${y(medY)}" class="medline"/>` : "";
-  html += `<h3 class="gap">Yearly totals</h3>
-    <svg viewBox="0 0 ${W} ${H}" class="ychart" role="img" aria-label="Fire cell-days per year for the selected area">
-      <defs><pattern id="hatch" width="5" height="5" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
-        <rect width="5" height="5" class="hatch-bg"/><line x1="0" y1="0" x2="0" y2="5" class="hatch-line"/></pattern></defs>
-      ${ticks}${barsSvg}${medLine}</svg>
-    <ul class="legend">
-      <li><span class="sw key-bar"></span>measured</li>
-      <li><span class="sw key-hatch"></span>estimated</li>
-      <li><span class="sw key-line"></span>likely range</li>
-      <li><span class="sw key-light"></span>${d.lastYear} (to date)</li>
-      <li title="Median of complete years ${span(medYears)}"><span class="sw key-dash"></span>typical ${short(medYears)} (${fmtShort(medY)})</li>
-    </ul>`;
-  el.innerHTML = html;
-}
-
-function monthBullet(d, agg, i, yearFilter, big) {
-  const info = d.months[i];
-  const ys = [], vals = [];
-  for (let y = d.firstYear; y < info.y; y++) {
-    const j = d.monthIndex.get(y * 100 + info.m);
-    if (j === undefined || d.months[j].partial || !yearFilter(y)) continue;
-    ys.push(y);
-    vals.push(agg.totals[j]);
-  }
-  return bullet({ subject: `${LONG[info.m - 1]} ${info.y}`, ongoing: false, v: agg.totals[i], vals, years: ys,
-    nrt: info.source === "near_real_time", big });
+  if (mode === "raw") { morph(el, rawYearly(d, agg, years)); return; }
+  const observedOnly = !yearFilter(MEASURED_FROM - 1);
+  morph(el, trendBlock(d, totals, yearFilter, observedOnly) + anomalyBlock(d, agg, years)
+    + thisYearBlock(d, agg, years, yearFilter, medianYears));
 }

@@ -6,7 +6,9 @@
 //
 // Responses are cached for 15 minutes: the FIRMS request is cached at Cloudflare's edge
 // (cf.cacheTtl) and in the isolate's memory. The bbox is rounded outward to 0.5 degrees so
-// nearby views share cache entries.
+// nearby views share cache entries. Every point is filtered to Canada (point in polygon against the
+// Natural Earth boundary also used for the harmonised data), so nothing spills over the border.
+import { CANADA_POLYGONS } from "./canada.js";
 
 const SOURCES = { noaa20: "VIIRS_NOAA20_NRT", noaa21: "VIIRS_NOAA21_NRT" };
 const DAYS = new Set(["1", "2", "3", "7"]);
@@ -20,6 +22,7 @@ function corsHeaders(request) {
   return {
     "Access-Control-Allow-Origin": ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0],
     "Access-Control-Allow-Methods": "GET, OPTIONS",
+    "Access-Control-Expose-Headers": "X-Cache, X-Outside-Canada-Dropped",
     Vary: "Origin",
   };
 }
@@ -35,6 +38,40 @@ function parseBbox(v) {
   e = Math.min(180, Math.ceil(e * 2) / 2); n = Math.min(90, Math.ceil(n * 2) / 2);
   if (w >= e || s >= n || e - w > MAX_SPAN.lon || n - s > MAX_SPAN.lat) return null;
   return [w, s, e, n];
+}
+
+// Even-odd ray casting over all rings of a polygon (exterior and holes).
+function inPolygon(x, y, rings) {
+  let inside = false;
+  for (const ring of rings) {
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+      const [xi, yi] = ring[i], [xj, yj] = ring[j];
+      if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
+    }
+  }
+  return inside;
+}
+export function inCanada(lon, lat) {
+  for (const p of CANADA_POLYGONS) {
+    const [w, s, e, n] = p.bbox;
+    if (lon < w || lon > e || lat < s || lat > n) continue;
+    if (inPolygon(lon, lat, p.rings)) return true;
+  }
+  return false;
+}
+function keepCanada(csv) {
+  const lines = csv.split("\n");
+  const head = lines[0].split(",");
+  const iLat = head.indexOf("latitude"), iLon = head.indexOf("longitude");
+  const out = [lines[0]];
+  let dropped = 0;
+  for (let k = 1; k < lines.length; k++) {
+    const line = lines[k];
+    if (!line) continue;
+    const c = line.split(",");
+    if (inCanada(+c[iLon], +c[iLat])) out.push(line); else dropped++;
+  }
+  return { body: out.join("\n") + "\n", dropped };
 }
 
 export default {
@@ -57,7 +94,9 @@ export default {
     const key = `${source}/${days}/${bbox.join(",")}`;
     const hit = memory.get(key);
     const headers = { ...cors, "Content-Type": "text/csv; charset=utf-8", "Cache-Control": `public, max-age=${TTL_S}` };
-    if (hit && Date.now() - hit.t < TTL_S * 1000) return new Response(hit.body, { headers: { ...headers, "X-Cache": "memory" } });
+    if (hit && Date.now() - hit.t < TTL_S * 1000) {
+      return new Response(hit.body, { headers: { ...headers, "X-Cache": "memory", "X-Outside-Canada-Dropped": String(hit.dropped) } });
+    }
 
     // FIRMS allows at most 5 days per request: longer windows are fetched in dated chunks.
     const base = `https://firms.modaps.eosdis.nasa.gov/api/area/csv/${env.FIRMS_MAP_KEY}/${SOURCES[source]}/${bbox.join(",")}`;
@@ -82,10 +121,13 @@ export default {
       }
       const text = await res.text();
       if (!res.ok || !text.startsWith("latitude")) return json({ error: `FIRMS error (${res.status})` }, cors, 502);
-      body += body ? text.slice(text.indexOf("\n") + 1) : text;
+      const part = body ? text.slice(text.indexOf("\n") + 1) : text; // drop repeated header
+      body += part.endsWith("\n") || !part ? part : part + "\n"; // chunks may lack a final newline
     }
-    memory.set(key, { t: Date.now(), body });
+    const filtered = keepCanada(body);
+    body = filtered.body;
+    memory.set(key, { t: Date.now(), body, dropped: filtered.dropped });
     if (memory.size > 200) memory.delete(memory.keys().next().value);
-    return new Response(body, { headers: { ...headers, "X-Cache": "miss" } });
+    return new Response(body, { headers: { ...headers, "X-Cache": "miss", "X-Outside-Canada-Dropped": String(filtered.dropped) } });
   },
 };

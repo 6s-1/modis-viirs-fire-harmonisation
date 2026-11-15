@@ -1,19 +1,23 @@
-# Harmonised MODIS and VIIRS fire record for Canada
+# Ember
+
+**Harmonised MODIS + VIIRS fire activity for Canada.**
 
 NASA Space Apps 2026 challenge: *Harmonization of MODIS and VIIRS Hot Spots*.
 
 MODIS (Terra and Aqua, from 2000) and VIIRS (S-NPP from 2012, NOAA-20 from 2018) detect fire at
 different resolutions, so their raw counts cannot be laid end to end: the record would jump in 2012.
-This project converts the whole record to **VIIRS-equivalent fire cell-days** from November 2000 to
+Ember converts the whole record to **VIIRS-equivalent fire cell-days** from November 2000 to
 the present and shows it as a burning activity calendar for any area of Canada.
 
 **Live app:** https://6s-1.github.io/modis-viirs-fire-harmonisation/
-(method, test results, limits and credits are on its *About the data* page)
+(method, test results, limits and credits are on its *About Ember* page)
 
 - Draw a box on the globe or type bounds, pick a date range.
 - The box fills with grid cells coloured by fire activity; the calendar shows years by months.
 - Compare the latest months with the historical median; switch between harmonised and raw sensor counts.
-- Download monthly values per cell (CSV), the raw hotspots in the box (CSV) or the calendar (PNG).
+- Download monthly values per cell (CSV), the raw hotspots in the box (CSV), the calendar (PNG) or, in live mode,
+  the live hotspots (CSV). File names give the area (`canada` or the box bounds) and the period; each CSV starts
+  with `#` lines for the area, period, data end, generation time (UTC) and units (`pandas.read_csv(f, comment="#")`).
 - Click a grid cell to see that cell alone; see recent near-real-time hotspots; see people living in the area
   and a list of areas with fire ranked by people exposed (exposure only, not a priority list).
 
@@ -116,7 +120,7 @@ npm ci
 npx wrangler login
 npx wrangler deploy                       # prints the Worker address
 npx wrangler secret put FIRMS_MAP_KEY     # paste the key when asked
-gh variable set LIVE_URL --body "https://fire-live-proxy.<your-subdomain>.workers.dev"
+gh variable set LIVE_URL --body "https://ember-live-proxy.<your-subdomain>.workers.dev"
 ```
 
 For local testing put `FIRMS_MAP_KEY=...` in `worker/.dev.vars` (not committed), run `npx wrangler dev`,
@@ -149,7 +153,7 @@ gh release upload hotspot-tiles hotspots.tar --clobber
   Terrestrial Ecozones of Canada, Agriculture and Agri-Food Canada: contain information licensed under the
   [Open Government Licence – Canada](https://open.canada.ca/en/open-government-licence-canada).
 - © ESA WorldCover project 2021 / Contains modified Copernicus Sentinel data (2021) processed by the ESA WorldCover consortium (CC BY 4.0).
-- Natural Earth (public domain). Base map and roads and towns layer: OpenFreeMap, © OpenMapTiles, data © OpenStreetMap contributors.
+- Natural Earth (public domain). Base map: OpenFreeMap, © OpenMapTiles, data © OpenStreetMap contributors.
 - Population: WorldPop 2020 (CC BY 4.0), a modelled estimate. Place names: GeoNames (CC BY 4.0).
 
 References are listed on the app's About page.

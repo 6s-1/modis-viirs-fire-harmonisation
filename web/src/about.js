@@ -61,6 +61,10 @@ function render(a) {
     fire cell-days in the same fires. Laid end to end, the raw record would jump in 2012. The app converts the whole
     record to <strong>VIIRS-equivalent fire cell-days</strong>, so years can be compared. Use the "Raw sensors" view to see
     the unconverted counts.</p>
+    <p>Colours run from <strong>pale yellow (least fire) through orange and red to dark red (most)</strong>. The
+    classes are set from the values in the current selection and date range, so the same colour can mean different
+    counts in different areas; the legend gives the numbers. "Compared with normal" uses a separate scale: purple for
+    below the usual level for that month, grey for about normal, brown to orange for above.</p>
   </section>
 
   <section>
@@ -164,15 +168,15 @@ function render(a) {
       <li>Nunavut: <a href="https://www.gov.nu.ca/">Government of Nunavut</a></li>
       <li>Across Canada: <a href="https://www.alertready.ca/">Alert Ready</a></li>
     </ul>
-    <p>The optional "roads and towns" layer shows major roads and populated places from OpenStreetMap for orientation.
-    It is not a set of evacuation routes.</p>
   </section>
 
   <section>
     <h2>Live fire and people exposed</h2>
     <ul>
       <li><strong>Live fire</strong> shows near-real-time VIIRS hotspots from NOAA-20 and NOAA-21 (NASA FIRMS) for the last 24 hours,
-        48 hours or 7 days. These are single satellite detections: not harmonised, not checked, and not the same unit as the calendar.</li>
+        48 hours or 7 days. These are single satellite detections: not harmonised, not checked, and not the same unit as the calendar.
+        Points outside Canada are removed using the same boundary as the harmonised data (Natural Earth 1:50 m). Switch
+        between Historical and Live at the top of the panel.</li>
       <li><strong>People</strong> are WorldPop 2020 estimates (1 km, UN-adjusted): a model of where people live, not a census count,
         and six years old.</li>
       <li><strong>Areas with fire, ranked by people exposed</strong> lists ~250 km² grid cells with recent fire and the people living in
@@ -198,7 +202,6 @@ function render(a) {
       <li><strong>Boundaries:</strong> Natural Earth (public domain).</li>
       <li><strong>Population:</strong> WorldPop (www.worldpop.org), 2020 1 km UN-adjusted population for Canada, licensed under CC BY 4.0.</li>
       <li><strong>Place names:</strong> GeoNames (cities500), licensed under CC BY 4.0.</li>
-      <li><strong>Roads and towns layer:</strong> © OpenStreetMap contributors (ODbL), via OpenMapTiles and OpenFreeMap.</li>
       <li><strong>Live fire:</strong> NASA FIRMS near-real-time VIIRS (NOAA-20, NOAA-21), served through a Cloudflare Worker that keeps
         the FIRMS key private.</li>
       <li><strong>Base map:</strong> OpenFreeMap, © OpenMapTiles, data © OpenStreetMap contributors.</li>
