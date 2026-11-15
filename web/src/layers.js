@@ -3,7 +3,9 @@
 
 const KEY = "ember:layers";
 export const OVERLAYS = [
-  { id: "people", label: "Where people live" },
+  // "Where people live" is not here: it is a static map of where towns are, so it does not change
+  // with the selection or the dates. It stays as a choice in the compare-globe pickers, where it
+  // is the natural counterpart to fire.
   { id: "trend", label: "Where fire is changing", histOnly: true },
   { id: "badges", label: "Exposure badges" },
   { id: "detections", label: "Individual live detections", liveOnly: true },
