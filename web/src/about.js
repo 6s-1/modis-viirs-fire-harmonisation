@@ -188,6 +188,11 @@ function render(a) {
   </section>
 
   <section>
+    <h2>Use of AI tools</h2>
+    <p>Ember was built with the help of an AI coding assistant (Claude), under my direction, for writing and debugging
+      code, running data checks and drafting text. The method, the data choices, the design and every final decision
+      are mine. The logo and the mascot are my own drawings, converted to SVG with AI help.</p>
+
     <h2>Data freshness</h2>
     <p>Historical data to ${endDays} ${MONTHS[end.m - 1]} ${end.y}; live data from NASA FIRMS, near real time.</p>
 
