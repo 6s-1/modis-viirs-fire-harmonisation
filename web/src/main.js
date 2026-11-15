@@ -24,21 +24,6 @@ const OUTSIDE = "Harmonised history is available for Canada in this version.";
 
 const $ = (id) => document.getElementById(id);
 
-// The globe should fill its half with dark space around it: radius ~38% of the panel's smaller side.
-const START = { lng: -96, lat: 58 };
-function fitGlobe() {
-  const el = map.getContainer();
-  const target = 0.38 * Math.min(el.clientWidth, el.clientHeight);
-  map.jumpTo({ center: [START.lng, START.lat], zoom: 1.5 });
-  for (let k = 0; k < 3; k++) {
-    // a point 89 degrees from the centre sits just inside the globe's edge
-    const c = map.project([START.lng, START.lat]), e = map.project([START.lng, START.lat - 89]);
-    const r = Math.hypot(e.x - c.x, e.y - c.y);
-    if (!(r > 0)) break;
-    map.jumpTo({ center: [START.lng, START.lat], zoom: map.getZoom() + Math.log2(target / r) });
-  }
-}
-
 // Collapsible sections remember their state in this browser.
 document.querySelectorAll("details[data-remember]").forEach((el) => {
   const key = `section:${el.id}`;
@@ -65,7 +50,12 @@ if (import.meta.env.DEV) window.__ember = { map, get state() { return state; } }
 map.touchZoomRotate.disableRotation();
 map.keyboard.disableRotation();
 map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
-map.on("style.load", () => { map.setProjection({ type: "globe" }); neutralBasemap(); fitGlobe(); });
+map.on("style.load", () => {
+  map.setProjection({ type: "globe" });
+  neutralBasemap();
+  const cam = canadaCamera(); // open already in on all of Canada
+  if (cam) map.jumpTo(cam);
+});
 
 // Mid-grey basemap so both ends of the fire scale stand out (pale yellow low end, dark red
 // high end): land ~ rgb(160,163,168), water darker, no blue or green tints.
@@ -191,7 +181,7 @@ function clearBox(fly = true) {
   drawBox(null);
   clearMarker.remove();
   if (state.d) update();
-  if (fly) fitToData();
+  if (fly) flyToCamera(canadaCamera()); // back to exactly the opening view
 }
 
 // Fit the camera so the cells with data (or the box, if none) fill ~90% of the map's shorter side,
@@ -205,14 +195,47 @@ function kmBetween(a, b) {
   const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * r) * Math.cos(b.lat * r) * Math.sin(dLon / 2) ** 2;
   return 2 * 6371 * Math.asin(Math.sqrt(h));
 }
+// Padding rule shared by every fit: the bounds fill ~90% of the map's shorter side, centred.
+function cameraFor(b) {
+  const el = map.getContainer(), W = el.clientWidth, H = el.clientHeight;
+  const side = 0.9 * Math.min(W, H);
+  const px = Math.max((W - side) / 2, 0), py = Math.max((H - side) / 2, 0);
+  return map.cameraForBounds([[b.west, b.south], [b.east, b.north]], { padding: { top: py, bottom: py, left: px, right: px }, maxZoom: 9 });
+}
+// All of Canada on the globe. cameraForBounds works in flat Mercator terms, which on a globe centres
+// Canada too far north and leaves it small, so the fit is refined on the globe itself: Canada's
+// outermost points are projected and the camera is moved until they fill the same padding square
+// (90% of the map's shorter side), centred. The map is put back where it was; the caller moves it.
+const CANADA_EXTREMES = [[-141, 69.6], [-141, 60.3], [-133, 54.6], [-123.4, 48.3], [-95.2, 49], [-82.6, 41.7], [-67, 44.6],
+  [-59.8, 43.9], [-52.6, 47.5], [-55.6, 52.2], [-61.6, 56.6], [-64.7, 60.3], [-61.5, 66.6], [-63, 82.4], [-70, 83.1],
+  [-90, 81.7], [-110, 78.6], [-120, 74.3], [-125.5, 71.9], [-135, 69.5]];
+function canadaCamera() {
+  const el = map.getContainer(), W = el.clientWidth, H = el.clientHeight;
+  if (!W || !H) return null;
+  const first = cameraFor(CANADA);
+  if (!first) return null;
+  const saved = { center: map.getCenter(), zoom: map.getZoom() };
+  const side = 0.9 * Math.min(W, H);
+  let cam = { center: maplibregl.LngLat.convert(first.center), zoom: first.zoom };
+  for (let k = 0; k < 5; k++) {
+    map.jumpTo(cam);
+    const xy = CANADA_EXTREMES.map((p) => map.project(p));
+    const x0 = Math.min(...xy.map((q) => q.x)), x1 = Math.max(...xy.map((q) => q.x));
+    const y0 = Math.min(...xy.map((q) => q.y)), y1 = Math.max(...xy.map((q) => q.y));
+    const scale = Math.min(side / (x1 - x0), side / (y1 - y0));
+    cam = { center: map.unproject([(x0 + x1) / 2, (y0 + y1) / 2]), zoom: cam.zoom + Math.log2(scale) };
+    if (Math.abs(Math.log2(scale)) < 0.005) break;
+  }
+  map.jumpTo(saved);
+  return cam;
+}
 function fitToData() {
   const e = state.agg && state.agg.extent;
   const half = 0.12; // display cells are ~0.25 degrees across; pad centres by half a cell
   const b = e ? { south: e.south - half, north: e.north + half, west: e.west - half * 2, east: e.east + half * 2 } : selBox();
-  const el = map.getContainer(), W = el.clientWidth, H = el.clientHeight;
-  const side = 0.9 * Math.min(W, H);
-  const px = Math.max((W - side) / 2, 0), py = Math.max((H - side) / 2, 0);
-  const cam = map.cameraForBounds([[b.west, b.south], [b.east, b.north]], { padding: { top: py, bottom: py, left: px, right: px }, maxZoom: 9 });
+  flyToCamera(cameraFor(b));
+}
+function flyToCamera(cam) {
   if (!cam) return;
   if (reduceMotion.matches) { map.jumpTo({ center: cam.center, zoom: cam.zoom }); return; }
   const from = map.getCenter(), to = maplibregl.LngLat.convert(cam.center);
