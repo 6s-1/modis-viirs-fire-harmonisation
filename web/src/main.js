@@ -1030,7 +1030,11 @@ function saveUrl() {
 initTextSize();
 // the tour lives in the header, and its steps follow whichever mode the reader is in
 {
-  const tour = initTour(document.querySelector(".map-panel"), () => state.app === "live");
+  const tour = initTour(document.querySelector(".map-panel"), () => state.app === "live", {
+    openLayers: (on) => { const panel = $("layers-panel"); panel.hidden = !on; $("layers-btn").setAttribute("aria-expanded", String(on)); },
+    isCompare: () => view.mode === "compare",
+    setCompare: (on) => setView(on ? "compare" : "single"),
+  });
   const btn = $("tour-btn");
   btn.addEventListener("click", tour.start);
   if (!tour.seen) btn.insertAdjacentHTML("beforeend", `<span class="tour-dot" aria-hidden="true"></span>`);
