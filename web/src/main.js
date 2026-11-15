@@ -12,6 +12,7 @@ import { calendarPNG, coverage, fileTime, hotspotIndex, hotspotPlan, hotspotsCSV
 import { addGridLayers, attachGridHover, buildGrid, buildLiveGrid, gridLegendHTML, setGrid } from "./grid.js";
 import { initLayersControl, overlays, setLiveMode } from "./layers.js";
 import { addTrendLayers, attachTrendHover, buildTrend, setTrend, trendLegendHTML } from "./trend.js";
+import { attachSwipe, lockCameras, layerPicker, view } from "./views.js";
 import { addLiveLayer, attachLiveHover, fetchLive, liveAvailable } from "./live.js";
 import { liveWindow, renderLiveChart } from "./livechart.js";
 
@@ -282,12 +283,82 @@ function fitToData() {
 }
 function flyToCamera(cam) {
   if (!cam) return;
+  // only the first map is flown: the lock copies every frame to the other one
   if (reduceMotion.matches) { map.jumpTo({ center: cam.center, zoom: cam.zoom }); return; }
   const from = map.getCenter(), to = maplibregl.LngLat.convert(cam.center);
   const dz = Math.abs(cam.zoom - map.getZoom());
   const duration = Math.min(2500, Math.max(1000, 900 + 260 * dz + 0.25 * kmBetween(from, to)));
   map.flyTo({ center: cam.center, zoom: cam.zoom, duration, curve: 1.42, easing: easeInOutCubic, essential: true });
 }
+
+// ---- views: one globe, two locked globes (compare), or one globe with a divider (swipe)
+// On a narrow window compare becomes swipe, so a phone gets one globe with a divider.
+const narrow = window.matchMedia("(max-width: 960px)");
+let unlock = null, swipe = null;
+
+function ensureSecondMap() {
+  if (maps[1]) return maps[1];
+  $("map-slot-b").hidden = false;
+  const m = makeMap("map-b");
+  maps.push(m);
+  m.jumpTo({ center: maps[0].getCenter(), zoom: maps[0].getZoom() });
+  $("map-slot-b").appendChild(Object.assign(document.createElement("div"),
+    { id: "grid-legend-b", className: "map-ui corner-bl map-legend" }));
+  $("map-slot-b").appendChild(layerPicker("bottom", onViewPick));
+  $("map-slot-a").appendChild(layerPicker("top", onViewPick));
+  return m;
+}
+function onViewPick() {
+  updateTrend();
+  updatePop();
+  applyLayers();
+  renderLegends();
+}
+
+// The swipe view clips the second map to the right of the divider; both maps sit on top of
+// each other, so the reader sees one globe split in two.
+function setSplit(frac) {
+  const slot = $("map-slot-b");
+  slot.style.clipPath = `inset(0 0 0 ${(frac * 100).toFixed(2)}%)`;
+}
+
+function setView(mode) {
+  if (mode === "compare" && narrow.matches) mode = "swipe"; // no room to stack two globes
+  if (mode === view.mode) return;
+  view.mode = mode;
+  const stack = $("map-stack");
+  stack.dataset.view = mode;
+  $("compare-btn").setAttribute("aria-pressed", String(mode !== "single"));
+  if (mode === "single") {
+    if (unlock) { unlock(); unlock = null; }
+    if (swipe) { swipe.handle.remove(); swipe = null; }
+    $("map-slot-b").hidden = true;
+    $("map-slot-b").style.clipPath = "";
+    document.querySelectorAll(".view-pick").forEach((el) => { el.hidden = true; });
+    if (maps[1]) maps[1].resize();
+    maps[0].resize();
+    onViewPick();
+    return;
+  }
+  ensureSecondMap();
+  document.querySelectorAll(".view-pick").forEach((el) => { el.hidden = false; });
+  if (mode === "swipe") {
+    if (!swipe) swipe = attachSwipe(stack, setSplit);
+    setSplit(view.split);
+  } else if (swipe) {
+    swipe.handle.remove();
+    swipe = null;
+    $("map-slot-b").style.clipPath = "";
+  }
+  if (!unlock) unlock = lockCameras(maps);
+  requestAnimationFrame(() => { for (const m of maps) m.resize(); });
+  onViewPick();
+}
+$("compare-btn").addEventListener("click", () => setView(view.mode === "single" ? "compare" : "single"));
+narrow.addEventListener("change", () => {
+  if (view.mode === "compare" && narrow.matches) { view.mode = "x"; setView("compare"); }
+  else if (view.mode === "swipe" && !narrow.matches) { view.mode = "x"; setView("compare"); }
+});
 
 // ---- date range, observed-only toggle, harmonised / raw view
 const monthValue = (info) => `${info.y}-${String(info.m).padStart(2, "0")}`;
@@ -329,8 +400,10 @@ const trendYears = () => {
   const t = state.trend;
   return t && t.years.length ? `${t.years[0]}–${t.years[t.years.length - 1]}` : rangeLabel();
 };
+const wantsTrend = () => (view.mode === "single" ? overlays.trend : view.top === "trend" || view.bottom === "trend");
+const wantsPeople = () => (view.mode === "single" ? overlays.people : view.top === "people" || view.bottom === "people");
 function updateTrend() {
-  if (!overlays.trend || state.app === "live" || !state.d || !state.agg) {
+  if (!wantsTrend() || state.app === "live" || !state.d || !state.agg) {
     state.trend = null;
     for (const m of maps) setTrend(m, []);
     return;
@@ -454,6 +527,7 @@ $("dl-live").addEventListener("click", () => {
 
 // Zoom to an area from the exposure list: the cell's bounds padded by about one cell on each side.
 function zoomToCell(i) {
+  if (view.mode === "single") setView("compare"); // a row opens the comparison on that area
   const ring = cellToBoundary(h3Id(state.d, i), true);
   const lats = ring.map((p) => p[1]), lons = ring.map((p) => p[0]);
   const s_ = Math.min(...lats), n_ = Math.max(...lats), w_ = Math.min(...lons), e_ = Math.max(...lons);
@@ -511,12 +585,24 @@ const liveReady = liveAvailable().then((ok) => (liveOk = ok));
 
 // Which layers each map shows. The fire grid is the base and always on; overlays follow their
 // toggles in the Layers control. Nothing else appears unless it is turned on.
-function layersFor() {
-  return {
+// In single view the overlay toggles decide what each map shows. In compare and swipe each map
+// shows one chosen layer, so the pickers decide instead; the toggles that are not a map's subject
+// still apply on top of it.
+function layersFor(m) {
+  const live = state.app === "live";
+  const overlayShow = {
     fire: true,
-    trend: overlays.trend && state.app !== "live",
+    trend: overlays.trend && !live,
     people: overlays.people,
-    detections: overlays.detections && state.app === "live",
+    detections: overlays.detections && live,
+  };
+  if (view.mode === "single") return overlayShow;
+  const pick = m === maps[0] ? view.top : view.bottom;
+  return {
+    fire: pick === "fire",
+    trend: pick === "trend" && !live,
+    people: pick === "people",
+    detections: overlays.detections && live,
   };
 }
 function applyLayers() {
@@ -538,21 +624,24 @@ const POP_LABELS = ["< 100", "100–1k", "1k–10k", "10k–100k", "> 100k"];
 function popColor(v) { let k = 0; while (k < POP_EDGES.length && v >= POP_EDGES[k]) k++; return POP_COLORS[k]; }
 function updatePop() {
   const d = state.d;
-  state.popFeatures = !overlays.people || !d || !state.agg ? [] : state.agg.gridCells.filter((i) => d.pop[i] >= 1).map((i) => ({ type: "Feature",
+  state.popFeatures = !wantsPeople() || !d || !state.agg ? [] : state.agg.gridCells.filter((i) => d.pop[i] >= 1).map((i) => ({ type: "Feature",
     properties: { color: popColor(d.pop[i]), p: Math.round(d.pop[i]) },
     geometry: { type: "Polygon", coordinates: [cellToBoundary(h3Id(d, i), true)] } }));
   for (const m of maps) { const src = m.getSource("pop"); if (src) src.setData({ type: "FeatureCollection", features: state.popFeatures }); }
 }
 const popLegendHTML = () => `<p class="legend-title">People per grid cell${infoIcon("People living in each ~250 km² grid cell. WorldPop 2020, 1 km, UN-adjusted: a modelled estimate, not a census count.")}</p>
   <ul class="legend">${POP_COLORS.map((c, k) => `<li><span class="sw" style="background:${c}"></span>${POP_LABELS[k]}</li>`).join("")}</ul>`;
-function renderLegends() {
-  const show = layersFor(maps[0]);
-  const parts = [];
+function legendFor(m) {
+  const show = layersFor(m), parts = [];
   if (show.trend && state.trend) parts.push(trendLegendHTML(state.trend));
-  else parts.push(state.fireLegend || "");
+  else if (show.fire) parts.push(state.fireLegend || "");
   if (show.detections) parts.push(`<ul class="legend"><li><span class="sw key-live"></span>individual detection</li></ul>`);
   if (show.people) parts.push(popLegendHTML());
-  $("grid-legend").innerHTML = parts.filter(Boolean).join("");
+  return parts.filter(Boolean).join("");
+}
+function renderLegends() {
+  $("grid-legend").innerHTML = legendFor(maps[0]);
+  if (maps[1]) $("grid-legend-b").innerHTML = legendFor(maps[1]);
 }
 initLayersControl($("layers-btn"), $("layers-panel"), (id) => {
   if (id === "people") updatePop();

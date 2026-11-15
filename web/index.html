@@ -19,7 +19,11 @@
 
     <main class="layout">
       <section class="map-panel" aria-label="Map and area selection">
-        <div id="map"></div>
+        <div class="map-stack" id="map-stack">
+          <div class="map-slot" id="map-slot-a"><div id="map"></div>
+            <div id="grid-legend" class="map-ui corner-bl map-legend"></div></div>
+          <div class="map-slot" id="map-slot-b" hidden><div id="map-b"></div></div>
+        </div>
 
         <!-- corners: layers top left, zoom top right, legend bottom left, selection tools bottom right -->
         <div class="map-ui corner-tl layers">
@@ -29,8 +33,9 @@
         <div class="map-ui corner-br map-tools" role="group" aria-label="Selection">
           <button id="draw" type="button" aria-pressed="false">Draw a box</button>
           <button id="okanagan" type="button" class="ghost">Okanagan</button>
+          <button id="compare-btn" type="button" class="ghost" aria-pressed="false">Compare</button>
         </div>
-        <div id="grid-legend" class="map-ui corner-bl map-legend"></div>
+
       </section>
 
       <aside class="side" aria-live="polite">
