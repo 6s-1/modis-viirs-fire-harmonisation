@@ -369,3 +369,71 @@ body.mode-live.live-down #live-window { display: none !important; }
 
 #pop-toggle[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
 .map-legend .legend-title + .legend + .legend-title { margin-top: 6px; }
+
+/* compared with past years: three blocks, each led by a headline */
+.cblock { padding: 2px 0 14px; }
+.cblock + .cblock { border-top: 1px solid var(--line); padding-top: 14px; }
+.kicker { margin: 0 0 3px; font-size: 0.68rem; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); }
+.headline { margin: 0 0 3px; font-size: 1.08rem; font-weight: 600; line-height: 1.3; color: var(--ink); text-wrap: balance; }
+.headline.sm { font-size: 0.95rem; }
+.verdict-sm { margin: 0; font-size: 0.92rem; font-weight: 600; color: var(--ink-2); }
+.subcap { margin: 0 0 6px; font-size: 0.78rem; line-height: 1.4; color: var(--muted); font-variant-numeric: tabular-nums; }
+.ctitle { margin: 16px 0 2px; font-size: 0.74rem; font-weight: 600; color: var(--ink-2); }
+.cblock .note { margin: 8px 0 0; font-size: 0.7rem; line-height: 1.4; color: var(--muted); }
+.cblock .cmp { padding: 0 0 6px; }
+.cblock .cmp + .cmp { border-top: 0; padding-top: 4px; }
+.chk { display: inline-flex; align-items: center; gap: 6px; margin: 2px 0 4px; font-size: 0.76rem; color: var(--ink-2); cursor: pointer; }
+.chk input { accent-color: var(--accent); margin: 0; }
+.chk.disabled { color: var(--muted); cursor: default; }
+.ychart .grid { shape-rendering: crispEdges; opacity: 0.8; }
+.ychart .grid.base { stroke: #3a3f4a; opacity: 1; }
+.ychart .est-zone { fill: rgba(255, 255, 255, 0.025); }
+.ychart .tbar { fill: var(--bar); }
+.ychart .tbar.est { fill: url(#hatch); }
+.ychart .tbar.partial { fill: var(--now); opacity: 0.55; }
+.ychart .tbar.off { opacity: 0.4; }
+.ychart .err.none { stroke: none; }
+.ychart .tline { fill: none; stroke: var(--viirs); stroke-width: 2; stroke-linecap: round; }
+.ychart .tline.weak { stroke-dasharray: 5 4; opacity: 0.75; }
+.ychart .tband { fill: var(--viirs); opacity: 0.16; }
+.ychart .mbar { fill: #6a6f7a; }
+.ychart .mbar.anom { fill: #ec5527; }
+.ychart .mbar.partial { opacity: 0.5; }
+.ychart .mbar.hl { fill: var(--ink); }
+.ychart .rug { fill: transparent; }
+.ychart .rug.on { fill: #ec5527; }
+.ychart .hit { fill: transparent; outline: none; }
+.ychart .hit:focus-visible { fill: rgba(255, 255, 255, 0.06); }
+.ychart .nohit, .ychart .nohit * { pointer-events: none; }
+.ychart .xh { stroke: var(--ink-2); stroke-width: 1; pointer-events: none; shape-rendering: crispEdges; }
+.ychart .xh[hidden] { display: none; }
+.key-trend { width: 16px; height: 0; border-top: 2px solid var(--viirs); border-radius: 0; }
+.key-trend.dash { border-top-style: dashed; }
+.key-tband { background: rgba(232, 163, 61, 0.28); }
+.key-mbar { background: #6a6f7a; }
+.key-anom { background: #ec5527; }
+.anoms { list-style: none; counter-reset: a; margin: 10px 0 0; padding: 0; font-size: 0.8rem; font-variant-numeric: tabular-nums; }
+.anoms li { counter-increment: a; display: grid; grid-template-columns: 18px 1fr auto auto; gap: 10px; align-items: baseline;
+  padding: 5px 4px; border-top: 1px solid var(--line); border-radius: 4px; outline: none; }
+.anoms li:first-child { border-top: 0; }
+.anoms li::before { content: counter(a); color: var(--muted); font-size: 0.72rem; }
+.anoms li:hover, .anoms li:focus-visible { background: var(--raise); }
+.anoms .ad { color: var(--ink); }
+.anoms .av { color: var(--ink-2); text-align: right; }
+.anoms .ar { color: var(--ink); text-align: right; font-weight: 600; }
+.anoms .ar .muted { font-weight: 400; }
+.est-tag { font-size: 0.66rem; color: var(--muted); border: 1px solid var(--line); border-radius: 3px; padding: 0 3px; }
+@media (max-width: 420px) { .anoms li { gap: 8px; } .anoms .ar .muted { display: none; } }
+@media (max-width: 640px) { #compare .ychart .tick { font-size: 14px; } }
+
+/* smooth changes between selections */
+#compare path, #compare rect, #compare circle {
+  transition: d 0.55s cubic-bezier(0.3, 0.7, 0.3, 1), x 0.55s, y 0.55s, width 0.55s, height 0.55s, cx 0.55s, cy 0.55s, opacity 0.3s, fill 0.3s;
+}
+#compare .xh, #compare .hit { transition: none; }
+#compare .fadein { animation: cfade 0.35s ease-out; }
+@keyframes cfade { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  #compare path, #compare rect, #compare circle { transition: none; }
+  #compare .fadein { animation: none; }
+}
