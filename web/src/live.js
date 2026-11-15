@@ -7,24 +7,45 @@ const LIVE_URL = (import.meta.env.VITE_LIVE_URL || "").replace(/\/$/, "");
 const WINDOWS = { 24: 2, 48: 4, 168: 7 };
 const SAT = { N20: "NOAA-20", N21: "NOAA-21", "1": "NOAA-20", "2": "NOAA-21" };
 
-// In dev, say on the console why live mode is unavailable. The on-screen banner is unchanged.
+// Why live mode is unavailable, for the dev banner and the console. Each check returns one of
+// these reasons, so a failure says what went wrong rather than just "unavailable".
+export const LIVE_REASON = {
+  NO_URL: "no Worker URL in this build",
+  UNREACHABLE: "Worker unreachable",
+  NO_KEY: "Worker has no FIRMS key",
+  LIMIT: "FIRMS limit reached",
+  ERROR: "Worker error",
+};
 const devWhy = (msg) => { if (import.meta.env.DEV) console.warn(`[ember] live mode unavailable: ${msg}`); };
+
+// The health check is NOT cached: a single slow or dropped request used to wedge live mode off
+// until a full reload, because the first result was kept forever. Each attempt checks again, and
+// a good result is trusted for a short while so switching modes does not re-check every time.
+let lastOk = 0;
+const OK_FOR_MS = 60_000;
+export let liveReason = null;
 
 export async function liveAvailable() {
   if (!LIVE_URL) {
+    liveReason = LIVE_REASON.NO_URL;
     devWhy("VITE_LIVE_URL is not set. Put it in web/.env.local (see the Worker section of the README) and restart the dev server.");
     return false;
   }
+  if (Date.now() - lastOk < OK_FOR_MS) return true; // checked moments ago
   try {
-    const r = await fetch(`${LIVE_URL}/health`, { signal: AbortSignal.timeout(5000) });
+    const r = await fetch(`${LIVE_URL}/health`, { signal: AbortSignal.timeout(8000) });
     if (!r.ok) {
+      liveReason = r.status === 503 ? LIVE_REASON.NO_KEY : LIVE_REASON.ERROR;
       devWhy(r.status === 503
         ? `the Worker at ${LIVE_URL} has no FIRMS_MAP_KEY set (health 503). Run: cd worker && npx wrangler secret put FIRMS_MAP_KEY`
         : `health check on ${LIVE_URL} returned ${r.status}.`);
       return false;
     }
+    liveReason = null;
+    lastOk = Date.now();
     return true;
   } catch (err) {
+    liveReason = LIVE_REASON.UNREACHABLE;
     devWhy(`could not reach ${LIVE_URL} (${err.name === "TimeoutError" ? "timed out" : err.message}). `
       + `If the dev server is not on port 5173 the Worker refuses the request: CORS allows :5173 and :4173 only.`);
     return false;
@@ -61,8 +82,15 @@ export async function fetchLive(bbox, hours) {
   const reachFrom = now - days * 86400 * 1000;
   const q = `days=${days}&bbox=${bbox.map((v) => v.toFixed(2)).join(",")}`;
   const res = await Promise.all(["noaa20", "noaa21"].map(async (src) => {
-    const r = await fetch(`${LIVE_URL}/fires?source=${src}&${q}`, { signal: AbortSignal.timeout(15000) });
-    if (!r.ok) throw new Error(`live ${src}: ${r.status}`);
+    const r = await fetch(`${LIVE_URL}/fires?source=${src}&${q}`, { signal: AbortSignal.timeout(20000) });
+    if (!r.ok) {
+      let detail = "";
+      try { detail = (await r.json()).error || ""; } catch { /* not json */ }
+      // FIRMS answers an exhausted transaction limit with its own text rather than a status
+      liveReason = /limit|quota|transaction/i.test(detail) ? LIVE_REASON.LIMIT : LIVE_REASON.ERROR;
+      devWhy(`fires request for ${src} returned ${r.status}${detail ? `: ${detail}` : ""}`);
+      throw new Error(`live ${src}: ${r.status}`);
+    }
     return parse(await r.text(), reachFrom); // keep the earlier rows too
   }));
   const all = res.flat();

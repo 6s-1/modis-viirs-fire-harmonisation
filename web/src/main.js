@@ -15,7 +15,7 @@ import { raisePlaces, setPlacesVisible } from "./places.js";
 import { addTrendLayers, attachTrendHover, buildTrend, setTrend, trendLegendHTML } from "./trend.js";
 import { fixPair, lockCameras, layerPicker, repaintPickers, view } from "./views.js";
 import { readUrl, writeUrl } from "./urlstate.js";
-import { addLiveLayer, attachLiveHover, fetchLive, liveAvailable } from "./live.js";
+import { addLiveLayer, attachLiveHover, fetchLive, liveAvailable, liveReason } from "./live.js";
 import { liveWindow, renderLiveChart, setLivePlaceNamer } from "./livechart.js";
 
 const OBSERVED_FROM = 2012;
@@ -575,8 +575,8 @@ function renderExposure() {
 const live = { hours: 24, seq: 0, feats: [], earlier: [], reachFrom: 0 };
 const LIVE_DOWN = "Live fire data is unavailable right now.";
 const WINDOW_LABEL = { 24: "last 24 hours", 48: "last 48 hours", 168: "last 7 days" };
-let liveOk = null; // null = not checked yet
-const liveReady = liveAvailable().then((ok) => (liveOk = ok));
+// No cached verdict: liveAvailable() checks again on each attempt, so one dropped request no
+// longer wedges live mode off until a reload.
 
 // Which layers each map shows. The fire grid is the base and always on; overlays follow their
 // toggles in the Layers control. Nothing else appears unless it is turned on.
@@ -657,16 +657,19 @@ function liveDown() {
   document.body.classList.add("live-down");
   state.liveGrid = null;
   refreshGrid();
-  $("summary").innerHTML = `<p class="notice">${LIVE_DOWN}</p>`;
+  // in dev the banner names the failure; the published site keeps the plain sentence
+  const why = import.meta.env.DEV && liveReason ? ` <span class="muted">(${liveReason})</span>` : "";
+  $("summary").innerHTML = `<p class="notice">${LIVE_DOWN}${why}</p>`;
   for (const m of maps) if (m.getSource("live")) m.getSource("live").setData({ type: "FeatureCollection", features: [] });
   $("grid-legend").innerHTML = "";
 }
 
 async function loadLive() {
   const seq = ++live.seq;
-  if (liveOk === null) await liveReady;
+  $("summary").innerHTML = `<p class="muted small">Loading live hotspots…</p>`;
+  const ok = await liveAvailable();
   if (seq !== live.seq || state.app !== "live") return;
-  if (!liveOk) { liveDown(); return; }
+  if (!ok) { liveDown(); return; }
   document.body.classList.remove("live-down");
   $("summary").innerHTML = `<p class="muted small">Loading live hotspots…</p>`;
   $("dl-live").disabled = true; $("dl-status").textContent = "";
