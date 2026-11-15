@@ -58,13 +58,22 @@ h3 { font-size: 0.8rem; font-weight: 500; margin: 0 0 4px; color: var(--ink-2); 
 
 .map-panel {
   position: relative;
-  height: calc(100vh - 64px);
-  min-height: 420px;
+  min-height: 0;
   border-radius: 14px;
   overflow: hidden;
 }
-@media (min-width: 961px) { .map-panel { position: sticky; top: 12px; align-self: start; } }
-@media (max-width: 960px) { .map-panel { height: 64vh; } }
+
+/* App shell: the page itself never scrolls. The map fills its column at full height and stays put;
+   only the side panel scrolls. On narrow windows the map sits on top and the panel scrolls below it. */
+body.app { height: 100vh; height: 100dvh; overflow: hidden; display: flex; flex-direction: column; }
+body.app .site-top { flex: none; }
+body.app .layout { flex: 1; min-height: 0; grid-template-rows: minmax(0, 1fr); padding-bottom: 16px; }
+body.app .map-panel { height: auto; }
+body.app .side > * { flex-shrink: 0; }
+body.app .side { min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; padding-right: 6px; margin-right: -6px; }
+@media (max-width: 960px) {
+  body.app .layout { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(240px, 46%) minmax(0, 1fr); gap: 12px; }
+}
 #map { position: absolute; inset: 0; background: transparent; }
 .maplibregl-canvas { outline: none; }
 .maplibregl-ctrl-group { background: var(--raise) !important; }
@@ -259,11 +268,9 @@ table.data th[scope="row"], table.data thead th:first-child { text-align: left; 
 table.data thead th { color: var(--ink-2); font-weight: 500; }
 .refs li { font-size: 0.88rem; }
 
-/* phones: globe on top, legend below it */
+/* phones: smaller floating legend over the map */
 @media (max-width: 640px) {
-  .map-panel { height: auto; min-height: 0; overflow: visible; border-radius: 0; }
-  #map { position: relative; height: 58vh; border-radius: 14px; overflow: hidden; }
-  .map-legend { position: static; max-width: none; margin-top: 8px; }
+  .map-legend { bottom: 30px; right: 8px; padding: 6px 8px; max-width: calc(100% - 16px); }
 }
 
 .sub.dim { font-size: 0.72rem; color: var(--muted); opacity: 0.85; }
