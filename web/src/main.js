@@ -895,7 +895,13 @@ function saveUrl() {
 
 // ---- start
 initTextSize();
-initTour(document.querySelector(".map-panel"));
+// the tour lives in the header, and its steps follow whichever mode the reader is in
+{
+  const tour = initTour(document.querySelector(".map-panel"), () => state.app === "live");
+  const btn = $("tour-btn");
+  btn.addEventListener("click", tour.start);
+  if (!tour.seen) btn.insertAdjacentHTML("beforeend", `<span class="tour-dot" aria-hidden="true"></span>`);
+}
 setLiveMode($("layers-panel"), false);
 attachInfoTips($("tip"));
 attachTooltip($("calendar"), $("tip"), () => ({ d: state.d, agg: state.agg, mode: state.mode, colour: state.colour, cal: state.cal }));

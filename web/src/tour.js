@@ -3,24 +3,31 @@
 
 const SEEN = "ember:tour-seen";
 
-const STEPS = [
-  { target: "#draw", text: "Draw a box on the globe, or pick the Okanagan, to choose an area." },
+// Two sets: the middle steps differ, because the calendar and the comparison section are not on
+// screen in Live, and the live window and its charts are not on screen in Historical.
+const SHARED_FIRST = { target: "#draw", text: "Draw a box on the globe, or pick the Okanagan, to choose an area." };
+const SHARED_LAST = [
+  { target: "#compare-btn", text: "Compare splits the globe in two, so fire and people line up." },
+  { target: ".modebar", text: "Historical is the record since 2000; Live is the last day or week." },
+];
+const HISTORICAL = [
   { target: "#sec-calendar", text: "The calendar shows every month since 2000, darker where more burned." },
   { target: "#calendar", text: "Click a month, or a cell on the map, to see why it burned." },
   { target: "#sec-compare", text: "Compared with past years puts this year against the whole record." },
-  { target: "#compare-btn", text: "Compare splits the globe in two, so fire and people line up." },
-  { target: ".modebar", text: "Live swaps the record for hotspots from the last day or week." },
 ];
+const LIVE = [
+  { target: "#live-window", text: "Pick the window: the last 24 hours, 48 hours or 7 days." },
+  { target: "#livechart", text: "This window is set against the same days in past years." },
+  { target: "#sec-exposure", text: "Click a cell on the map to see this window and the fire history there." },
+];
+const stepsFor = (live) => [SHARED_FIRST, ...(live ? LIVE : HISTORICAL), ...SHARED_LAST];
+let STEPS = stepsFor(false);
 
-export function initTour(host) {
-  const mascot = document.createElement("button");
-  mascot.type = "button";
-  mascot.className = "mascot";
-  mascot.setAttribute("aria-label", "Take a short tour of Ember");
+export function initTour(host, isLive = () => false) {
+  // the trigger is the header button; this element only holds focus state
+  const mascot = document.getElementById("tour-btn") || document.createElement("button");
   let seen = false;
   try { seen = localStorage.getItem(SEEN) === "1"; } catch { /* storage unavailable */ }
-  mascot.innerHTML = `<img src="./brand/mascot.svg" alt="" />${seen ? "" : `<span class="mascot-dot" aria-hidden="true"></span>`}`;
-  host.appendChild(mascot);
 
   let layer = null, step = 0;
 
@@ -83,11 +90,15 @@ export function initTour(host) {
     layer.querySelector('[data-act="next"]').focus({ preventScroll: true });
   }
 
-  mascot.addEventListener("click", () => {
+  const start = () => {
     try { localStorage.setItem(SEEN, "1"); } catch { /* ignore */ }
     mascot.querySelector(".mascot-dot")?.remove();
+    document.querySelector(".tour-dot")?.remove();
     mascot.setAttribute("aria-expanded", "true");
+    STEPS = stepsFor(isLive()); // the steps follow the mode the reader is in
     show(0);
-  });
+  };
+  mascot.addEventListener("click", start);
+  return { start, seen };
   addEventListener("resize", () => { if (layer) show(step); });
 }

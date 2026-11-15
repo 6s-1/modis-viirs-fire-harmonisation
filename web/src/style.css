@@ -801,3 +801,13 @@ input[type="month"]:focus-visible, input[type="month"]:focus {
 .tour-btns { display: flex; align-items: center; gap: 8px; }
 .tour-btns .linkish { margin-left: auto; }
 @media (prefers-reduced-motion: reduce) { .mascot-dot { animation: none; } .tour-spot { transition: none; } }
+/* the tour trigger sits in the header, with the mascot on it */
+.tour-start { position: relative; display: inline-flex; align-items: center; gap: 7px; padding: 4px 13px 4px 6px;
+  border-radius: 999px; background: var(--raise); border: 1px solid var(--card-line); color: var(--ink);
+  font-size: var(--fs-s); font-weight: 500; cursor: pointer; }
+.tour-start:hover { border-color: var(--accent); }
+.tour-mascot { width: 20px; height: 20px; display: block; }
+.tour-dot { position: absolute; top: -2px; right: -2px; width: 9px; height: 9px; border-radius: 50%;
+  background: var(--accent); box-shadow: 0 0 0 2px #0b0d12; animation: mdot 2.4s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .tour-dot { animation: none; } }
+@media (max-width: 640px) { .tour-start span { display: none; } .tour-start { padding: 4px 6px; } }
