@@ -3,12 +3,11 @@
 
 const SEEN = "ember:tour-seen";
 
-// Seven steps in each mode, in the order a reader meets the app. A step may open a view (the
+// Six steps in each mode, in the order a reader meets the app. A step may open a view (the
 // Layers panel, compare) to spotlight what it is talking about; whatever it opened is put back
 // when the tour ends.
 const HISTORICAL = [
-  { target: "#draw", text: "Draw a box on the globe, or pick the Okanagan, to choose an area." },
-  { target: ".wc-answer", text: "Is this normal? Ember answers yes or no for your area and dates, and says how." },
+  { target: "#draw", text: "Draw a box on the globe to choose an area." },
   { target: "#sec-calendar", text: "Every month since 2000; darker means more fire, dashed means estimated from older satellites." },
   { target: "#calendar", text: "Click a month or a cell to see what caused the fire, how much land burned and what kind of land it was." },
   { target: "#layers-panel", open: "layers", text: "Turn on 'Where fire is changing' to see where fire is rising or falling, or Places to find your way." },
@@ -19,7 +18,6 @@ const LIVE = [
   { target: ".modebar", text: "Live shows what NASA satellites detected in the last day or week, near real time." },
   { target: "#live-window", text: "Pick the last 24 hours, 48 hours or 7 days." },
   { target: "#map", text: "Hotspots are grouped into the same cells as the history, so live and past read the same way." },
-  { target: ".wc-answer", text: "Yes or no: is this window normal for this time of year?" },
   { target: "#map", text: "Click a cell to see the agency's name, size and status for the fire there, and its fire history." },
   { target: "#sec-exposure", text: "These are the places with fire right now, ranked by how many people live there." },
   { target: ".modebar", text: "Switch to Historical to see how today compares with the last 26 years." },
