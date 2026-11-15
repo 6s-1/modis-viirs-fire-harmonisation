@@ -109,7 +109,7 @@ export function renderCalendar(el, d, agg, opts) {
     html += `<tr class="${t.est ? "est-row" : ""}"><th scope="row">${t.y}${badge}</th>`;
     for (let m = 1; m <= 12; m++) {
       const c = cell(t.y, m);
-      if (!c) { html += `<td class="nodata" aria-label="${MONTHS[m - 1]} ${t.y}: no data">–</td>`; continue; }
+      if (!c) { html += `<td class="nodata" aria-label="${MONTHS[m - 1]} ${t.y}: no data"><span aria-hidden="true">–</span></td>`; continue; }
       const out = c.i < range[0] || c.i > range[1];
       const cls = ["v", !normal && !(c.v > 0) && "zero", c.info.partial && "partial", c.info.source === "near_real_time" && "nrt",
         harm && isEstimated(c.info.source) && "est", top.has(c.i) && "top", out && "out"].filter(Boolean).join(" ");
