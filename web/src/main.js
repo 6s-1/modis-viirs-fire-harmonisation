@@ -339,6 +339,7 @@ function setView(mode) {
     document.querySelectorAll(".view-pick").forEach((el) => { el.hidden = true; });
     if (maps[1]) maps[1].resize();
     maps[0].resize();
+    refreshGrid(); // back to the full-resolution grid
     onViewPick();
     return;
   }
@@ -354,6 +355,7 @@ function setView(mode) {
   }
   if (!unlock) unlock = lockCameras(maps);
   requestAnimationFrame(() => { for (const m of maps) m.resize(); });
+  refreshGrid(); // the grid is coarser while two globes are shown
   onViewPick();
 }
 $("compare-btn").addEventListener("click", () => setView(view.mode === "compare" ? "single" : "compare"));
@@ -390,11 +392,12 @@ document.querySelectorAll('input[name="colour"]').forEach((r) => r.addEventListe
 function refreshGrid() {
   if (!state.mapReady || !state.agg) return;
   const isLive = state.app === "live";
-  const g = (state.grid = isLive ? state.liveGrid || { features: [], scale: null, n: 0 } : buildGrid(state.d, state.agg, state.range));
+  const coarse = view.mode !== "single"; // two globes: fewer, larger cells so both stay smooth
+  const g = (state.grid = isLive ? state.liveGrid || { features: [], scale: null, n: 0 } : buildGrid(state.d, state.agg, state.range, { coarse }));
   for (const m of maps) setGrid(m, g.features);
   state.fireLegend = !g.n || !g.scale ? ""
     : isLive ? gridLegendHTML(g.scale, { live: true, windowLabel: WINDOW_LABEL[live.hours] })
-    : gridLegendHTML(g.scale, { rangeLabel: rangeLabel() });
+    : gridLegendHTML(g.scale, { rangeLabel: rangeLabel(), coarse: g.coarse });
   updatePop();
   updateTrend();
   applyLayers();
