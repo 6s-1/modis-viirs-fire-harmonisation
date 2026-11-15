@@ -62,7 +62,10 @@ map.on("style.load", () => {
   const cam = canadaCamera(); // open already in on all of Canada
   if (cam) map.jumpTo(cam);
 });
-if (import.meta.env.DEV) window.__ember = { map, maps, get state() { return state; } }; // test hook, dev builds only
+if (import.meta.env.DEV) {
+  window.__ember = { map, maps, get state() { return state; } }; // test hook, dev builds only
+  import("./fps.js").then((m) => m.attachFps(() => `${view.mode}, ${maps.length} globe${maps.length > 1 ? "s" : ""}`));
+}
 
 // Mid-grey basemap so both ends of the fire scale stand out (light orange low end, dark red
 // high end): land ~ rgb(160,163,168), water darker, no blue or green tints.
