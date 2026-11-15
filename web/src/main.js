@@ -332,7 +332,6 @@ function update() {
     : "All of Canada (land and lakes): the area searched, not the area burned. Draw a box to look at a smaller area.";
   const lowTip = `Less than ${fmt(minArea)} km² of Canada in the box: estimated years are low confidence.`;
   const areaTxt = agg.canadaKm2 >= 1e6 ? `${(agg.canadaKm2 / 1e6).toFixed(2)}M` : fmt(agg.canadaKm2);
-  const whereTxt = state.box ? "" : "all of Canada · ";
   const dets = [["terra", "Terra"], ["aqua", "Aqua"], ["snpp", "S-NPP"], ["noaa20", "NOAA-20"]].map(([p, name]) => {
     const v = agg.detOf(p);
     let t = 0;
@@ -342,18 +341,18 @@ function update() {
   const pop = population(d, agg, d.months[a].y, d.months[b].y);
   const yrs = d.months[a].y === d.months[b].y ? `${d.months[a].y}` : `${d.months[a].y}–${d.months[b].y}`;
   const popLine = pop ? `<div class="sub" title="WorldPop 2020, 1 km, UN-adjusted: a modelled estimate of where people live, not a census count. Fire cells: ~1 km cells with at least one fire cell-day in ${yrs} (whole years).">
-      <strong>people</strong> ${fmtShort(pop.all)} live in the area · ${fmtShort(pop.fire)} in ~1 km cells that had fire, ${yrs}
-      <span class="dim">(WorldPop 2020, modelled)</span></div>` : "";
-  const detLine = dets.length ? `<div class="sub" title="Raw hotspot detections per satellite (vegetation fire, low-confidence class removed), not converted. Counted by grid cell like the cell-days (cells whose centre is in the box, local-date months), so they can differ slightly from the hotspot CSV, which uses each detection's exact position.">
-      <strong>hotspots</strong> ${dets.map(([n, t]) => `${n} ${t < 1000 ? Math.round(t).toLocaleString("en-CA") : fmtShort(t)}`).join(" · ")}</div>
-    <div class="sub dim">Hotspots count every flagged pixel on every overpass; cell-days count each ~1 km cell once a day.</div>` : "";
+      ${fmtShort(pop.all)} people live here · ${fmtShort(pop.fire)} in ~1 km cells with fire, ${yrs} <span class="dim">(WorldPop 2020, modelled)</span></div>` : "";
+  const hotTip = dets.length ? `Raw hotspot detections, ${rangeLabel()}: ${dets.map(([n, t]) => `${n} ${Math.round(t).toLocaleString("en-CA")}`).join(", ")}. `
+    + "Hotspots count every flagged pixel on every overpass; cell-days count each ~1 km cell once a day. "
+    + "Hotspots are counted by grid cell like the cell-days, so they can differ slightly from the hotspot CSV, which uses each detection's exact position." : "";
+  const info = hotTip ? ` <span class="info-i" tabindex="0" role="img" aria-label="${hotTip}" title="${hotTip}">i</span>` : "";
+  const where = state.box ? `${areaTxt} km² searched` : `all of Canada, ${areaTxt} km²`;
   $("summary").innerHTML = (!inCanada ? `<p class="notice">${OUTSIDE}</p>` : agg.cells.length ? `
     <div class="big" title="Harmonised fire cell-days (VIIRS-equivalent), ${rangeLabel()}">${fmt(total)}${hi - lo > 0.005 * total ? ` <span class="rng">(${fmtShort(lo)}–${fmtShort(hi)})</span>` : ""}
-      <span class="unit">fire cell-days</span></div>
-    <div class="sub">${whereTxt}${rangeLabel()} · ${agg.cells.length.toLocaleString("en-CA")} ${agg.cells.length === 1 ? "cell" : "cells"} with fire ·
-      <span class="info" title="${areaTip}">${areaTxt} km² searched</span>${lowConfidence ? ` <span class="badge low" title="${lowTip}">low conf.</span>` : ""}</div>${popLine}${detLine}`
+      <span class="unit">fire cell-days</span>${info}</div>
+    <div class="sub">${rangeLabel()} · <span class="info" title="${areaTip}">${where}</span>${lowConfidence ? ` <span class="badge low" title="${lowTip}">low conf.</span>` : ""}</div>${popLine}`
     : `<div class="big">0 <span class="unit">fire cell-days</span></div>
-    <div class="sub"><span class="info" title="${areaTip}">${areaTxt} km² searched</span> · no fire detected</div>`);
+    <div class="sub">${rangeLabel()} · <span class="info" title="${areaTip}">${where}</span> · no fire detected</div>${popLine}`);
   for (const id of ["sec-calendar", "sec-compare", "sec-downloads"]) $(id).hidden = !inCanada;
   if (!inCanada) { refreshGrid(); return; }
 
