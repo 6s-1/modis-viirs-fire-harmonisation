@@ -16,6 +16,7 @@ import { addTrendLayers, attachTrendHover, buildTrend, setTrend, trendLegendHTML
 import { addHoverLayers, footprint, raiseHover, scheduleHover, setHover } from "./hover.js";
 import { closeWhyCard, renderWhyCard } from "./whycard.js";
 import { initTextSize } from "./textsize.js";
+import { initTour } from "./tour.js";
 import { fixPair, lockCameras, layerPicker, repaintPickers, view } from "./views.js";
 import { readUrl, writeUrl } from "./urlstate.js";
 import { addLiveLayer, attachLiveHover, fetchLive, liveAvailable, liveReason } from "./live.js";
@@ -894,6 +895,7 @@ function saveUrl() {
 
 // ---- start
 initTextSize();
+initTour(document.querySelector(".map-panel"));
 setLiveMode($("layers-panel"), false);
 attachInfoTips($("tip"));
 attachTooltip($("calendar"), $("tip"), () => ({ d: state.d, agg: state.agg, mode: state.mode, colour: state.colour, cal: state.cal }));
