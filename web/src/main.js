@@ -362,7 +362,7 @@ function update() {
 
 // ---- downloads
 $("dl-monthly").addEventListener("click", () => {
-  saveBlob(monthlyCSV(state.d, state.agg, state.range), `fire-cell-days_${fileStem(state.box, state.d, state.range)}.csv`);
+  saveBlob(monthlyCSV(state.d, state.agg, state.range), `ember_fire-cell-days_${fileStem(state.box, state.d, state.range)}.csv`);
 });
 $("dl-png").addEventListener("click", async () => {
   const d = state.d, b = state.box;
@@ -371,10 +371,10 @@ $("dl-png").addEventListener("click", async () => {
     legendEl: document.createElement("div") }) : state.cal; // the PNG is always the harmonised calendar
   const blob = await calendarPNG(d, state.agg, cal, {
     years: cal.totals.map((t) => t.y), lowConfidence: state.agg.canadaKm2 < d.manifest.uncertainty.low_confidence_below_km2,
-    title: "Burning activity calendar (harmonised)",
+    title: "Ember · burning activity calendar (harmonised)",
     subtitle: `Box S ${b.south.toFixed(2)}, N ${b.north.toFixed(2)}, W ${b.west.toFixed(2)}, E ${b.east.toFixed(2)} · Canada inside the box ${fmt(state.agg.canadaKm2)} km² (area searched, not burned)`,
   });
-  saveBlob(blob, `fire-calendar_${fileStem(b, d, [0, d.months.length - 1])}.png`);
+  saveBlob(blob, `ember_fire-calendar_${fileStem(b, d, [0, d.months.length - 1])}.png`);
 });
 $("dl-hotspots").addEventListener("click", async () => {
   const st = $("dl-status"), btn = $("dl-hotspots");
@@ -386,7 +386,7 @@ $("dl-hotspots").addEventListener("click", async () => {
     st.textContent = `Reading ${plan.tiles.length} tiles (${(plan.bytes / 1e6).toFixed(1)} MB)…`;
     const { blob, rows } = await hotspotsCSV(state.box, state.d, state.range, plan,
       (done, n, kept) => { st.textContent = `Reading tiles ${done}/${n} · ${fmt(kept)} hotspots so far…`; });
-    saveBlob(blob, `hotspots_${fileStem(state.box, state.d, state.range)}.csv`);
+    saveBlob(blob, `ember_hotspots_${fileStem(state.box, state.d, state.range)}.csv`);
     st.textContent = `Saved ${fmt(rows)} hotspots.`;
   } catch (err) {
     st.textContent = `Hotspot download failed: ${err.message}`;

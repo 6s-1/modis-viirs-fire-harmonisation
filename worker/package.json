@@ -1,9 +1,9 @@
 {
-  "name": "fire-live-proxy",
+  "name": "ember-live-proxy",
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Proxy for NASA FIRMS near-real-time fire detections; keeps the map key server-side",
+  "description": "Ember: proxy for NASA FIRMS near-real-time fire detections; keeps the map key server-side",
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy"

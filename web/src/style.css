@@ -314,3 +314,11 @@ table.data thead th { color: var(--ink-2); font-weight: 500; }
 .about ul.links { columns: 2; column-gap: 24px; }
 @media (max-width: 640px) { .about ul.links { columns: 1; } }
 .about ul.links li { break-inside: avoid; margin: 3px 0; }
+
+/* Ember header: logo slot (replace with the real logo), name and tagline */
+.logo-slot { display: inline-block; width: 28px; height: 28px; border: 1px dashed var(--muted); border-radius: 7px; align-self: center; flex: none; }
+.logo-slot:has(img) { border: 0; }
+.logo-slot img { height: 28px; width: auto; display: block; }
+.site-top h1 { font-size: 1.25rem; letter-spacing: 0.02em; }
+.tagline { color: var(--ink-2); font-size: 0.82rem; }
+.about .tagline { margin: 2px 0 0; }

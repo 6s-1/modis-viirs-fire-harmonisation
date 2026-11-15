@@ -1,4 +1,4 @@
-// Burning activity calendar: years as rows, months as columns, colour = harmonised cell-days.
+// Ember burning activity calendar: years as rows, months as columns, colour = harmonised cell-days.
 
 import { MONTHS, SOURCE_LABEL, fmt, fmtShort, fmtSig, isEstimated, median, recordedSensor, uncertaintyFactors } from "./data.js";
 

@@ -3,12 +3,17 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Monthly fire activity in Canada from 2000, combining MODIS and VIIRS satellite hotspots into one consistent record." />
-    <title>Fire activity calendar</title>
+    <meta name="description" content="Ember: harmonised MODIS + VIIRS fire activity for Canada. Monthly fire activity from 2000, combining MODIS and VIIRS satellite hotspots into one consistent record." />
+    <title>Ember · harmonised MODIS + VIIRS fire activity for Canada</title>
+    <!-- FAVICON SLOT: replace public/favicon.svg (or point this link at a PNG/ICO) -->
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
   </head>
   <body>
     <header class="site-top">
-      <h1>Fire activity calendar</h1>
+      <!-- LOGO SLOT: put an <img src="./logo.svg" alt="Ember"> (about 28 px tall) inside this span -->
+      <span class="logo-slot" id="logo-slot" aria-hidden="true"></span>
+      <h1>Ember</h1>
+      <span class="tagline">Harmonised MODIS + VIIRS fire activity for Canada</span>
       <span class="muted small" id="data-end"></span>
       <a class="about-link" href="./about.html">About the data</a>
     </header>

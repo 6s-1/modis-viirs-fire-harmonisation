@@ -1,14 +1,16 @@
-# Harmonised MODIS and VIIRS fire record for Canada
+# Ember
+
+**Harmonised MODIS + VIIRS fire activity for Canada.**
 
 NASA Space Apps 2026 challenge: *Harmonization of MODIS and VIIRS Hot Spots*.
 
 MODIS (Terra and Aqua, from 2000) and VIIRS (S-NPP from 2012, NOAA-20 from 2018) detect fire at
 different resolutions, so their raw counts cannot be laid end to end: the record would jump in 2012.
-This project converts the whole record to **VIIRS-equivalent fire cell-days** from November 2000 to
+Ember converts the whole record to **VIIRS-equivalent fire cell-days** from November 2000 to
 the present and shows it as a burning activity calendar for any area of Canada.
 
 **Live app:** https://6s-1.github.io/modis-viirs-fire-harmonisation/
-(method, test results, limits and credits are on its *About the data* page)
+(method, test results, limits and credits are on its *About Ember* page)
 
 - Draw a box on the globe or type bounds, pick a date range.
 - The box fills with grid cells coloured by fire activity; the calendar shows years by months.
@@ -116,7 +118,7 @@ npm ci
 npx wrangler login
 npx wrangler deploy                       # prints the Worker address
 npx wrangler secret put FIRMS_MAP_KEY     # paste the key when asked
-gh variable set LIVE_URL --body "https://fire-live-proxy.<your-subdomain>.workers.dev"
+gh variable set LIVE_URL --body "https://ember-live-proxy.<your-subdomain>.workers.dev"
 ```
 
 For local testing put `FIRMS_MAP_KEY=...` in `worker/.dev.vars` (not committed), run `npx wrangler dev`,
