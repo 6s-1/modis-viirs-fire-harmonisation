@@ -7,7 +7,7 @@ const SEEN = "ember:tour-seen";
 // Layers panel, compare) to spotlight what it is talking about; whatever it opened is put back
 // when the tour ends.
 const HISTORICAL = [
-  { target: "#draw", text: "Draw a box on the globe, or pick the Okanagan, to choose an area." },
+  { target: "#draw", text: "Draw a box on the globe to choose an area." },
   { target: "#sec-calendar", text: "Every month since 2000; darker means more fire, dashed means estimated from older satellites." },
   { target: "#calendar", text: "Click a month or a cell to see what caused the fire, how much land burned and what kind of land it was." },
   { target: "#layers-panel", open: "layers", text: "Turn on 'Where fire is changing' to see where fire is rising or falling, or Places to find your way." },

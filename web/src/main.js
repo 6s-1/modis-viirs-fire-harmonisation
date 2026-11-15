@@ -25,9 +25,6 @@ import { liveWindow, renderLiveChart, setLivePlaceNamer } from "./livechart.js";
 const OBSERVED_FROM = 2012;
 // With no box drawn, the selection is all of Canada.
 const CANADA = { south: 41.5, north: 83.5, west: -141.5, east: -52.0 };
-const PRESETS = {
-  okanagan: { south: 49.0, north: 50.6, west: -120.1, east: -118.9 }, // Okanagan valley, Osoyoos to Vernon, around Kelowna
-};
 const STYLE = "https://tiles.openfreemap.org/styles/positron";
 const OUTSIDE = "Harmonised history is available for Canada in this version.";
 
@@ -228,7 +225,7 @@ function attachDrawing(m) {
   });
 }
 
-// ---- bounds inputs and presets
+// ---- bounds inputs
 const fields = ["south", "north", "west", "east"];
 $("bounds").addEventListener("submit", (e) => {
   e.preventDefault();
@@ -244,7 +241,6 @@ $("bounds").addEventListener("submit", (e) => {
   if (fields.every((f) => b[f] === CANADA[f])) { if (state.box) clearBox(); return; } // all of Canada is no box
   select(b, true);
 });
-for (const [id, b] of Object.entries(PRESETS)) $(id).addEventListener("click", () => select(b, true));
 
 // The current selection: the drawn box, or all of Canada when there is none.
 const selBox = () => state.box || CANADA;
@@ -294,7 +290,7 @@ function clearBox(fly = true) {
 }
 
 // Fit the camera so the cells with data (or the box, if none) fill ~90% of the map's shorter side,
-// centred. Every selection change (drawn box, typed bounds, presets, clearing back to Canada,
+// centred. Every selection change (drawn box, typed bounds, clearing back to Canada,
 // exposure rows) moves the camera in one smooth flight whose duration grows with the distance
 // travelled and the change in zoom (about 1-2.5 s). With reduced motion the camera jumps instead.
 const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -977,19 +973,11 @@ function restoreFromUrl(d) {
   fixPair(); // unknown or colliding layers fall back to fire and people
   repaintPickers();
 
-  // With nothing saved and nothing in the URL, open on the Okanagan in August 2023: a view that
-  // shows at once what the app is for. Any saved state or shared link wins over it.
+  // With nothing drawn, the selection is all of Canada. Saved state and shared links still
+  // restore whatever box they carry.
   const fresh = !location.search && !u.box && !u.range;
   if (u.box) select(u.box, false);
-  else if (fresh) {
-    const aug = d.monthIndex.get(2023 * 100 + 8);
-    if (aug !== undefined) {
-      state.range = [aug, aug];
-      $("from").value = "2023-08";
-      $("to").value = "2023-08";
-    }
-    select(PRESETS.okanagan, false);
-  } else clearBox(false);
+  else clearBox(false);
 
   if (u.app === "live") {
     state.app = "live";
