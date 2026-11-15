@@ -711,7 +711,8 @@ function drawExposure(top) {
 function renderExposure() {
   if (!state.d || !state.mapReady) return;
   const isLive = state.app === "live";
-  const top = renderExposureList($("exposure"), state.d, selBox(), isLive ? live.feats : null, live.hours, zoomToCell, highlightExposure) || [];
+  const top = renderExposureList($("exposure"), state.d, selBox(), isLive ? live.feats : null, live.hours,
+    zoomToCell, highlightExposure, state.range) || [];
   drawExposure(top);
 }
 
