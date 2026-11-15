@@ -698,6 +698,7 @@ function renderLive() {
     `NOAA-20 ${fmt(n20)} · NOAA-21 ${fmt(n21)}`,
     pop ? `${fmtShort(pop)} people live here. <span class="muted">WorldPop 2020, modelled.</span>` : "",
     `<span class="muted">Near real time from NASA FIRMS (VIIRS): provisional and not harmonised.</span>`,
+    `<span class="muted">New and continuing cells are shown only when the feed reaches back a full window before this one; FIRMS serves whole UTC days, so it often does not.</span>`,
   ].filter(Boolean).join("<br>");
   $("summary").innerHTML = `<div class="big">${fmt(feats.length)} <span class="unit">live hotspots</span>${infoIcon(details)}</div>`;
   live.meta = renderLiveChart($("livechart"), feats, live.hours, d, agg, WINDOW_LABEL[live.hours],

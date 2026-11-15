@@ -120,20 +120,9 @@ function newVsContinuingBlock(d, feats, hours, windowLabel, prior) {
   const total = fresh + cont;
   const detail = `Grid cells (~250 km²) with at least one hotspot in the ${phrase}, split by whether the same cell also had one in the ${phrase} before it.<br>
     <span class="muted">Near real time, not harmonised. Cells, not hotspots, so one cell seen many times counts once.</span>`;
-  if (total < 3) { // nothing to split, whatever the history
-    return `<section class="cblock" data-b="live-new">
-      <h3 class="cb-title">New and continuing</h3>
-      <p class="reading">${total === 0 ? `No grid cells with fire in the ${phrase}.`
-        : `${total} cell${total === 1 ? "" : "s"} with fire in the ${phrase}.`}${infoIcon(detail)}</p>
-    </section>`;
-  }
-  if (!enoughHistory) {
-    return `<section class="cblock" data-b="live-new">
-      <h3 class="cb-title">New and continuing</h3>
-      <p class="reading">${total} cell${total === 1 ? "" : "s"} with fire in the ${phrase}. The feed does not reach back far enough before
-        this window to tell new cells from continuing ones.${infoIcon(detail)}</p>
-    </section>`;
-  }
+  // Shown only when both windows have data. Without a previous window to compare with, every cell
+  // would read as new, so the block is left out rather than explained away on the main screen.
+  if (total < 3 || !enoughHistory) return "";
 
   if (total < 3) {
     return `<section class="cblock" data-b="live-new">
