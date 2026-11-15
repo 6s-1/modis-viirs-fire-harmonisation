@@ -27,12 +27,14 @@ export function ratioColor(v, med) {
 
 // Six classes with log-even breaks between the smallest and largest positive value. The breaks
 // are not rounded: they fall where they fall, and labels show two significant figures.
-export function makeScale(values) {
+// integer: for whole counts (live hotspots), breaks are whole numbers and repeats are dropped.
+export function makeScale(values, { integer = false } = {}) {
   const pos = values.filter((v) => v > 0);
   if (!pos.length) return { edges: [], colors: [], color: () => "var(--zero)", label: () => "" };
   const lo = Math.max(Math.min(...pos), 0.5), hi = Math.max(...pos);
   const n = RAMP.length;
-  const edges = hi > lo ? Array.from({ length: n - 1 }, (_, k) => Math.exp(Math.log(lo) + ((Math.log(hi) - Math.log(lo)) * (k + 1)) / n)) : [];
+  let edges = hi > lo ? Array.from({ length: n - 1 }, (_, k) => Math.exp(Math.log(lo) + ((Math.log(hi) - Math.log(lo)) * (k + 1)) / n)) : [];
+  if (integer) edges = [...new Set(edges.map((e) => Math.max(2, Math.ceil(e))))].filter((e) => e <= hi);
   const colors = RAMP.slice(RAMP.length - edges.length - 1);
   return {
     edges, colors,
@@ -42,7 +44,7 @@ export function makeScale(values) {
       while (k < edges.length && v >= edges[k]) k++;
       return colors[k];
     },
-    label: (k) => (k === 0 ? "> 0" : fmtSig(edges[k - 1])),
+    label: (k) => (k === 0 ? (integer ? "1" : "> 0") : integer ? edges[k - 1].toLocaleString("en-CA") : fmtSig(edges[k - 1])),
   };
 }
 

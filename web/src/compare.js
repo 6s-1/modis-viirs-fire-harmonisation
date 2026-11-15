@@ -1,11 +1,17 @@
-// Compared with past years, in three blocks, each led by a one-sentence headline:
-//   Trend      yearly totals with a Theil–Sen trend line, its likely range and a Mann–Kendall test
-//   Anomalies  every month against the same month in other years
-//   This year  latest months, year to date and the seasonal profile against typical
+// Compared with past years: a storyline from the widest timescale to the narrowest.
+//   1 Yearly totals, with a trend line
+//   2 When the fire season runs, by year
+//   3 This year so far, against past years
+//   4 Month by month, this year against typical
+//   5 Unusual months
+// Every block states its subject in the heading, never its conclusion; any reading of the data is
+// one muted line below the chart, with the statistics behind an info icon.
 // Blocks are patched in place on a new selection, so bars and lines glide to their new values.
 
 import { MONTHS, fmt, fmtShort, fmtSig, median, monthDays, quantile } from "./data.js";
 import { infoIcon } from "./info.js";
+import { distributionStrip, rankSentence } from "./strip.js";
+import { RAMP, makeScale } from "./calendar.js";
 
 const LONG = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const MEASURED_FROM = 2012;
@@ -16,6 +22,7 @@ const sg = (v) => `${v < 0 ? "−" : ""}${fmtSig(Math.abs(v))}`;
 // Anomaly rule: above the 90th percentile AND above twice the median of the same month in the
 // other years, and at least this many cell-days.
 const ANOM_MIN = 10, ANOM_MIN_YEARS = 5, ANOM_TOP = 5;
+const isEstimatedSource = (src) => src === "estimated_from_modis" || src === "estimated_from_terra";
 
 // ---------- statistics
 
@@ -165,8 +172,7 @@ function trendBlock(d, totals, yearFilter, observedOnly) {
       <input type="checkbox" id="trend-est"${useEst ? " checked" : ""}${observedOnly ? " disabled" : ""}/> Include estimated years (${span(estYears.filter((yr) => !rows.find((t) => t.y === yr).partial))})</label>` : "";
 
   return `<section class="cblock" data-b="trend">
-    <p class="kicker">Trend</p>
-    <p class="headline">${headline}${infoIcon(sub)}</p>
+    <h3 class="cb-title">Yearly totals, ${rows.length ? `${rows[0].y} to ${rows[rows.length - 1].y}` : ""}</h3>
     ${estToggle}
     <svg viewBox="0 0 ${W} ${H}" class="ychart" role="img" aria-label="Fire cell-days per year with the trend line. ${headline}.">
       <defs><pattern id="hatch" width="4" height="4" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
@@ -180,6 +186,7 @@ function trendBlock(d, totals, yearFilter, observedOnly) {
       <li><span class="sw key-light"></span>${d.lastYear} to date</li>
       ${fit ? `<li><span class="sw key-trend${sig ? "" : " dash"}"></span>trend ${y0}–${y1}</li><li><span class="sw key-tband"></span>likely range of the trend</li>` : ""}
     </ul>
+    <p class="reading">${headline}${infoIcon(sub)}</p>
   </section>`;
 }
 
@@ -205,11 +212,9 @@ function anomalyBlock(d, agg, years) {
   // a typical value under 1 cell-day makes a ratio meaningless, so say so instead
   const times = (r) => (r.med < 1 ? "" : r.r >= 10 ? `${Math.round(r.r)}×` : `${r.r.toFixed(1)}×`);
   const vsTyp = (r) => (r.med < 1 ? "where there is usually almost none" : `${times(r)} typical`);
-  const latest = anoms[anoms.length - 1];
   const headline = anoms.length
-    ? `${anoms.length === 1 ? "One month was" : `${anoms.length} months were`} unusually high for the time of year; the biggest was ${label(top[0])}${top[0].med < 1 ? ` (${fmt(top[0].v)} cell-days ${vsTyp(top[0])})` : ` at ${vsTyp(top[0])}`}`
-    : "No month stood out as unusually high for its time of year";
-  const sub = anoms.length ? `Most recent: ${label(latest)} (${fmt(latest.v)} cell-days, ${vsTyp(latest)}).` : "";
+    ? `${anoms.length === 1 ? "One month was" : `${anoms.length} months were`} unusually high for the time of year.`
+    : "No month stood out as unusually high for its time of year.";
 
   const W = 560, H = 150, padL = 44, padR = 10, padT = 14, padB = 22;
   const n = Math.max(rows.length, 1);
@@ -234,63 +239,62 @@ function anomalyBlock(d, agg, years) {
       <span class="ar">${r.med < 1 ? `<span class="muted">usually ~0</span>` : `${times(r)} typical <span class="muted">(${fmt(r.med)})</span>`}</span></li>`).join("")}</ol>` : "";
 
   return `<section class="cblock" data-b="anom">
-    <p class="kicker">Unusual months</p>
-    <p class="headline">${headline}${infoIcon(`A month counts as unusually high when it is above the 90th percentile and above twice the median of the same month in the other years shown, and at least ${ANOM_MIN} cell-days. Partial months are left out.`)}</p>
-    ${sub ? `<p class="subcap">${sub}</p>` : ""}
+    <h3 class="cb-title">Month by month, ${years.length ? `${Math.min(...years)} to ${Math.max(...years)}` : ""}</h3>
     <svg viewBox="0 0 ${W} ${H}" class="ychart" role="img" aria-label="Fire cell-days per month, unusually high months highlighted. ${headline}.">
       ${estZone}${axis(max, y, padL, W - padR)}${bars}${rug}${xt}
       <path d="M0,0" class="xh" hidden/><rect x="${padL}" y="${padT}" width="${W - padL - padR}" height="${H - padT - padB + 6}" class="hit" data-xh="anom"/></svg>
     <ul class="legend"><li><span class="sw key-mbar"></span>month</li><li><span class="sw key-anom"></span>unusually high</li></ul>
+    <p class="reading">${headline}${infoIcon(`A month counts as unusually high when it is above the 90th percentile and above twice the median of the same month in the other years shown, and at least ${ANOM_MIN} cell-days. Partial months are left out.`)}</p>
     ${list}
   </section>`;
 }
 
 // ---------- 3) this year vs typical
 
-function verdictWord(r) {
-  if (!Number.isFinite(r)) return "about normal";
-  if (r < 0.5) return "well below normal";
-  if (r < 0.8) return "below normal";
-  if (r < 0.95) return "slightly below normal";
-  if (r <= 1.05) return "about normal";
-  if (r <= 1.25) return "slightly above normal";
-  if (r < 2) return "above normal";
-  return "well above normal";
-}
+// ---------- 3) this year so far, against past years
+// Like for like: an unfinished month is compared with the same days of that month in past years,
+// using the same_days totals the pipeline writes for exactly that window.
 
-function bullet({ subject, ongoing, v, vals, years, nrt, big }) {
-  const med = median(vals), q1 = quantile(vals, 0.25), q3 = quantile(vals, 0.75);
-  const r = med > 0 ? v / med : v > 0 ? Infinity : 1;
-  const word = med > 0 || v > 0 ? verdictWord(r) : "about normal";
-  const sentence = `${subject} ${ongoing ? "is running" : "was"} ${word}`;
-  const ratio = med > 0 ? `${(v / med).toFixed(2)}×` : "";
-  const W = 560, H = 26;
-  const max = Math.max(v, q3 || 0, med || 0, 1e-9) * 1.08;
-  const x = (t) => 2 + ((W - 4) * t) / max;
-  const html = `<strong>${fmt(v)}</strong> cell-days<br><span class="muted">${subject}</span><br>typical ${fmt(med)} <span class="muted">(median ${span(years)})</span>
-    <br>middle half ${fmt(q1)}–${fmt(q3)}`;
-  return `<div class="cmp${big ? "" : " small-cmp"}">
-    <p class="${big ? "headline" : "verdict-sm"}">${sentence}${nrt ? `<span class="nrt-dot" title="Provisional near-real-time data"></span>` : ""}</p>
-    <p class="verdict-nums"><b>${fmt(v)}</b> this year · ${fmt(med)} typical${ratio ? ` · ${ratio}` : ""}</p>
-    <svg viewBox="0 0 ${W} ${H}" class="bullet" preserveAspectRatio="none" role="img" ${tip(html)}
-      aria-label="${sentence}: ${fmt(v)} this year, typical ${fmt(med)}, middle half of past years ${fmt(q1)} to ${fmt(q3)}">
-      <rect x="${f1(x(Number.isFinite(q1) ? q1 : 0))}" y="3" width="${f1(Number.isFinite(q1) ? Math.max(x(q3) - x(q1), 1) : 0)}" height="${H - 6}" rx="3" class="bband"/>
-      <rect x="2" y="${H / 2 - 4}" width="${f1(Math.max(x(v) - 2, 1))}" height="8" rx="2" class="bbar"/>
-      <rect x="${f1(x(Number.isFinite(med) ? med : 0) - 1.5)}" y="2" width="3" height="${H - 4}" class="bmed"/></svg>
-  </div>`;
-}
+function nowVsPast(d, agg, yearFilter) {
+  const lastI = d.months.length - 1, last = d.months[lastI];
+  const sd = d.manifest.same_days;
+  const partial = last.partial && sd && sd.month === last.m && sd.year === last.y;
+  const monthName = LONG[last.m - 1];
+  let points, now, axisTitle, noun, note;
 
-function monthBullet(d, agg, i, yearFilter, big) {
-  const info = d.months[i];
-  const ys = [], vals = [];
-  for (let y = d.firstYear; y < info.y; y++) {
-    const j = d.monthIndex.get(y * 100 + info.m);
-    if (j === undefined || d.months[j].partial || !yearFilter(y)) continue;
-    ys.push(y);
-    vals.push(agg.totals[j]);
+  if (partial) {
+    // 1-N of this month against 1-N of the same month in past years
+    const nDays = sd.days;
+    points = sd.years.filter((y) => y !== last.y && yearFilter(y))
+      .map((y) => ({ year: y, value: agg.sameDays.get(y) || 0 }));
+    now = { label: `${last.y}`, value: agg.totals[lastI] };
+    axisTitle = `1–${nDays} ${MONTHS[last.m - 1]}, past years`;
+    noun = `${monthName}s so far`;
+    note = `Each dot is 1–${nDays} ${monthName} of one past year, the same days as ${last.y} so far.`;
+  } else {
+    // the latest complete month against the same month in past years
+    let k = lastI;
+    while (k > 0 && d.months[k].partial) k--;
+    const info = d.months[k];
+    points = [];
+    for (let y = d.firstYear; y < info.y; y++) {
+      const m = d.monthIndex.get(y * 100 + info.m);
+      if (m === undefined || d.months[m].partial || !yearFilter(y)) continue;
+      points.push({ year: y, value: agg.totals[m] });
+    }
+    now = { label: `${info.y}`, value: agg.totals[k] };
+    axisTitle = `Past ${LONG[info.m - 1]}s`;
+    noun = `${LONG[info.m - 1]}s`;
+    note = `Each dot is one past ${LONG[info.m - 1]}.`;
   }
-  return bullet({ subject: `${LONG[info.m - 1]} ${info.y}`, ongoing: false, v: agg.totals[i], vals, years: ys,
-    nrt: info.source === "near_real_time", big });
+  if (!points.length) return "";
+  const title = partial ? `${monthName} 1–${sd.days}, ${last.y} against past years` : `${axisTitle.replace("Past ", "")}, ${now.label} against past years`;
+  const tipFor = (p) => tip(`<strong>${fmt(p.value)}</strong> cell-days<br><span class="muted">${p.year}</span>`);
+  return `<section class="cblock" data-b="now">
+    <h3 class="cb-title">${title}</h3>
+    ${distributionStrip({ points, now, axisTitle, tipFor })}
+    <p class="reading">${rankSentence({ points, now, noun })}${infoIcon(`${note}<br>Typical is the median of those years.<br><span class="muted">Fire cell-days in the current selection.</span>`)}</p>
+  </section>`;
 }
 
 function cumulative(d, agg, yearsShown, yearFilter) {
@@ -321,9 +325,9 @@ function cumulative(d, agg, yearsShown, yearFilter) {
   const rank = others.filter((y) => sameDay(y) > cur).length + 1;
   const dateTxt = `${nDays} ${MONTHS[last.m - 1]}`;
   const headline = others.length
-    ? `${Y} to ${dateTxt}: ${rank === 1 ? "the highest" : `the ${ordinal(rank)} highest`} of ${others.length + 1} years at this date`
-    : `${Y} to ${dateTxt}`;
-  const sub = others.length ? `${fmt(cur)} cell-days so far; the typical year had ${fmt(median(others.map(sameDay)))} by this date (median ${span(others)}).` : "";
+    ? `${rank === 1 ? "The highest" : `The ${ordinal(rank)} highest`} of ${others.length + 1} years at this date.`
+    : `${Y} to ${dateTxt}.`;
+  const sub = others.length ? `${fmt(cur)} cell-days so far against a typical ${fmt(median(others.map(sameDay)))} by this date (median ${span(others)}).` : "";
 
   const W = 560, H = 190, padL = 44, padR = 40, padB = 22, padT = 10;
   const max = niceMax(Math.max(1, ...lines.map((l) => l.pts[l.pts.length - 1][1])));
@@ -346,14 +350,14 @@ function cumulative(d, agg, yearsShown, yearFilter) {
       ${vals.length ? `<br>${fmt(median(vals.map((v) => v[1])))} typical<br>${fmt(hiY[1])} highest <span class="muted">(${hiY[0]})</span>` : ""}`;
   });
   crosshair("ytd", MONTHS.map((_, k) => x(k + 1)), rows, padT, H - padB);
-  return `<div class="sub-chart" data-c="ytd">
-    <p class="ctitle">Year to date</p>
-    <p class="headline sm">${headline}${sub ? infoIcon(sub) : ""}</p>
+  return `<section class="cblock" data-b="ytd">
+    <h3 class="cb-title">Fire so far this year, against every past year</h3>
     <svg viewBox="0 0 ${W} ${H}" class="ychart" role="img" aria-label="Cumulative fire cell-days through the year for every year, ${Y} highlighted. ${headline}.">
       ${axis(max, yy, padL, W - padR)}${back}${front}${xt}
       <path d="M0,0" class="xh" hidden/><rect x="${padL}" y="${padT}" width="${W - padL - padR}" height="${H - padT - padB}" class="hit" data-xh="ytd"/></svg>
     <ul class="legend"><li><span class="sw key-cumnow"></span>${Y}</li><li><span class="sw key-cum"></span>other years</li>
-      <li><span class="sw key-cum dash"></span>estimated years</li></ul></div>`;
+      <li><span class="sw key-cum dash"></span>estimated years</li></ul>
+    <p class="reading">${headline}${sub ? infoIcon(sub) : ""}</p></section>`;
 }
 
 function seasonal(d, agg, medianYears) {
@@ -392,9 +396,8 @@ function seasonal(d, agg, medianYears) {
     return `<span class="muted">${LONG[k]}</span>${c ? `<br><strong>${fmt(c.v)}</strong> in ${Y}${c.partial ? ` <span class="muted">(partial)</span>` : ""}${c.nrt ? ` <span class="muted">· provisional</span>` : ""}` : ""}
       <br>${fmt(med[k])} typical<br><span class="muted">middle half ${fmt(q1[k])}–${fmt(q3[k])}</span>`;
   }), padT, H - padB);
-  return `<div class="sub-chart" data-c="season">
-    <p class="ctitle">Seasonal profile</p>
-    <p class="headline sm">${headline}${sub ? infoIcon(sub) : ""}</p>
+  return `<section class="cblock" data-b="season">
+    <h3 class="cb-title">Each month of ${Y} against a typical year</h3>
     <svg viewBox="0 0 ${W} ${H}" class="ychart" role="img" aria-label="Typical fire cell-days by month with ${Y} overlaid. ${headline}.">
       ${axis(max, y, padL, W - padR)}<path d="${band}" class="iqr"/><path d="${medPath}" class="medcurve"/><path d="${curPath}" class="nowcurve"/>${dots}${endLab}${xt}
       <path d="M0,0" class="xh" hidden/><rect x="${padL}" y="${padT}" width="${W - padL - padR}" height="${H - padT - padB}" class="hit" data-xh="season"/></svg>
@@ -403,34 +406,94 @@ function seasonal(d, agg, medianYears) {
       <li><span class="sw key-medcurve"></span>typical (median ${span(medianYears)})</li>
       <li><span class="sw key-iqr"></span>middle half of years</li>
       <li><span class="sw key-hollow"></span>partial month</li>
-    </ul></div>`;
+    </ul>
+    <p class="reading">${headline}${sub ? infoIcon(sub) : ""}</p></section>`;
 }
 
-function thisYearBlock(d, agg, years, yearFilter, medianYears) {
-  const lastI = d.months.length - 1;
-  const last = d.months[lastI];
-  let html = "";
-  const sd = d.manifest.same_days;
-  if (last.partial && sd && sd.month === last.m) {
-    const n = monthDays(last);
-    const ys = sd.years.filter(yearFilter);
-    html += bullet({ subject: `1–${n} ${MONTHS[last.m - 1]} ${last.y}`, ongoing: true, v: agg.totals[lastI],
-      vals: ys.map((y) => agg.sameDays.get(y) || 0), years: ys, nrt: last.source === "near_real_time", big: true });
-  } else {
-    html += monthBullet(d, agg, lastI, yearFilter, true);
+// ---------- 2) when the fire season runs, by year
+// One bar per year from the first month with fire to the last, a dot on the peak month, and the
+// bar coloured by that year's total on the fire ramp. Oldest year at the top, so reading down the
+// chart is reading forward in time: a season starting earlier shows as bars creeping left.
+
+function seasonBlock(d, agg, years, yearFilter) {
+  const ys = [...years].filter(yearFilter).sort((a, b) => a - b);
+  const rows = [];
+  for (const y of ys) {
+    const vs = [];
+    let total = 0, est = false;
+    for (let m = 1; m <= 12; m++) {
+      const i = d.monthIndex.get(y * 100 + m);
+      const v = i === undefined ? 0 : agg.totals[i];
+      if (i !== undefined && isEstimatedSource(d.months[i].source)) est = true;
+      vs.push(v);
+      total += v;
+    }
+    if (total <= 0) continue;
+    // The season is where the fire is, not where a single detection is: the months holding the
+    // middle 80% of the year's cell-days. A month is split in halves so the edges can fall
+    // mid-month, which is what makes a shift of a few weeks visible.
+    const edge = (target) => {
+      let run = 0;
+      for (let m = 0; m < 12; m++) {
+        if (run + vs[m] >= target) return m + 1 + (vs[m] > 0 ? (target - run) / vs[m] : 0);
+        run += vs[m];
+      }
+      return 12;
+    };
+    const first = edge(total * 0.1), last = edge(total * 0.9);
+    let peak = 1, peakV = 0;
+    vs.forEach((v, k) => { if (v > peakV) { peakV = v; peak = k + 1; } });
+    rows.push({ y, first, last, peak, total, est });
   }
-  let j = lastI;
-  while (j > 0 && d.months[j].partial) j--;
-  if (j !== lastI) html += monthBullet(d, agg, j, yearFilter, false);
-  return `<section class="cblock" data-b="now">
-    <p class="kicker">This year vs typical</p>
-    ${html}
+  if (rows.length < 3) return "";
+
+  const scale = makeScale(rows.map((r) => r.total));
+  const W = 560, padL = 42, padR = 14, padT = 18, rowH = Math.max(7, Math.min(13, Math.floor(260 / rows.length)));
+  const H = padT + rows.length * rowH + 22;
+  const x = (m) => padL + ((W - padL - padR) * (m - 1)) / 11;
+  const barH = Math.max(4, rowH - 3);
+  const monthName = (f) => `${LONG[Math.min(11, Math.max(0, Math.round(f) - 1))]}`;
+
+  const bars = rows.map((r, k) => {
+    const y0 = padT + k * rowH;
+    const x0 = x(r.first), x1 = x(r.last);
+    const html = `<strong>${fmt(r.total)}</strong> cell-days in ${r.y}<br>
+      <span class="muted">most of the fire between ${monthName(r.first)} and ${monthName(r.last)}, peak in ${LONG[r.peak - 1]}</span>${r.est ? `<br><span class="muted">estimated from MODIS</span>` : ""}`;
+    return `<rect x="${f1(x0)}" y="${f1(y0)}" width="${f1(Math.max(x1 - x0, 2.5))}" height="${barH}" rx="${Math.min(3, barH / 2)}"
+        fill="${scale.color(r.total)}" class="sb-bar${r.est ? " est" : ""}"/>
+      <circle cx="${f1(x(r.peak))}" cy="${f1(y0 + barH / 2)}" r="${Math.min(3, barH / 2 + 0.5)}" class="sb-peak"/>
+      ${k % Math.ceil(rows.length / 9) === 0 ? `<text x="${padL - 6}" y="${f1(y0 + barH - 1)}" class="tick" text-anchor="end">${r.y}</text>` : ""}
+      <rect x="${padL}" y="${f1(y0)}" width="${W - padL - padR}" height="${barH}" class="hit" tabindex="0"
+        aria-label="${r.y}: most fire between ${monthName(r.first)} and ${monthName(r.last)}, peak ${LONG[r.peak - 1]}, ${fmt(r.total)} cell-days" ${tip(html)}/>`;
+  }).join("");
+  const xt = MONTHS.map((m, k) => (k % 2 === 0 ? `<text x="${f1(x(k + 1))}" y="${H - 6}" class="tick" text-anchor="middle">${m}</text>` : "")).join("");
+
+  // how the season edges have moved: first third of the years against the last third
+  const third = Math.max(2, Math.floor(rows.length / 3));
+  const early = rows.slice(0, third), late = rows.slice(-third);
+  const mean = (arr, key) => arr.reduce((a, r) => a + r[key], 0) / arr.length;
+  const dStart = mean(late, "first") - mean(early, "first");
+  const dEnd = mean(late, "last") - mean(early, "last");
+  const weeks = (months) => { const w = Math.abs(months * 4.35); return `${w.toFixed(w < 2 ? 1 : 0)} week${w >= 1.5 ? "s" : ""}`; };
+  const part = [];
+  if (Math.abs(dStart) >= 0.15) part.push(`starts about ${weeks(dStart)} ${dStart < 0 ? "earlier" : "later"}`);
+  if (Math.abs(dEnd) >= 0.15) part.push(`ends about ${weeks(dEnd)} ${dEnd > 0 ? "later" : "earlier"}`);
+  const early1 = `${early[0].y}–${early[early.length - 1].y}`;
+  const reading = part.length
+    ? `Against ${early1}, the season now ${part.join(" and ")}.`
+    : `The season runs at about the same time as in ${early1}.`;
+
+  return `<section class="cblock" data-b="season-timing">
+    <h3 class="cb-title">When the fire season runs, ${rows[0].y} to ${rows[rows.length - 1].y}</h3>
+    <svg viewBox="0 0 ${W} ${H}" class="ychart" role="img" aria-label="The part of each year holding most of its fire, oldest at the top, with the peak month marked">
+      ${bars}${xt}</svg>
     <ul class="legend">
-      <li><span class="sw key-bbar"></span>this year</li>
-      <li><span class="sw key-bmed"></span>typical (median)</li>
-      <li><span class="sw key-bband"></span>middle half of past years</li></ul>
-    ${cumulative(d, agg, years, yearFilter)}
-    ${seasonal(d, agg, medianYears)}
+      <li><span class="sw" style="background:${RAMP[1]}"></span><span class="sw" style="background:${RAMP[3]}"></span><span class="sw" style="background:${RAMP[5]}"></span>&nbsp;less to more fire that year</li>
+      <li><span class="sw key-peak"></span>peak month</li>
+    </ul>
+    <p class="reading">${reading}${infoIcon(`Each bar spans the months holding the middle 80% of that year's fire cell-days in the current selection, so a few early or late detections do not stretch it. The dot marks the month with the most fire.<br>
+      The comparison takes the mean start and end of ${early1} against ${late[0].y}–${late[late.length - 1].y}.<br>
+      <span class="muted">Years estimated from MODIS are outlined.</span>`)}</p>
   </section>`;
 }
 
@@ -579,6 +642,11 @@ export function renderCompare(el, d, agg, opts) {
   const { yearFilter, totals, mode = "harmonised", years, medianYears = [] } = opts;
   if (mode === "raw") { morph(el, rawYearly(d, agg, years)); return; }
   const observedOnly = !yearFilter(MEASURED_FROM - 1);
-  morph(el, trendBlock(d, totals, yearFilter, observedOnly) + anomalyBlock(d, agg, years)
-    + thisYearBlock(d, agg, years, yearFilter, medianYears));
+  // widest timescale first, narrowing: years, then the season's shape, then this year, then months
+  morph(el, trendBlock(d, totals, yearFilter, observedOnly)
+    + seasonBlock(d, agg, years, yearFilter)
+    + nowVsPast(d, agg, yearFilter)
+    + cumulative(d, agg, years, yearFilter)
+    + seasonal(d, agg, medianYears)
+    + anomalyBlock(d, agg, years));
 }

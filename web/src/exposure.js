@@ -29,7 +29,7 @@ function compass(fromLat, fromLon, toLat, toLon) {
 }
 
 // "Kelowna, BC" or "12 km NW of Kelowna, BC": the nearest place of 500+ people.
-function placeName(lat, lon) {
+export function placeName(lat, lon) {
   if (!places) return `${lat.toFixed(2)}, ${lon.toFixed(2)}`;
   let best = null, bd = Infinity;
   for (const p of places) {
