@@ -724,3 +724,7 @@ table.cal { table-layout: fixed; width: 100%; min-width: 440px; }
 .strip .sd-lab { fill: var(--muted); font-size: 11px; }
 .strip .sd-lab.strong { fill: var(--ink); font-weight: 600; }
 .strip .sd-axis-title { fill: var(--muted); font-size: 10.5px; letter-spacing: 0.03em; }
+/* live mode: new and continuing cells */
+.lv-new { fill: #df4531; }
+.lv-cont { fill: #6a6f7a; }
+.reading .lead { color: var(--ink); font-size: var(--fs-m); font-weight: 600; }

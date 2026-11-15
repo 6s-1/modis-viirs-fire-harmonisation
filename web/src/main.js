@@ -3,7 +3,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import "./fonts.js";
 import "./style.css";
 import { MONTHS, aggregate, cellIndexOf, fmt, fmtShort, h3Id, loadData, monthDays, population, rawRecorded, uncertaintyFactors } from "./data.js";
-import { renderExposureList, loadPlaces } from "./exposure.js";
+import { renderExposureList, loadPlaces, placeName } from "./exposure.js";
 import { cellToBoundary, latLngToCell } from "h3-js";
 import { attachTooltip, renderCalendar } from "./calendar.js";
 import { renderCompare } from "./compare.js";
@@ -14,7 +14,7 @@ import { initLayersControl, overlays, setLiveMode } from "./layers.js";
 import { addTrendLayers, attachTrendHover, buildTrend, setTrend, trendLegendHTML } from "./trend.js";
 import { attachSwipe, lockCameras, layerPicker, view } from "./views.js";
 import { addLiveLayer, attachLiveHover, fetchLive, liveAvailable } from "./live.js";
-import { liveWindow, renderLiveChart } from "./livechart.js";
+import { liveWindow, renderLiveChart, setLivePlaceNamer } from "./livechart.js";
 
 const OBSERVED_FROM = 2012;
 // With no box drawn, the selection is all of Canada.
@@ -589,7 +589,7 @@ function renderExposure() {
 
 // ---- Live mode: near-real-time hotspots (via the Worker) for the selection; Historical is the record.
 // If the Worker cannot be reached, Live shows one line and Historical keeps working.
-const live = { hours: 24, seq: 0, feats: [] };
+const live = { hours: 24, seq: 0, feats: [], earlier: [], reachFrom: 0 };
 const LIVE_DOWN = "Live fire data is unavailable right now.";
 const WINDOW_LABEL = { 24: "last 24 hours", 48: "last 48 hours", 168: "last 7 days" };
 let liveOk = null; // null = not checked yet
@@ -683,9 +683,11 @@ async function loadLive() {
   $("dl-live").disabled = true; $("dl-status").textContent = "";
   const b = selBox();
   try {
-    const feats = await fetchLive([b.west, b.south, b.east, b.north], live.hours);
+    const got = await fetchLive([b.west, b.south, b.east, b.north], live.hours);
     if (seq !== live.seq || state.app !== "live") return;
-    live.feats = feats.filter((f) => inBox(f, b)); // the Worker already keeps Canada only
+    live.feats = got.feats.filter((f) => inBox(f, b)); // the Worker already keeps Canada only
+    live.earlier = got.earlier.filter((f) => inBox(f, b));
+    live.reachFrom = got.reachFrom;
     state.live = live.feats;
     renderLive();
   } catch {
@@ -720,7 +722,8 @@ function renderLive() {
     `<span class="muted">Near real time from NASA FIRMS (VIIRS): provisional and not harmonised.</span>`,
   ].filter(Boolean).join("<br>");
   $("summary").innerHTML = `<div class="big">${fmt(feats.length)} <span class="unit">live hotspots</span>${infoIcon(details)}</div>`;
-  live.meta = renderLiveChart($("livechart"), feats, live.hours);
+  live.meta = renderLiveChart($("livechart"), feats, live.hours, d, agg, WINDOW_LABEL[live.hours],
+    { earlier: live.earlier || [], reachFrom: live.reachFrom });
   live.span = { start: startMs, end: Date.now() };
   $("dl-live").disabled = false;
   updatePop();
@@ -757,6 +760,6 @@ loadData("harmonised/")
       $("dl-status").textContent = "Hotspot download is not available on this copy of the site.";
     });
     clearBox(false); // start on all of Canada
-    loadPlaces("harmonised/places.json").then(renderExposure).catch(() => { $("exposure").textContent = "Place names could not be loaded."; });
+    loadPlaces("harmonised/places.json").then(() => { setLivePlaceNamer(placeName); renderExposure(); }).catch(() => { $("exposure").textContent = "Place names could not be loaded."; });
   })
   .catch((err) => { $("summary").textContent = `Could not load the harmonised data (${err.message}).`; });
