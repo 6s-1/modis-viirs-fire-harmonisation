@@ -58,6 +58,7 @@ const map = new maplibregl.Map({
   touchPitch: false,
   attributionControl: { compact: true },
 });
+if (import.meta.env.DEV) window.__ember = { map, get state() { return state; } }; // test hook, dev builds only
 map.touchZoomRotate.disableRotation();
 map.keyboard.disableRotation();
 map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
@@ -250,7 +251,16 @@ function clearBox(fly = true) {
 }
 
 // Fit the camera so the cells with data (or the box, if none) fill ~90% of the map's shorter side,
-// centred. Same rule for presets, typed bounds and drawn boxes.
+// centred. Every selection change (drawn box, typed bounds, presets, clearing back to Canada,
+// exposure rows) moves the camera in one smooth flight whose duration grows with the distance
+// travelled and the change in zoom (about 1-2.5 s). With reduced motion the camera jumps instead.
+const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+const easeInOutCubic = (t) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
+function kmBetween(a, b) {
+  const r = Math.PI / 180, dLat = (b.lat - a.lat) * r, dLon = (b.lng - a.lng) * r;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * r) * Math.cos(b.lat * r) * Math.sin(dLon / 2) ** 2;
+  return 2 * 6371 * Math.asin(Math.sqrt(h));
+}
 function fitToData() {
   const e = state.agg && state.agg.extent;
   const half = 0.12; // display cells are ~0.25 degrees across; pad centres by half a cell
@@ -258,9 +268,13 @@ function fitToData() {
   const el = map.getContainer(), W = el.clientWidth, H = el.clientHeight;
   const side = 0.9 * Math.min(W, H);
   const px = Math.max((W - side) / 2, 0), py = Math.max((H - side) / 2, 0);
-  map.fitBounds([[b.west, b.south], [b.east, b.north]], {
-    padding: { top: py, bottom: py, left: px, right: px }, duration: 800, maxZoom: 9,
-  });
+  const cam = map.cameraForBounds([[b.west, b.south], [b.east, b.north]], { padding: { top: py, bottom: py, left: px, right: px }, maxZoom: 9 });
+  if (!cam) return;
+  if (reduceMotion.matches) { map.jumpTo({ center: cam.center, zoom: cam.zoom }); return; }
+  const from = map.getCenter(), to = maplibregl.LngLat.convert(cam.center);
+  const dz = Math.abs(cam.zoom - map.getZoom());
+  const duration = Math.min(2500, Math.max(1000, 900 + 260 * dz + 0.25 * kmBetween(from, to)));
+  map.flyTo({ center: cam.center, zoom: cam.zoom, duration, curve: 1.42, easing: easeInOutCubic, essential: true });
 }
 
 // ---- date range, observed-only toggle, harmonised / raw view
