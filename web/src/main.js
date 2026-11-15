@@ -48,6 +48,7 @@ function makeMap(container) {
   m.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
   m.addControl(new maplibregl.AttributionControl({ compact: true }), "top-right"); // under zoom, clear of the corners below
   m.on("style.load", () => { m.setProjection({ type: "globe" }); neutralBasemap(m); });
+  m.on("moveend", () => { if (m === maps[0]) saveUrl(); });
   m.on("load", () => {
     // the compact attribution starts collapsed (an "i" button) so it never spreads across the map
     m.getContainer().querySelectorAll(".maplibregl-compact-show").forEach((el) => el.classList.remove("maplibregl-compact-show"));
@@ -222,6 +223,7 @@ function select(b, fly) {
   placeClearMarkers(b);
   if (state.d) update();
   if (fly) fitToData();
+  saveUrl();
 }
 
 function clearBox(fly = true) {
@@ -232,6 +234,7 @@ function clearBox(fly = true) {
   placeClearMarkers(null);
   if (state.d) update();
   if (fly) flyToCamera(canadaCamera()); // back to exactly the opening view
+  saveUrl();
 }
 
 // Fit the camera so the cells with data (or the box, if none) fill ~90% of the map's shorter side,
@@ -317,6 +320,7 @@ function onViewPick() {
   updatePop();
   applyLayers();
   renderLegends();
+  saveUrl();
 }
 
 function setView(mode) {
@@ -333,6 +337,7 @@ function setView(mode) {
     maps[0].resize();
     refreshGrid(); // back to the full-resolution grid
     onViewPick();
+    saveUrl();
     return;
   }
   ensureSecondMap();
@@ -341,6 +346,7 @@ function setView(mode) {
   requestAnimationFrame(() => { for (const m of maps) m.resize(); });
   refreshGrid(); // the grid is coarser while two globes are shown
   onViewPick();
+  saveUrl();
 }
 $("compare-btn").addEventListener("click", () => setView(view.mode === "compare" ? "single" : "compare"));
 
@@ -360,7 +366,7 @@ function readRange() {
   state.range = [a, b];
   return true;
 }
-["from", "to"].forEach((id) => $(id).addEventListener("change", () => { if (readRange()) update(); }));
+["from", "to"].forEach((id) => $(id).addEventListener("change", () => { if (readRange()) { update(); saveUrl(); } }));
 document.querySelectorAll('input[name="years"]').forEach((r) => r.addEventListener("change", (e) => { state.observedOnly = e.target.value === "measured"; update(); }));
 document.querySelectorAll('input[name="view"]').forEach((r) => r.addEventListener("change", (e) => { state.mode = e.target.value; update(); }));
 document.querySelectorAll('input[name="colour"]').forEach((r) => r.addEventListener("change", (e) => { state.colour = e.target.value; update(); }));
@@ -709,11 +715,72 @@ document.querySelectorAll('input[name="app"]').forEach((r) => r.addEventListener
   setLiveMode($("layers-panel"), state.app === "live");
   if (state.app !== "live") { document.body.classList.remove("live-down"); live.seq++; state.live = null; }
   if (state.d) update();
+  saveUrl();
 }));
 document.querySelectorAll('input[name="live"]').forEach((r) => r.addEventListener("change", (e) => {
   live.hours = +e.target.value;
   if (state.app === "live") loadLive();
+  saveUrl();
 }));
+
+// ---- the view in the URL, so a reload or a shared link reopens the same view.
+// Each setting is validated on its own: a bad one falls back to its default and the rest stand.
+let urlReady = false;
+function restoreFromUrl(d) {
+  const u = readUrl();
+
+  if (u.range) {
+    const idx = (v) => d.monthIndex.get(+v.slice(0, 4) * 100 + +v.slice(5, 7));
+    const a = idx(u.range.from), b = idx(u.range.to);
+    if (a !== undefined && b !== undefined && a <= b) {
+      state.range = [a, b];
+      $("from").value = u.range.from;
+      $("to").value = u.range.to;
+    }
+  }
+  if (u.liveHours) {
+    live.hours = u.liveHours;
+    const radio = document.querySelector(`input[name="live"][value="${u.liveHours}"]`);
+    if (radio) radio.checked = true;
+  }
+  if (u.top) view.top = u.top;
+  if (u.bottom) view.bottom = u.bottom;
+  fixPair(); // unknown or colliding layers fall back to fire and people
+  repaintPickers();
+
+  if (u.box) select(u.box, false); else clearBox(false);
+
+  if (u.app === "live") {
+    state.app = "live";
+    document.body.classList.toggle("mode-live", true);
+    setLiveMode($("layers-panel"), true);
+    const radio = document.querySelector('input[name="app"][value="live"]');
+    if (radio) radio.checked = true;
+    update();
+  }
+  if (u.viewMode === "compare") setView("compare");
+
+  // the camera last, so no fit overrides it
+  if (u.camera) {
+    const apply = () => map.jumpTo(u.camera);
+    if (map.loaded()) apply(); else map.once("load", apply);
+  }
+  urlReady = true;
+  saveUrl();
+}
+function saveUrl() {
+  if (!urlReady) return;
+  writeUrl(() => {
+    const c = map.getCenter();
+    return {
+      app: state.app, box: state.box,
+      from: $("from").value, to: $("to").value,
+      liveHours: live.hours,
+      viewMode: view.mode, top: view.top, bottom: view.bottom,
+      camera: { center: [c.lng, c.lat], zoom: map.getZoom(), bearing: map.getBearing(), pitch: map.getPitch() },
+    };
+  });
+}
 
 // ---- start
 setLiveMode($("layers-panel"), false);
@@ -731,7 +798,7 @@ loadData("harmonised/")
       $("dl-hotspots").hidden = true;
       $("dl-status").textContent = "Hotspot download is not available on this copy of the site.";
     });
-    clearBox(false); // start on all of Canada
+    restoreFromUrl(d); // URL, then localStorage, then defaults
     loadPlaces("harmonised/places.json").then(() => { setLivePlaceNamer(placeName); renderExposure(); }).catch(() => { $("exposure").textContent = "Place names could not be loaded."; });
   })
   .catch((err) => { $("summary").textContent = `Could not load the harmonised data (${err.message}).`; });
