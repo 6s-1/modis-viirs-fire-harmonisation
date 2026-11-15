@@ -65,8 +65,8 @@ map.keyboard.disableRotation();
 map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
 map.on("style.load", () => { map.setProjection({ type: "globe" }); neutralBasemap(); fitGlobe(); });
 
-// Mid-grey basemap so both ends of the inferno fire scale stand out (dark purple low end,
-// pale yellow high end): land ~ rgb(160,163,168), water darker, no blue or green tints.
+// Mid-grey basemap so both ends of the fire scale stand out (pale yellow low end, dark red
+// high end): land ~ rgb(160,163,168), water darker, no blue or green tints.
 function neutralBasemap() {
   const paint = { background: ["background-color", "#a0a3a8"], water: ["fill-color", "#6f747c"], park: ["fill-color", "#9a9da2"],
     landcover_wood: ["fill-color", "#9a9da2"], landuse_residential: ["fill-color", "#9c9fa4"], landcover_ice_shelf: ["fill-color", "#b3b6ba"],

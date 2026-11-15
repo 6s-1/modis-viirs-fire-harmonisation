@@ -34,9 +34,10 @@ export function updateGrid(map, d, agg, range) {
 
 export function gridLegend(el, scale, rangeLabel) {
   const sw = scale.colors.map((c, k) => `<li><span class="sw" style="background:${c}"></span>${scale.label(k)}</li>`).join("");
-  el.innerHTML = `<p class="legend-title"><span class="info" title="Harmonised fire cell-days per grid cell (~250 km²) over ${rangeLabel}. Brighter (yellow) means more fire.">Grid · ${rangeLabel}</span></p>
+  el.innerHTML = `<p class="legend-title"><span class="info" title="Harmonised fire cell-days per grid cell (~250 km²) over ${rangeLabel}. Pale yellow is the least fire, dark red the most.">Grid · ${rangeLabel}</span></p>
     <ul class="legend"><li class="nofire"><span class="sw key-zero"></span>no fire</li>${sw}
-      <li title="Includes months estimated from MODIS"><span class="sw key-est"></span>estimated</li></ul>`;
+      <li title="Includes months estimated from MODIS"><span class="sw key-est"></span>estimated</li></ul>
+    <p class="legend-note">Colours are relative to the current selection and date range.</p>`;
 }
 
 export function attachGridHover(map, tip, getRangeLabel) {

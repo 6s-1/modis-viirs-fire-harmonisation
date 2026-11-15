@@ -123,17 +123,17 @@ export function calendarPNG(d, agg, cal, opts) {
   cv.width = W * scaleK; cv.height = H * scaleK;
   const g = cv.getContext("2d");
   g.scale(scaleK, scaleK);
-  // dark surface, as in the app, so both ends of the inferno scale stay visible
+  // dark surface, as in the app; filled cells get a faint outline so the dark red end stays visible
   const INK = "#eef0f3", INK2 = "#b9bdc6", ZERO = null, LINE = "#2a2e38";
   g.fillStyle = "#0b0d12"; g.fillRect(0, 0, W, H);
   g.fillStyle = INK; g.font = "600 18px system-ui, sans-serif"; g.fillText(title, pad, 32);
   g.fillStyle = INK2; g.font = "12px system-ui, sans-serif"; g.fillText(subtitle, pad, 52);
-  g.fillText("Fire cell-days per month. Brighter (pale yellow) means more fire. Dashed outline: estimated from MODIS.", pad, 70);
+  g.fillText("Fire cell-days per month. Pale yellow = least fire, dark red = most. Dashed outline: estimated from MODIS.", pad, 70);
   // legend
   let x = pad;
   const legend = [["no fire", ZERO], ...cal.scale.colors.map((c, k) => [cal.scale.label(k), c])];
   const swatch = (col, x0, y0, w, h) => {
-    if (col) { g.fillStyle = col; g.fillRect(x0, y0, w, h); } else { g.strokeStyle = LINE; g.lineWidth = 1; g.strokeRect(x0 + 0.5, y0 + 0.5, w - 1, h - 1); }
+    if (col) { g.fillStyle = col; g.fillRect(x0, y0, w, h); g.strokeStyle = "rgba(255,255,255,0.14)"; g.lineWidth = 1; g.strokeRect(x0 + 0.5, y0 + 0.5, w - 1, h - 1); } else { g.strokeStyle = LINE; g.lineWidth = 1; g.strokeRect(x0 + 0.5, y0 + 0.5, w - 1, h - 1); }
   };
   g.font = "11px system-ui, sans-serif";
   for (const [lab, col] of legend) {
