@@ -325,7 +325,7 @@ function flyToCamera(cam) {
 // side panel below the fire chart, outlines the cell on every globe and is closed by its button
 // or Esc.
 let whyCell = null;
-function openWhyForCell(i) {
+async function openWhyForCell(i) {
   whyCell = i;
   const d = state.d;
   const place = placeName(d.lat[i], d.lon[i]) || "This area";
@@ -336,7 +336,7 @@ function openWhyForCell(i) {
       return cellIndexOf(d, latLngToCell(lat, lon, 5)) === i;
     }),
   } : null;
-  renderWhyCard($("sec-why"), d, state.agg, {
+  await renderWhyCard($("sec-why"), d, state.agg, {
     i, place, range: state.range, scope: "cell",
     windowLabel: state.app === "live" ? WINDOW_LABEL[live.hours] : rangeLabel(),
     recordLabel: `${MONTHS[d.months[0].m - 1]} ${d.months[0].y} – ${MONTHS[d.lastMonth.m - 1]} ${d.lastMonth.y}`,
@@ -347,10 +347,10 @@ function openWhyForCell(i) {
   $("sec-why").querySelector(".wc-close").focus({ preventScroll: true });
 }
 // a month in the calendar: the selection box, that month only
-function openWhyForMonth(mi) {
+async function openWhyForMonth(mi) {
   whyCell = null;
   const d = state.d, info = d.months[mi];
-  renderWhyCard($("sec-why"), d, state.agg, {
+  await renderWhyCard($("sec-why"), d, state.agg, {
     place: state.box ? "Selected box" : "All of Canada", range: [mi, mi], scope: "month",
     windowLabel: `${MONTHS[info.m - 1]} ${info.y}`,
   }, null);

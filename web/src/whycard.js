@@ -11,6 +11,40 @@ import { MONTHS, fmt, fmtShort, isEstimated, median, quantile } from "./data.js"
 import { infoIcon } from "./info.js";
 import { mannKendall, theilSen } from "./compare.js";
 
+// ---- Stage B: cause, burned area and land cover, in one shard per ecozone, fetched when the
+// card first needs that zone. Display only: none of it feeds the harmonisation model.
+const slug = (name) => name.normalize("NFKD").replace(/[\u0300-\u036f]/g, "")
+  .replace(/[^a-zA-Z0-9]+/g, "-").toLowerCase().replace(/^-|-$/g, "");
+let whyIndex = null;
+const shardCache = new Map();
+async function loadShard(zoneName) {
+  const zone = zoneName ? slug(zoneName) : "other";
+  if (shardCache.has(zone)) return shardCache.get(zone);
+  const job = (async () => {
+    if (!whyIndex) whyIndex = await fetch("why/index.json").then((r) => (r.ok ? r.json() : null)).catch(() => null);
+    if (!whyIndex || !whyIndex.zones[zone]) return null;
+    return fetch(`why/${zone}.json`).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+  })();
+  shardCache.set(zone, job);
+  return job;
+}
+
+const PCT = (part, whole) => (whole > 0 ? Math.round((part / whole) * 100) : 0);
+const CAUSE_LABEL = { lightning: "Lightning", human: "Human", prescribed: "Prescribed burn", unknown: "Not recorded" };
+const CAUSE_COLOR = { lightning: "#f8968a", human: "#69b9eb", prescribed: "#c9cdd4", unknown: "#4a4e57" };
+const LC_LABEL = { forest: "Forest", grass_shrub: "Grass and shrub", cropland: "Cropland", other: "Other" };
+const LC_COLOR = { forest: "#2f7d55", grass_shrub: "#9ab04f", cropland: "#d8a657", other: "#6a6f7a" };
+
+// one stacked bar of shares
+function shareBar(parts, labels, colors, aria) {
+  const total = parts.reduce((a, [, v]) => a + v, 0);
+  if (!total) return "";
+  return `<div class="wc-bar" role="img" aria-label="${aria}">
+      ${parts.map(([k, v]) => `<span style="width:${(v / total) * 100}%;background:${colors[k] || "#6a6f7a"}" title="${labels[k] || k}"></span>`).join("")}
+    </div>
+    <ul class="wc-key">${parts.map(([k, v]) => `<li><span class="sw" style="background:${colors[k] || "#6a6f7a"}"></span>${labels[k] || k} ${PCT(v, total)}%</li>`).join("")}</ul>`;
+}
+
 const LONG = ["January", "February", "March", "April", "May", "June", "July", "August", "September",
   "October", "November", "December"];
 
@@ -87,7 +121,7 @@ function cellTrend(d, i, range) {
 const row = (label, value) => `<div class="wc-row"><dt>${label}</dt><dd>${value}</dd></div>`;
 
 // subject: { i, place, range, label } for a cell, or a month of the whole box.
-export function renderWhyCard(el, d, agg, subject, live) {
+export async function renderWhyCard(el, d, agg, subject, live) {
   const { i, place, range, windowLabel, scope } = subject;
   const isCell = i !== undefined && i !== null;
   const hist = isCell ? cellHistory(d, i) : null;
@@ -140,7 +174,48 @@ export function renderWhyCard(el, d, agg, subject, live) {
     if (ez) rows.push(row("In its ecozone", `${ez.pct}th percentile <span class="muted">of ${fmt(ez.n)} cells in ${ez.zone}</span>`));
   }
 
+  // ---- Stage B, for a single cell: cause, burned area, land cover and the rest
+  let why = "", more = "";
+  if (isCell) {
+    const shard = await loadShard(d.manifest.regions[d.region[i]]);
+    const rec = shard && shard[String(cellIdOf(d, i))];
+    if (rec) {
+      const years = yearsIn(d, range);
+      const cause = rec.cause || {};
+      const causeParts = ["lightning", "human", "prescribed", "unknown"].filter((k) => cause[k]).map((k) => [k, cause[k]]);
+      const nFires = causeParts.reduce((a, [, v]) => a + v, 0);
+      const lcParts = Object.entries(rec.lc || {}).sort((a, b) => b[1] - a[1]);
+      if (causeParts.length || lcParts.length) {
+        const thin = (rec.agency || []).filter((a) => (whyIndex?.agency_last_year?.[a] ?? 9999) < d.lastYear);
+        why = `<div class="wc-why">
+          <p class="wc-kicker">Why</p>
+          ${causeParts.length ? `<p class="wc-sub">Cause of ${fmt(nFires)} recorded fire${nFires === 1 ? "" : "s"}</p>
+            ${shareBar(causeParts, CAUSE_LABEL, CAUSE_COLOR, "Cause of recorded fires")}` : ""}
+          ${lcParts.length ? `<p class="wc-sub">What burns here</p>
+            ${shareBar(lcParts, LC_LABEL, LC_COLOR, "Land cover where fire is detected")}` : ""}
+          ${thin.length ? `<p class="wc-note">Recent years may be incomplete for ${thin.join(", ")}.</p>` : ""}
+        </div>`;
+      }
+      // area burned: the largest fire that reached this cell, by year in the window
+      const ha = Object.entries(rec.nbac_largest_ha || {}).filter(([y]) => years.includes(+y)).sort((a, b) => b[1] - a[1]);
+      const big = (rec.big || []).filter((f) => years.includes(f.y)).slice(0, 3);
+      const moreRows = [];
+      if (ha.length) moreRows.push(row(`Largest fire reaching here, ${ha[0][0]}`, `${fmt(ha[0][1])} ha`));
+      if (big.length) {
+        moreRows.push(`<div class="wc-row wc-stack"><dt>Largest fires in this window</dt><dd><ul class="wc-fires">${big.map((f) =>
+          `<li>${f.name ? `<b>${f.name}</b> · ` : ""}${fmt(f.ha)} ha${f.m ? ` · ${MONTHS[f.m - 1]} ${f.y}` : ` · ${f.y}`}</li>`).join("")}</ul></dd></div>`);
+      }
+      if (moreRows.length) {
+        more = `<details class="wc-more"><summary>More</summary><dl class="wc-rows">${moreRows.join("")}</dl></details>`;
+      }
+    }
+  }
+
   const sources = `Fire cell-days and history from the harmonised record.<br>
+    Cause and fire names: Canadian National Fire Database (NFDB), CWFIS. Shares are of fires with a record here, and fires whose cause is not recorded are counted as "Not recorded".<br>
+    Area burned: National Burned Area Composite (NBAC). The figure is the largest fire that reached this cell that year, not the area burned inside the cell.<br>
+    What burns here: ESA WorldCover at each detection.<br>
+    <span class="muted">NFDB and NBAC are shown for context only; the harmonised record is unchanged.</span><br><br>
     Percentile compares this cell with every cell of the same ecozone over the same window.<br>
     People: WorldPop 2020, a modelled estimate.<br>
     <span class="muted">Where fire is changing is shown only when the cell's own trend is statistically significant (p ≤ 0.1).</span>`;
@@ -156,9 +231,21 @@ export function renderWhyCard(el, d, agg, subject, live) {
     ${liveBlock}
     ${liveBlock ? `<p class="wc-kicker wc-past">Past fire here</p>` : ""}
     <dl class="wc-rows">${rows.join("")}</dl>
+    ${why}
+    ${more}
     <p class="wc-foot">Sources${infoIcon(sources)}</p>
   </div>`;
   el.hidden = false;
+}
+
+// the h3 id the export keys on, as a decimal string
+function cellIdOf(d, i) {
+  return BigInt(`0x${d.cellHi[i].toString(16).padStart(8, "0")}${d.cellLo[i].toString(16).padStart(8, "0")}`).toString();
+}
+function yearsIn(d, range) {
+  const out = [];
+  for (let y = d.months[range[0]].y; y <= d.months[range[1]].y; y++) out.push(y);
+  return out;
 }
 
 function boxWindowTotal(d, agg, range) {
