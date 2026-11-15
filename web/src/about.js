@@ -72,7 +72,10 @@ function render(a) {
   <section id="sec-team">
     <h2>Team Sitara OPS</h2>
     <div class="team">
-      <div class="team-avatar" aria-hidden="true">SS</div>
+      <div class="team-avatar">
+        <span aria-hidden="true">SS</span>
+        <img src="./design/shreya.jpg" alt="Shreya Saxena" onerror="this.remove()" />
+      </div>
       <div class="team-who">
         <p class="team-name">Shreya Saxena</p>
         <p class="team-role">Computer Science (Honours), University of British Columbia · solo builder</p>
