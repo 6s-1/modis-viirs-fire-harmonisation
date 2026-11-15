@@ -118,6 +118,10 @@ function cellTrend(d, i, range) {
   return { dir: fit.b > 0 ? "rising" : "falling", years: `${years[0]}–${years[years.length - 1]}` };
 }
 
+const ordinal = (n) => {
+  const s = ["th", "st", "nd", "rd"], v = n % 100;
+  return `${n}${s[(v - 20) % 10] || s[v] || s[0]}`;
+};
 const row = (label, value) => `<div class="wc-row"><dt>${label}</dt><dd>${value}</dd></div>`;
 
 // subject: { i, place, range, label } for a cell, or a month of the whole box.
@@ -171,7 +175,7 @@ export async function renderWhyCard(el, d, agg, subject, live) {
     const tr = cellTrend(d, i, range);
     if (tr) rows.push(row("Where fire is changing", `${tr.dir} <span class="muted">${tr.years}</span>`));
     const ez = ecozonePercentile(d, agg, i, range);
-    if (ez) rows.push(row("In its ecozone", `${ez.pct}th percentile <span class="muted">of ${fmt(ez.n)} cells in ${ez.zone}</span>`));
+    if (ez) rows.push(row("In its ecozone", `${ordinal(ez.pct)} percentile <span class="muted">of ${fmt(ez.n)} cells in ${ez.zone}</span>`));
   }
 
   // ---- Stage B, for a single cell: cause, burned area, land cover and the rest
