@@ -10,12 +10,13 @@ import { renderCompare } from "./compare.js";
 import { attachInfoTips, infoIcon } from "./info.js";
 import { calendarPNG, coverage, fileTime, hotspotIndex, hotspotPlan, hotspotsCSV, liveCSV, monthlyCSV, saveBlob, utcStamp } from "./downloads.js";
 import { addGridLayers, attachGridHover, buildGrid, buildLiveGrid, gridLegendHTML, setGrid } from "./grid.js";
-import { initLayersControl, overlays, setLiveMode } from "./layers.js";
+import { initLayersControl, overlays, setLiveMode, setTrendAvailable } from "./layers.js";
 import { raisePlaces, setPlacesVisible } from "./places.js";
-import { addTrendLayers, attachTrendHover, buildTrend, setTrend, trendLegendHTML } from "./trend.js";
+import { MIN_YEARS, addTrendLayers, attachTrendHover, buildTrend, completeYears, setTrend, trendLegendHTML } from "./trend.js";
 import { addHoverLayers, footprint, raiseHover, scheduleHover, setHover, setPicked } from "./hover.js";
 import { closeWhyCard, renderWhyCard } from "./whycard.js";
 import { initTextSize } from "./textsize.js";
+import { initInfoPanel } from "./infopanel.js";
 import { initTour } from "./tour.js";
 import { fixPair, lockCameras, layerPicker, repaintPickers, view } from "./views.js";
 import { readUrl, writeUrl } from "./urlstate.js";
@@ -47,6 +48,18 @@ function makeMap(container) {
   });
   m.touchZoomRotate.disableRotation();
   m.keyboard.disableRotation();
+  // Keep the canvas the size of its slot. body.app is sized in dvh, so the panel grows and
+  // shrinks as a mobile browser's toolbars slide away - and Safari does not reliably fire a
+  // window resize for that, which left the canvas short and the space below it black.
+  const slot = m.getContainer();
+  if (typeof ResizeObserver === "function") {
+    let pending = false;
+    new ResizeObserver(() => {
+      if (pending) return; // one resize per frame, however many entries arrive
+      pending = true;
+      requestAnimationFrame(() => { pending = false; m.resize(); });
+    }).observe(slot);
+  }
   m.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
   m.addControl(new maplibregl.AttributionControl({ compact: true }), "top-right"); // under zoom, clear of the corners below
   m.on("style.load", () => { m.setProjection({ type: "globe" }); neutralBasemap(m); });
@@ -496,7 +509,12 @@ let unlock = null;
 
 function ensureSecondMap() {
   if (maps[1]) return maps[1];
-  $("map-slot-b").hidden = false;
+  const slot = $("map-slot-b");
+  slot.hidden = false;
+  // hidden is display:none, so the slot is 0x0 until the browser lays it out again. Creating the
+  // map before that gives WebGL a zero-sized drawing buffer, which some browsers keep showing as
+  // black. Read a layout property first to force the reflow, so the map is born at full size.
+  void slot.offsetHeight;
   const m = makeMap("map-b");
   maps.push(m);
   m.jumpTo({ center: maps[0].getCenter(), zoom: maps[0].getZoom() });
@@ -532,8 +550,15 @@ function setView(mode) {
     return;
   }
   ensureSecondMap();
+  // ensureSecondMap only unhides the slot the first time, when it builds the map. Going back to
+  // single hides it again, so every later return to compare has to unhide it itself - otherwise
+  // the view says compare while the slot is still display:none and the globe never appears.
+  $("map-slot-b").hidden = false;
   document.querySelectorAll(".view-pick").forEach((el) => { el.hidden = false; });
   if (!unlock) unlock = lockCameras(maps);
+  // Resize now that both slots are visible, and again next frame once the layout has settled:
+  // the first keeps a map from drawing at zero size, the second picks up the final dimensions.
+  for (const m of maps) m.resize();
   requestAnimationFrame(() => { for (const m of maps) m.resize(); });
   refreshGrid(); // the grid is coarser while two globes are shown
   onViewPick();
@@ -586,6 +611,12 @@ const trendYears = () => {
 const wantsTrend = () => (view.mode === "single" ? overlays.trend : view.top === "trend" || view.bottom === "trend");
 const wantsPeople = () => view.mode !== "single" && (view.top === "people" || view.bottom === "people");
 function updateTrend() {
+  // The toggle is only usable with enough complete years; switching it off here also drops the
+  // layer, so a range change cannot leave a stale trend on the map.
+  if (state.d) {
+    const ok = state.app !== "live" && completeYears(state.d, state.range) >= MIN_YEARS;
+    if (setTrendAvailable($("layers-panel"), ok, MIN_YEARS)) applyLayers();
+  }
   if (!wantsTrend() || state.app === "live" || !state.d || !state.agg) {
     state.trend = null;
     for (const m of maps) setTrend(m, []);
@@ -739,12 +770,23 @@ function zoomToCell(i) {
 
   if (view.mode === "single") {
     setView("compare"); // a row opens the comparison on that area
-    const second = maps[1];
-    if (second && !second._ready) { second.once("load", () => requestAnimationFrame(go)); return; }
-    requestAnimationFrame(go);
+    // The second globe is created by that call, so it may still be loading its style. Wait for it
+    // before flying, and size it first: a map that is flown while its slot is still 0x0 renders
+    // black until something else happens to resize it.
+    whenReady(maps[1], () => {
+      for (const m of maps) m.resize();
+      requestAnimationFrame(go);
+    });
     return;
   }
   go();
+}
+// Run fn once the map has loaded. `once("load")` alone would never fire for a map that finished
+// loading before we asked, which is the usual case on a warm cache.
+function whenReady(m, fn) {
+  if (!m) return fn();
+  if (m._ready || m.loaded()) return fn();
+  m.once("load", fn);
 }
 let deferHeavy = false;
 
@@ -1016,6 +1058,7 @@ function saveUrl() {
 
 // ---- start
 initTextSize();
+initInfoPanel(document.getElementById("info-btn"));
 // the tour lives in the header, and its steps follow whichever mode the reader is in
 {
   const tour = initTour(document.querySelector(".map-panel"), () => state.app === "live", {

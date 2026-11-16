@@ -3,21 +3,29 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="About Ember: how the harmonised MODIS and VIIRS fire record for Canada is built, how well it works, its limits and its data sources." />
-    <title>About Ember · harmonised MODIS + VIIRS fire activity for Canada</title>
+    <meta name="color-scheme" content="dark" />
+    <!-- The About page is now the "i" panel in the dashboard header. Old links still work. -->
+    <meta http-equiv="refresh" content="0; url=./index.html" />
+    <link rel="canonical" href="./index.html" />
+    <title>Ember</title>
     <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+    <style>
+      html, body { background: #05060a; color: #eef0f3; margin: 0; height: 100%;
+        font-family: system-ui, sans-serif; display: grid; place-items: center; }
+      a { color: #2bb3a3; }
+    </style>
+    <script>
+      // replace(), not assign(), so Back does not land here again and bounce forward.
+      // The query and hash carry across, so an older shared link keeps its box and dates;
+      // the meta refresh above is only the no-script fallback.
+      location.replace("./" + location.search + location.hash);
+    </script>
   </head>
   <body>
-    <header class="site-top">
-      <p><a href="./app.html">← Back to the dashboard</a></p>
-      <div class="textsize" role="group" aria-label="Text size"></div>
-      <h1>About Ember</h1>
-      <p class="tagline">Harmonised MODIS + VIIRS fire activity for Canada</p>
-      <p class="muted">How the record is built, how well it holds up, what it cannot tell you, and where the data come from.</p>
-    </header>
-    <main class="about" id="about">
-      <p>Loading…</p>
-    </main>
-    <script type="module" src="/src/about.js"></script>
+    <p>Taking you to the dashboard… <a id="go" href="./index.html">Open it now</a>.</p>
+    <script>
+      var a = document.getElementById("go");
+      if (a) a.href = "./" + location.search + location.hash;
+    </script>
   </body>
 </html>

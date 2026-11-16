@@ -3,140 +3,24 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Ember: harmonised MODIS + VIIRS fire activity for Canada. Monthly fire activity from 2000, combining MODIS and VIIRS satellite hotspots into one consistent record." />
-    <title>Ember · harmonised MODIS + VIIRS fire activity for Canada</title>
+    <meta name="color-scheme" content="dark" />
+    <!-- The dashboard is now the site root. Older links to app.html keep working. -->
+    <meta http-equiv="refresh" content="0; url=./index.html" />
+    <link rel="canonical" href="./index.html" />
+    <title>Ember</title>
     <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+    <style>
+      html, body { background: #05060a; color: #eef0f3; margin: 0; height: 100%;
+        font-family: system-ui, sans-serif; display: grid; place-items: center; }
+      a { color: #2bb3a3; }
+    </style>
+    <script>location.replace("./" + location.search + location.hash);</script>
   </head>
-  <body class="app">
-    <header class="site-top">
-      <a class="brand" href="./index.html" aria-label="Ember home">
-        <img src="./brand/wordmark.svg" alt="Ember" class="brand-mark" />
-      </a>
-      <div class="brand-lines">
-        <p class="brand-tag">Know your normal</p>
-        <p class="brand-sub">Every month of Canadian fire since 2000, on one scale, next to right now.</p>
-      </div>
-      <div class="top-right">
-        <div class="textsize" role="group" aria-label="Text size"></div>
-        <button id="tour-btn" type="button" class="tour-start">
-          <img src="./brand/mascot.svg" alt="" class="tour-mascot" />
-          <span>Take tour</span>
-        </button>
-      </div>
-    </header>
-
-    <main class="layout">
-      <section class="map-panel" aria-label="Map and area selection">
-        <div class="map-stack" id="map-stack">
-          <div class="map-slot" id="map-slot-a"><div id="map"></div>
-            <div id="grid-legend" class="map-ui corner-bl map-legend"></div></div>
-          <div class="map-slot" id="map-slot-b" hidden><div id="map-b"></div></div>
-        </div>
-
-        <!-- corners: layers top left, zoom top right, legend bottom left, selection tools bottom right -->
-        <div class="map-ui corner-tl layers">
-          <button id="layers-btn" type="button" class="ghost" aria-expanded="false" aria-controls="layers-panel">Layers</button>
-          <div id="layers-panel" class="layers-panel" role="group" aria-label="Map layers" hidden></div>
-        </div>
-        <div class="map-ui corner-br map-tools" role="group" aria-label="Selection">
-          <button id="draw" type="button" aria-pressed="false">Draw a box</button>
-          <button id="compare-btn" type="button" class="ghost" aria-pressed="false">Compare</button>
-        </div>
-
-      </section>
-
-      <aside class="side" aria-live="polite">
-        <div class="modebar viewtoggle" role="radiogroup" aria-label="Data">
-          <label title="The harmonised record since November 2000"><input type="radio" name="app" value="historical" checked /> Historical</label>
-          <label title="Near-real-time hotspots from VIIRS on NOAA-20 and NOAA-21 (NASA FIRMS), not harmonised"><input type="radio" name="app" value="live" /> Live</label>
-        </div>
-        <section class="sec" id="sec-summary" aria-labelledby="sel-h">
-          <h2 id="sel-h">Selection</h2>
-          <div class="area" id="sec-area">
-            <form id="bounds" class="bounds" aria-label="Area bounds in degrees">
-              <div class="brow">
-                <span class="brow-h">Latitude</span>
-                <label>South <input id="south" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="41.5" /></label>
-                <label>North <input id="north" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="83.5" /></label>
-              </div>
-              <div class="brow">
-                <span class="brow-h">Longitude</span>
-                <label>West <input id="west" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="-141.5" /></label>
-                <label>East <input id="east" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="-52" /></label>
-              </div>
-              <p id="bounds-error" class="error" role="alert"></p>
-            </form>
-            <fieldset class="range brow hist-only">
-              <legend class="sr">Date range</legend>
-              <span class="brow-h" aria-hidden="true">Dates</span>
-              <label>From <input id="from" type="month" /></label>
-              <label>To <input id="to" type="month" /></label>
-              <p id="range-error" class="error" role="alert"></p>
-            </fieldset>
-            <div class="brow live-only" id="live-window">
-              <span class="brow-h">Window</span>
-              <div class="viewtoggle" role="radiogroup" aria-label="Live window">
-                <label><input type="radio" name="live" value="24" checked /> 24 h</label>
-                <label><input type="radio" name="live" value="48" /> 48 h</label>
-                <label><input type="radio" name="live" value="168" /> 7 d</label>
-              </div>
-            </div>
-            <div class="apply-row">
-              <button type="submit" form="bounds" class="ghost">Apply</button>
-            </div>
-          </div>
-          <div id="summary">Loading data…</div>
-        </section>
-
-        <details class="sec" id="sec-calendar" open data-remember>
-          <summary><h2><span class="hist-only">Calendar</span><span class="live-only">Live hotspots</span></h2></summary>
-          <div id="livechart" class="live-only"></div>
-          <div class="sec-controls hist-only">
-            <div class="viewtoggle" role="radiogroup" aria-label="Calendar values">
-              <label title="Whole record in VIIRS-equivalent fire cell-days; before 2012 estimated from MODIS"><input type="radio" name="view" value="harmonised" checked /> Harmonised</label>
-              <label title="Each satellite's own fire cell-days, not converted: MODIS before 2012, VIIRS after, so the record steps up in 2012"><input type="radio" name="view" value="raw" /> Raw sensors</label>
-            </div>
-            <div class="viewtoggle" role="radiogroup" aria-label="Calendar colour">
-              <label title="Colour = fire cell-days in the month"><input type="radio" name="colour" value="activity" checked /> Activity</label>
-              <label title="Colour = the month divided by the median of the same month in other years (1× = normal)"><input type="radio" name="colour" value="normal" /> Compared with normal</label>
-            </div>
-            <div class="viewtoggle" role="radiogroup" aria-label="Years">
-              <label><input type="radio" name="years" value="all" checked /> All years (2000+)</label>
-              <label><input type="radio" name="years" value="measured" /> Measured only (2012+)</label>
-            </div>
-          </div>
-          <p id="view-note" class="sr"></p>
-          <div id="legend" class="hist-only"></div>
-          <div id="calendar" class="cal-wrap hist-only"></div>
-        </details>
-
-        <!-- "Why it burned": always directly below the main fire chart, never over the map -->
-        <section class="sec" id="sec-why" hidden aria-live="polite"></section>
-
-        <details class="sec" id="sec-exposure" open data-remember>
-          <summary><h2>Areas with fire, ranked by people exposed</h2></summary>
-          <div id="exposure"><p class="muted small">Loading…</p></div>
-        </details>
-
-        <details class="sec hist-only" id="sec-compare" open data-remember>
-          <summary><h2>Compared with past years</h2></summary>
-          <div id="compare"></div>
-        </details>
-
-        <section class="sec sec-static" id="sec-downloads" aria-labelledby="dl-h">
-          <div class="dl-row">
-            <h2 id="dl-h">Downloads</h2>
-            <button id="dl-monthly" type="button" class="ghost hist-only" title="Harmonised monthly values per grid cell in the box and date range, with source flag, likely range and hotspot detections per sensor">Monthly per cell · CSV</button>
-            <button id="dl-hotspots" type="button" class="ghost hist-only" title="Satellite hotspots in the box and date range (vegetation fire, low-confidence class removed)">Hotspots · CSV</button>
-            <button id="dl-png" type="button" class="ghost hist-only" title="The harmonised calendar for this box as an image">Calendar · PNG</button>
-            <button id="dl-live" type="button" class="ghost live-only" disabled title="The near-real-time hotspots shown on the map for this area and window (not harmonised)">Live hotspots · CSV</button>
-          </div>
-          <p id="dl-status" class="muted small" aria-live="polite"></p>
-        </section>
-
-      </aside>
-    </main>
-    <div id="tip" class="tip" role="tooltip" hidden></div>
-    <script type="module" src="/src/main.js"></script>
+  <body>
+    <p>Taking you to the dashboard… <a id="go" href="./index.html">Open it now</a>.</p>
+    <script>
+      var a = document.getElementById("go");
+      if (a) a.href = "./" + location.search + location.hash;
+    </script>
   </body>
 </html>

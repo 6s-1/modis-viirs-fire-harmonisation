@@ -126,17 +126,19 @@ export function attachLiveHover(map, tip) {
 // Fires the agencies report, from CWFIS through the Worker. Fetched once and reused: it changes
 // about once a day.
 let activeCache = null;
+// Returns the agency fires, or null when the feed could not be read. null and [] mean different
+// things to the card: "we could not check" against "we checked and there is nothing here".
 export async function fetchActiveFires() {
-  if (!LIVE_URL) return [];
+  if (!LIVE_URL) return null;
   if (activeCache) return activeCache;
   try {
     const r = await fetch(`${LIVE_URL}/activefires`, { signal: AbortSignal.timeout(15000) });
-    if (!r.ok) { devWhy(`active fires returned ${r.status}`); return []; }
+    if (!r.ok) { devWhy(`active fires returned ${r.status}`); return null; }
     const d = await r.json();
     activeCache = d.fires || [];
     return activeCache;
   } catch (err) {
     devWhy(`could not reach the active fires feed (${err.name === "TimeoutError" ? "timed out" : err.message})`);
-    return [];
+    return null;
   }
 }

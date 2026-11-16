@@ -11,7 +11,8 @@ import { fmt, h3Id } from "./data.js";
 import { mannKendall, theilSen } from "./compare.js";
 import { infoIcon } from "./info.js";
 
-const MIN_YEARS = 8;      // fewer complete years than this and the map is not drawn
+export const MIN_YEARS = 8; // fewer complete years than this and the map is not drawn
+export const completeYears = (d, range) => wholeYears(d, range).length;
 const MIN_TOTAL = 20;     // a cell needs this many cell-days over the period to be worth testing
 const P_MAX = 0.1;        // cells above this p-value are "no clear change"
 

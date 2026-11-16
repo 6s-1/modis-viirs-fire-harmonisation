@@ -43,7 +43,13 @@ export function initLayersControl(buttonEl, panelEl, onChange) {
     buttonEl.setAttribute("aria-expanded", String(on));
   };
   buttonEl.addEventListener("click", (e) => { e.stopPropagation(); open(panelEl.hidden); });
-  document.addEventListener("click", (e) => { if (!panelEl.hidden && !panelEl.contains(e.target) && e.target !== buttonEl) open(false); });
+  // A click anywhere else closes the panel - except inside the tour, which opens the panel on
+  // purpose to show what a step is talking about and would otherwise close it on the next click.
+  document.addEventListener("click", (e) => {
+    if (panelEl.hidden || panelEl.contains(e.target) || e.target === buttonEl) return;
+    if (e.target.closest && e.target.closest(".tour")) return;
+    open(false);
+  });
   document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !panelEl.hidden) { open(false); buttonEl.focus(); } });
 }
 
@@ -53,4 +59,20 @@ export function setLiveMode(panelEl, isLive) {
   panelEl.querySelectorAll("[data-live-only]").forEach((l) => l.classList.toggle("off", !isLive));
   panelEl.querySelectorAll("[data-hist-only] input").forEach((i) => { i.disabled = isLive; });
   panelEl.querySelectorAll("[data-hist-only]").forEach((l) => l.classList.toggle("off", isLive));
+}
+
+// A trend needs enough complete years to mean anything, so the toggle is off and unclickable
+// until the date range has them. Turning it off also clears it from the map.
+export function setTrendAvailable(panelEl, ok, minYears) {
+  const box = panelEl.querySelector('input[data-layer="trend"]');
+  if (!box) return false;
+  const row = box.closest(".lp-row");
+  const wasOn = box.checked;
+  box.disabled = !ok;
+  if (row) {
+    row.classList.toggle("off", !ok);
+    row.title = ok ? "" : `Needs ${minYears} or more complete years in the date range.`;
+  }
+  if (!ok && wasOn) { box.checked = false; overlays.trend = false; save(); return true; }
+  return false;
 }

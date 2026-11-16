@@ -857,6 +857,38 @@ input[type="month"]:focus-visible, input[type="month"]:focus {
   border-radius: 999px; background: var(--raise); border: 1px solid var(--card-line); color: var(--ink);
   font-size: var(--fs-s); font-weight: 500; cursor: pointer; }
 .tour-start:hover { border-color: var(--accent); }
+
+/* the "i" button beside the tour, and the panel it opens */
+.info-start { display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 50%;
+  padding: 0; box-sizing: border-box; line-height: 1;
+  background: var(--raise); border: 1px solid var(--card-line); color: var(--ink);
+  font-family: var(--mono); font-size: var(--fs-s); font-weight: 500; line-height: 1; cursor: pointer; }
+.info-start:hover { border-color: var(--accent); color: var(--accent); }
+.info-start:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.infodlg { width: min(680px, 92vw); max-height: 86vh; padding: 0; color: var(--ink);
+  background: var(--card); border: 1px solid var(--card-line); border-radius: 14px; }
+.infodlg::backdrop { background: rgba(5, 6, 10, 0.72); }
+.info-head { position: sticky; top: 0; z-index: 1; display: flex; align-items: center;
+  justify-content: space-between; gap: 12px; padding: 14px 18px 12px;
+  background: var(--card); border-bottom: 1px solid var(--card-line); border-radius: 14px 14px 0 0; }
+.info-head h2 { margin: 0; font-size: var(--fs-l); font-weight: 600; letter-spacing: -0.01em; }
+/* grid centring, zero padding and border-box: the glyph sits dead centre of the circle */
+.info-x { display: inline-grid; place-items: center; width: 28px; height: 28px; padding: 0;
+  box-sizing: border-box; border-radius: 50%; background: none; border: 1px solid var(--card-line);
+  color: var(--muted); font-size: var(--fs-l); line-height: 1; cursor: pointer; }
+.info-x:hover { color: var(--ink); border-color: var(--accent); }
+.info-body { padding: 4px 18px 20px; overflow-y: auto; max-height: calc(86vh - 56px); }
+.info-body section { padding: 14px 0; border-bottom: 1px solid var(--card-line); }
+.info-body section:last-child { border-bottom: 0; }
+.info-body h3 { margin: 0 0 6px; font-family: var(--mono); font-size: var(--fs-2xs); font-weight: 500;
+  letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.info-body p { margin: 6px 0; font-size: var(--fs-s); line-height: 1.55; }
+.info-body ul { margin: 6px 0; padding-left: 18px; }
+.info-body li { margin: 4px 0; font-size: var(--fs-s); line-height: 1.5; }
+.info-links { columns: 2; column-gap: 22px; list-style: none; padding-left: 0 !important; }
+.info-links li { break-inside: avoid; }
+@media (max-width: 560px) { .info-links { columns: 1; } }
 .tour-mascot { width: 20px; height: 20px; display: block; }
 .tour-dot { position: absolute; top: -2px; right: -2px; width: 9px; height: 9px; border-radius: 50%;
   background: var(--accent); box-shadow: 0 0 0 2px #0b0d12; animation: mdot 2.4s ease-in-out infinite; }

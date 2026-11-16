@@ -583,3 +583,20 @@ included; the experiments rerun reproduced every row of
 [comparison_all.csv](../reports/experiments/comparison_all.csv); the leave-one-year-out rerun
 reproduced 5.7% / 0.918–1.238 and the −19.2% for 2014. Rerunning from the raw FIRMS CSVs requires
 re-downloading the inputs in §2.
+
+## References
+
+- Giglio, L., Schroeder, W., & Justice, C. O. (2016). The collection 6 MODIS active fire detection
+  algorithm and fire products. *Remote Sensing of Environment*, 178, 31–41.
+- Schroeder, W., Oliva, P., Giglio, L., & Csiszar, I. A. (2014). The New VIIRS 375 m active fire
+  detection data product: Algorithm description and initial assessment. *Remote Sensing of
+  Environment*, 143, 85–96.
+- Hall, R. J., Skakun, R. S., Metsaranta, J. M., Landry, R., Fraser, R. H., Raymond, D., Gartrell, M.,
+  Decker, V., & Little, J. (2020). Generating annual estimates of forest fire disturbance in Canada:
+  the National Burned Area Composite. *International Journal of Wildland Fire*, 29(10), 878–891.
+- Zanaga, D., et al. (2022). *ESA WorldCover 10 m 2021 v200*. Zenodo.
+  https://doi.org/10.5281/zenodo.7254221
+- Ecological Stratification Working Group (1995). *A National Ecological Framework for Canada*.
+  Agriculture and Agri-Food Canada and Environment Canada.
+- Canadian Forest Service (2026). *Canadian National Fire Database – Agency Fire Data* and *National
+  Burned Area Composite*. Natural Resources Canada, https://cwfis.cfs.nrcan.gc.ca/
