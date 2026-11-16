@@ -9,10 +9,8 @@ const SEEN = "ember:tour-seen";
 const HISTORICAL = [
   { target: "#draw", text: "Draw a box on the globe to choose an area." },
   { target: "#sec-calendar", text: "Every month since 2000; darker means more fire, dashed means estimated from older satellites." },
-  // These two open what they describe rather than pointing at a control and leaving the reader to
-  // imagine the result: one opens a real month, the other turns the layer on and shows the map.
-  { target: "#sec-why", pick: "month", text: "Clicking a month opens what happened in it: what caused the fire, how much land burned and what kind of land it was." },
-  { target: "#map", open: "layers", layer: "trend", text: "'Where fire is changing' is now on: blue is falling, red is rising. The Layers button holds this and Places." },
+  { target: "#calendar", text: "Click a month or a cell to see what caused the fire, how much land burned and what kind of land it was." },
+  { target: "#layers-panel", open: "layers", layer: "trend", text: "Turn on 'Where fire is changing' to see where fire is rising or falling, or Places to find your way." },
   { target: "#sec-compare", text: "Yearly totals, when the season runs, and how many people lived where fire burned." },
   { target: "#compare-btn", open: "compare", text: "Compare puts fire and people on two linked globes; point at one and the other follows." },
 ];
@@ -36,32 +34,16 @@ function setLayer(id, on) {
   box.click();
   return true;
 }
-// Open the busiest month in the calendar, so the step shows a real card with real numbers in it
-// instead of an empty one. Returns true if the tour opened it and should close it afterwards.
-function pickMonth() {
-  // the calendar marks its biggest months "top"; one of those has a card worth reading
-  const cell = document.querySelector("#calendar td[data-i].top")
-    || document.querySelector("#calendar td[data-i].v:not(.zero):not(.out)")
-    || document.querySelector("#calendar td[data-i]");
-  if (!cell) return false;
-  cell.click();
-  return true;
-}
 function openFor(step, helpers) {
   if (step.open === "layers" && helpers.openLayers) { helpers.openLayers(true); opened = opened || {}; opened.layers = true; }
   if (step.layer) {
     // the panel has to be open before its checkbox exists to click
     if (setLayer(step.layer, true)) { opened = opened || {}; opened.layer = step.layer; }
   }
-  // only once per step, however many frames it waits for the card to render
-  if (step.pick === "month" && !(opened && opened.why) && pickMonth()) { opened = opened || {}; opened.why = true; }
   if (step.open === "compare" && helpers.setCompare && !helpers.isCompare()) { helpers.setCompare(true); opened = opened || {}; opened.compare = true; }
 }
 function restore(helpers) {
   if (!opened) return;
-  // next frame: the card may still be rendering when the tour is skipped mid-step, and its close
-  // button only works once it is in the document with its handler attached
-  if (opened.why) requestAnimationFrame(() => document.querySelector("#sec-why .wc-close")?.click());
   if (opened.layer) setLayer(opened.layer, false);
   if (opened.layers && helpers.openLayers) helpers.openLayers(false);
   if (opened.compare && helpers.setCompare) helpers.setCompare(false);
@@ -94,14 +76,7 @@ export function initTour(host, isLive = () => false, helpers = {}) {
     step = n;
     const s = STEPS[n];
     openFor(s, helpers);
-    let el = document.querySelector(s.target);
-    // A step that opens something waits for it: the card is rendered asynchronously, so measuring
-    // straight away would spotlight an empty box. Give it a few frames, then carry on regardless.
-    if (s.pick && (!el || el.getBoundingClientRect().height < 40)) {
-      if ((s._waits = (s._waits || 0) + 1) <= 40) return requestAnimationFrame(() => show(n));
-    }
-    s._waits = 0;
-    el = document.querySelector(s.target);
+    const el = document.querySelector(s.target);
     if (!el) return show(n + 1); // a control that is not on screen in this mode
     el.scrollIntoView({ behavior: "auto", block: "nearest" }); // measure after the scroll, not during it
     const r = el.getBoundingClientRect();
