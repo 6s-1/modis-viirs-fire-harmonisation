@@ -48,6 +48,18 @@ function makeMap(container) {
   });
   m.touchZoomRotate.disableRotation();
   m.keyboard.disableRotation();
+  // Keep the canvas the size of its slot. body.app is sized in dvh, so the panel grows and
+  // shrinks as a mobile browser's toolbars slide away - and Safari does not reliably fire a
+  // window resize for that, which left the canvas short and the space below it black.
+  const slot = m.getContainer();
+  if (typeof ResizeObserver === "function") {
+    let pending = false;
+    new ResizeObserver(() => {
+      if (pending) return; // one resize per frame, however many entries arrive
+      pending = true;
+      requestAnimationFrame(() => { pending = false; m.resize(); });
+    }).observe(slot);
+  }
   m.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
   m.addControl(new maplibregl.AttributionControl({ compact: true }), "top-right"); // under zoom, clear of the corners below
   m.on("style.load", () => { m.setProjection({ type: "globe" }); neutralBasemap(m); });

@@ -14,9 +14,18 @@
         font-family: system-ui, sans-serif; display: grid; place-items: center; }
       a { color: #2bb3a3; }
     </style>
-    <script>location.replace("./app.html" + location.search + location.hash);</script>
+    <script>
+      // replace(), not assign(), so Back does not land here again and bounce forward.
+      // The query and hash carry across, so an older shared link keeps its box and dates;
+      // the meta refresh above is only the no-script fallback.
+      location.replace("./app.html" + location.search + location.hash);
+    </script>
   </head>
   <body>
-    <p>Taking you to the dashboard… <a href="./app.html">Open it now</a>.</p>
+    <p>Taking you to the dashboard… <a id="go" href="./app.html">Open it now</a>.</p>
+    <script>
+      var a = document.getElementById("go");
+      if (a) a.href = "./app.html" + location.search + location.hash;
+    </script>
   </body>
 </html>
