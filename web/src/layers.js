@@ -55,6 +55,17 @@ export function initLayersControl(buttonEl, panelEl, onChange) {
 
 // Live-only toggles are disabled outside live mode.
 export function setLiveMode(panelEl, isLive) {
+  // Leaving a mode clears the toggles that only belong to it. Disabling alone left the box ticked
+  // on a greyed row, which reads as "this is on" when it cannot be, and it was remembered, so it
+  // came back on the next visit too.
+  const clear = (sel) => {
+    for (const i of panelEl.querySelectorAll(`${sel} input`)) {
+      i.disabled = true;
+      if (i.checked) { i.checked = false; overlays[i.dataset.layer] = false; }
+    }
+    save();
+  };
+  if (isLive) clear("[data-hist-only]"); else clear("[data-live-only]");
   panelEl.querySelectorAll("[data-live-only] input").forEach((i) => { i.disabled = !isLive; });
   panelEl.querySelectorAll("[data-live-only]").forEach((l) => l.classList.toggle("off", !isLive));
   panelEl.querySelectorAll("[data-hist-only] input").forEach((i) => { i.disabled = isLive; });
