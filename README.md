@@ -7,6 +7,7 @@ It is a burning activity calendar for any area of the country, from November 200
 **Live app: https://6s-1.github.io/modis-viirs-fire-harmonisation/**
 
 NASA Space Apps 2026 challenge: *Harmonization of MODIS and VIIRS Hot Spots*. Team Sitara OPS.
+🏆 2nd runner-up, Local Impact, Space Apps Toronto 2026.
 
 ![The Ember dashboard: a globe of Canada covered in fire grid cells, with the selection panel and the month-by-year burning calendar beside it.](docs/img/dashboard.png)
 

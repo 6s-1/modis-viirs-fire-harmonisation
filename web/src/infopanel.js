@@ -50,6 +50,9 @@ function body(a) {
       end. Ember converts the whole record to VIIRS-equivalent fire cell-days so years can be
       compared. The full method, every validation test and the honest limits are written up in
       <a href="${DOCS}" target="_blank" rel="noopener">docs/HOW-IT-WORKS.md</a>.</p>
+    <p class="muted small">Built for the NASA Space Apps 2026 challenge
+      <em>Harmonization of MODIS and VIIRS Hot Spots</em>. 2nd runner-up, Local Impact,
+      Space Apps Toronto 2026.</p>
   </section>
 
   <section>
