@@ -3,9 +3,15 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark" />
     <meta name="description" content="Ember: harmonised MODIS + VIIRS fire activity for Canada. Monthly fire activity from 2000, combining MODIS and VIIRS satellite hotspots into one consistent record." />
     <title>Ember · harmonised MODIS + VIIRS fire activity for Canada</title>
     <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+    <style>
+      /* inline so the first paint is dark: the stylesheet arrives too late to stop a white flash */
+      :root { color-scheme: dark; }
+      html, body { background: #05060a; }
+    </style>
   </head>
   <body class="app">
     <header class="site-top">

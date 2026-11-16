@@ -3,9 +3,15 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark" />
     <meta name="description" content="Ember: 26 years of NASA satellite fire records for Canada, joined into one." />
     <title>Ember · Know your normal.</title>
     <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+    <style>
+      /* inline so the first paint is dark: the stylesheet arrives too late to stop a white flash */
+      :root { color-scheme: dark; }
+      html, body { background: #05060a; }
+    </style>
   </head>
   <body class="landing">
     <!-- the Canada globe sits behind the words, dimmed so they stay readable -->
