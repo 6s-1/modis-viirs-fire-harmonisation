@@ -239,7 +239,7 @@ NBAC, NFDB, CWFIS and the ecozones contain information licensed under the
 | What | Used for | Link |
 |---|---|---|
 | MapLibre GL JS | The globe and every map layer | https://maplibre.org/maplibre-gl-js/docs/ |
-| H3 (`h3-js` in the app, `h3-py` in the pipeline) | The hexagon grids: resolution 8 for detection, 5 for display | https://h3geo.org/ |
+| H3 (`h3-js` 4.4.0 in the app, `h3` in the pipeline) | The hexagon grids: resolution 8 for detection, 5 for display | https://h3geo.org/ |
 | Vite | Build and dev server for the web app | https://vite.dev/ |
 | Cloudflare Workers | The proxy that keeps the FIRMS key off the client | https://developers.cloudflare.com/workers/ |
 | GitHub Pages | Hosting the live app | https://pages.github.com/ |
@@ -247,8 +247,9 @@ NBAC, NFDB, CWFIS and the ecozones contain information licensed under the
 | NumPy | The numeric work behind the conversion tables | https://numpy.org/ |
 | GeoPandas | Ecozone, boundary and NBAC geometry | https://geopandas.org/ |
 | Rasterio | Reading the WorldCover and WorldPop rasters | https://rasterio.readthedocs.io/ |
-| SciPy | Statistics for the validation tests | https://scipy.org/ |
-| Matplotlib | The validation figures in docs/ | https://matplotlib.org/ |
+| SciPy | Non-negative least squares (`scipy.optimize.nnls`) in the rejected-models experiment | https://scipy.org/ |
+| Matplotlib | The validation figures in `reports/figures/`, served by the app | https://matplotlib.org/ |
+| IBM Plex Sans and IBM Plex Mono | The app's typefaces, bundled via `@fontsource` (SIL Open Font License 1.1) | https://www.ibm.com/plex/ |
 | Claude (Anthropic) | AI coding assistant, used as described under [Use of AI tools](#use-of-ai-tools) | https://claude.com/product/claude-code |
 
 ## Limits
@@ -279,5 +280,7 @@ each provider asks for.
 - © ESA WorldCover project 2021 / Contains modified Copernicus Sentinel data (2021) processed by the ESA WorldCover consortium (CC BY 4.0).
 - Natural Earth (public domain). Base map: OpenFreeMap, © OpenMapTiles, data © OpenStreetMap contributors.
 - Population: WorldPop 2020 (CC BY 4.0), a modelled estimate. Place names: GeoNames (CC BY 4.0).
+- Typefaces: IBM Plex Sans and IBM Plex Mono, © 2019 IBM Corp., licensed under the SIL Open Font
+  License 1.1.
 
 References are listed in [docs/HOW-IT-WORKS.md](docs/HOW-IT-WORKS.md).
