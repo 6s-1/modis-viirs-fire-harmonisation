@@ -31,8 +31,10 @@ export default defineConfig({
   build: {
     rollupOptions: {
       input: {
-        landing: resolve(import.meta.dirname, "index.html"),
-        app: resolve(import.meta.dirname, "app.html"),
+        // index.html is the dashboard; app.html and about.html are redirect stubs that keep
+        // older shared links working.
+        app: resolve(import.meta.dirname, "index.html"),
+        legacyApp: resolve(import.meta.dirname, "app.html"),
         about: resolve(import.meta.dirname, "about.html"),
       },
     },
