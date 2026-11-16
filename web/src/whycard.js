@@ -255,20 +255,20 @@ export async function renderWhyCard(el, d, agg, subject, live) {
   let official = "";
   if (live && isCell) {
     const fires = await fetchActiveFires();
-    const near = nearbyFires(fires, d.lat[i], d.lon[i]);
+    const near = fires === null ? [] : nearbyFires(fires, d.lat[i], d.lon[i]);
     const note = infoIcon(`Fires reported by the provincial, territorial and Parks Canada agencies, through the Canadian Wildland Fire Information System.<br>
       Agencies update this about once a day, so it can lag the satellites in both directions.<br>
       <span class="muted">Fires within ${KM_NEAR} km of this cell's centre, largest first.</span>`);
-    official = near.length
-      ? `<div class="wc-official">
-          <p class="wc-kicker">Reported by the agency${note}</p>
-          <ul class="wc-fires">${near.map((f) => `<li>
+    // Three states, and the feed being down must never read as "no fire here".
+    const body = fires === null
+      ? `<p class="wc-none">Agency reports unavailable right now.</p>`
+      : near.length
+        ? `<ul class="wc-fires">${near.map((f) => `<li>
             <b>${f.id || "Unnamed fire"}</b> <span class="muted">${f.agency}</span><br>
             <span class="muted">${f.ha >= 0 ? `${fmt(f.ha)} ha · ` : ""}${STAGE[f.stage] || f.stage}${f.start ? ` · started ${f.start.slice(0, 10)}` : ""}</span>
-          </li>`).join("")}</ul>
-        </div>`
-      : `<div class="wc-official"><p class="wc-kicker">Reported by the agency${note}</p>
-          <p class="wc-none">No agency-reported fire here.</p></div>`;
+          </li>`).join("")}</ul>`
+        : `<p class="wc-none">No agency-reported fire here.</p>`;
+    official = `<div class="wc-official"><p class="wc-kicker">Reported by the agency${note}</p>${body}</div>`;
   }
 
   // ---- Stage B, for a single cell: cause, burned area, land cover and the rest
