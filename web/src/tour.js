@@ -17,8 +17,8 @@ const HISTORICAL = [
 const LIVE = [
   { target: ".modebar", text: "Live shows what NASA satellites detected in the last day or week, near real time." },
   { target: "#live-window", text: "Pick the last 24 hours, 48 hours or 7 days." },
-  { target: "#map", text: "Hotspots are grouped into the same cells as the history, so live and past read the same way." },
-  { target: "#map", text: "Click a cell to see the agency's name, size and status for the fire there, and its fire history." },
+  { target: "#grid-legend", text: "Hotspots are grouped into the same cells as the history, so live and past read the same way." },
+  { target: "#sec-why", pick: "liveCell", text: "This is the cell with the most hotspots right now: what the agency calls the fire, its size and status, and the cell's own fire history." },
   { target: "#sec-exposure", text: "These are the places with fire right now, ranked by how many people live there." },
   { target: ".modebar", text: "Switch to Historical to see how today compares with the last 26 years." },
 ];
@@ -40,10 +40,16 @@ function openFor(step, helpers) {
     // the panel has to be open before its checkbox exists to click
     if (setLayer(step.layer, true)) { opened = opened || {}; opened.layer = step.layer; }
   }
+  // only once per step, however many frames it waits for the card to render
+  if (step.pick === "liveCell" && !(opened && opened.card) && helpers.openBusiestLiveCell
+      && helpers.openBusiestLiveCell()) { opened = opened || {}; opened.card = true; }
+  else if (step.pick === "liveCell" && opened && opened.card) { /* already open */ }
   if (step.open === "compare" && helpers.setCompare && !helpers.isCompare()) { helpers.setCompare(true); opened = opened || {}; opened.compare = true; }
 }
 function restore(helpers) {
   if (!opened) return;
+  // next frame: the card may still be rendering when the tour is skipped mid-step
+  if (opened.card && helpers.closeCard) requestAnimationFrame(() => helpers.closeCard());
   if (opened.layer) setLayer(opened.layer, false);
   if (opened.layers && helpers.openLayers) helpers.openLayers(false);
   if (opened.compare && helpers.setCompare) helpers.setCompare(false);
@@ -76,7 +82,19 @@ export function initTour(host, isLive = () => false, helpers = {}) {
     step = n;
     const s = STEPS[n];
     openFor(s, helpers);
-    const el = document.querySelector(s.target);
+    let el = document.querySelector(s.target);
+    // A step that opens a card waits for it: the card renders asynchronously, so measuring
+    // straight away would spotlight an empty box. Give it a few frames, then carry on anyway.
+    // Wait until the step's content is really there. For a cell card the panel is already tall
+    // (it shows the area card), so the test is whether a cell is open, not whether it has height.
+    const pending = s.pick === "liveCell"
+      ? !(opened && opened.card)
+      : !el || el.getBoundingClientRect().height < 40;
+    if (s.pick && pending) {
+      if ((s._waits = (s._waits || 0) + 1) <= 90) return requestAnimationFrame(() => show(n));
+    }
+    s._waits = 0;
+    el = document.querySelector(s.target);
     if (!el) return show(n + 1); // a control that is not on screen in this mode
     el.scrollIntoView({ behavior: "auto", block: "nearest" }); // measure after the scroll, not during it
     const r = el.getBoundingClientRect();
