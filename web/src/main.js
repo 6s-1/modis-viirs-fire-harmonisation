@@ -16,6 +16,7 @@ import { addTrendLayers, attachTrendHover, buildTrend, setTrend, trendLegendHTML
 import { addHoverLayers, footprint, raiseHover, scheduleHover, setHover, setPicked } from "./hover.js";
 import { closeWhyCard, renderWhyCard } from "./whycard.js";
 import { initTextSize } from "./textsize.js";
+import { initInfoPanel } from "./infopanel.js";
 import { initTour } from "./tour.js";
 import { fixPair, lockCameras, layerPicker, repaintPickers, view } from "./views.js";
 import { readUrl, writeUrl } from "./urlstate.js";
@@ -1030,6 +1031,7 @@ function saveUrl() {
 
 // ---- start
 initTextSize();
+initInfoPanel(document.getElementById("info-btn"));
 // the tour lives in the header, and its steps follow whichever mode the reader is in
 {
   const tour = initTour(document.querySelector(".map-panel"), () => state.app === "live", {
