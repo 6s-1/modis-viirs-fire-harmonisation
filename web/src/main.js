@@ -550,6 +550,10 @@ function setView(mode) {
     return;
   }
   ensureSecondMap();
+  // ensureSecondMap only unhides the slot the first time, when it builds the map. Going back to
+  // single hides it again, so every later return to compare has to unhide it itself - otherwise
+  // the view says compare while the slot is still display:none and the globe never appears.
+  $("map-slot-b").hidden = false;
   document.querySelectorAll(".view-pick").forEach((el) => { el.hidden = false; });
   if (!unlock) unlock = lockCameras(maps);
   // Resize now that both slots are visible, and again next frame once the layout has settled:

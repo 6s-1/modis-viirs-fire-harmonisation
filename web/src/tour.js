@@ -10,7 +10,7 @@ const HISTORICAL = [
   { target: "#draw", text: "Draw a box on the globe to choose an area." },
   { target: "#sec-calendar", text: "Every month since 2000; darker means more fire, dashed means estimated from older satellites." },
   { target: "#calendar", text: "Click a month or a cell to see what caused the fire, how much land burned and what kind of land it was." },
-  { target: "#layers-panel", open: "layers", text: "Turn on 'Where fire is changing' to see where fire is rising or falling, or Places to find your way." },
+  { target: "#layers-panel", open: "layers", layer: "trend", text: "Turn on 'Where fire is changing' to see where fire is rising or falling, or Places to find your way." },
   { target: "#sec-compare", text: "Yearly totals, when the season runs, and how many people lived where fire burned." },
   { target: "#compare-btn", open: "compare", text: "Compare puts fire and people on two linked globes; point at one and the other follows." },
 ];
@@ -26,12 +26,25 @@ const stepsFor = (live) => (live ? LIVE : HISTORICAL);
 let STEPS = stepsFor(false);
 // what a step opened, so the tour can put it back
 let opened = null;
+// Tick a layer's checkbox the way a click would, so the map actually shows what the step
+// describes. Returns true only if the step turned it on, so restore puts back exactly that.
+function setLayer(id, on) {
+  const box = document.querySelector(`#layers-panel input[data-layer="${id}"]`);
+  if (!box || box.disabled || box.checked === on) return false;
+  box.click();
+  return true;
+}
 function openFor(step, helpers) {
   if (step.open === "layers" && helpers.openLayers) { helpers.openLayers(true); opened = opened || {}; opened.layers = true; }
+  if (step.layer) {
+    // the panel has to be open before its checkbox exists to click
+    if (setLayer(step.layer, true)) { opened = opened || {}; opened.layer = step.layer; }
+  }
   if (step.open === "compare" && helpers.setCompare && !helpers.isCompare()) { helpers.setCompare(true); opened = opened || {}; opened.compare = true; }
 }
 function restore(helpers) {
   if (!opened) return;
+  if (opened.layer) setLayer(opened.layer, false);
   if (opened.layers && helpers.openLayers) helpers.openLayers(false);
   if (opened.compare && helpers.setCompare) helpers.setCompare(false);
   opened = null;
