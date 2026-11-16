@@ -33,7 +33,7 @@ Across all hidden years, Canada-wide estimates land within **0.92-1.24x** the ob
 independent check against NBAC burned area (never a model input) shows **no step at 2012**: the
 estimated years 2003-2011 track NBAC about as well as raw MODIS Aqua, the same satellite before and
 after. Full method, every test and the limits: [docs/HOW-IT-WORKS.md](docs/HOW-IT-WORKS.md) and the
-app's *About Ember* page.
+app's **i** panel in the header.
 
 ## Run it
 
@@ -83,7 +83,7 @@ of an AI coding assistant under my direction; see [Use of AI tools](#use-of-ai-t
    2012–2025. These errors set the likely ranges shown for estimated years, scaled by area.
 6. **Independent check** against NBAC burned area (not a model input).
 
-Every number in the app and on the About page is read from files the pipeline writes.
+Every number in the app is read from files the pipeline writes.
 
 ## Repository layout
 
@@ -137,7 +137,7 @@ $P/nbac_check.py                         # independent check -> reports/nbac_che
 $P/population.py                         # WorldPop people per cell and in fire cells, GeoNames places
 $P/export.py                             # static files for the app -> web/public/harmonised/
 $P/hotspot_tiles.py                      # hotspot tiles -> web/public/hotspots/ (not in git)
-$P/about_data.py                         # numbers and figures for the About page -> web/public/about/
+$P/about_data.py                         # numbers and figures for the app -> web/public/about/
 ```
 
 New data (for example the next year's archive files) are picked up by rerunning from `clean.py`.
@@ -248,7 +248,7 @@ NBAC, NFDB, CWFIS and the ecozones contain information licensed under the
 | GeoPandas | Ecozone, boundary and NBAC geometry | https://geopandas.org/ |
 | Rasterio | Reading the WorldCover and WorldPop rasters | https://rasterio.readthedocs.io/ |
 | SciPy | Statistics for the validation tests | https://scipy.org/ |
-| Matplotlib | The figures on the About page | https://matplotlib.org/ |
+| Matplotlib | The validation figures in docs/ | https://matplotlib.org/ |
 | Claude (Anthropic) | AI coding assistant, used as described under [Use of AI tools](#use-of-ai-tools) | https://claude.com/product/claude-code |
 
 ## Limits
@@ -280,4 +280,4 @@ each provider asks for.
 - Natural Earth (public domain). Base map: OpenFreeMap, © OpenMapTiles, data © OpenStreetMap contributors.
 - Population: WorldPop 2020 (CC BY 4.0), a modelled estimate. Place names: GeoNames (CC BY 4.0).
 
-References are listed on the app's About page.
+References are listed in [docs/HOW-IT-WORKS.md](docs/HOW-IT-WORKS.md).
