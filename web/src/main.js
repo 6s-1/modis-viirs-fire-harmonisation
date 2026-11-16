@@ -534,6 +534,9 @@ function setView(mode) {
   ensureSecondMap();
   document.querySelectorAll(".view-pick").forEach((el) => { el.hidden = false; });
   if (!unlock) unlock = lockCameras(maps);
+  // Resize now that both slots are visible, and again next frame once the layout has settled:
+  // the first keeps a map from drawing at zero size, the second picks up the final dimensions.
+  for (const m of maps) m.resize();
   requestAnimationFrame(() => { for (const m of maps) m.resize(); });
   refreshGrid(); // the grid is coarser while two globes are shown
   onViewPick();
@@ -739,12 +742,23 @@ function zoomToCell(i) {
 
   if (view.mode === "single") {
     setView("compare"); // a row opens the comparison on that area
-    const second = maps[1];
-    if (second && !second._ready) { second.once("load", () => requestAnimationFrame(go)); return; }
-    requestAnimationFrame(go);
+    // The second globe is created by that call, so it may still be loading its style. Wait for it
+    // before flying, and size it first: a map that is flown while its slot is still 0x0 renders
+    // black until something else happens to resize it.
+    whenReady(maps[1], () => {
+      for (const m of maps) m.resize();
+      requestAnimationFrame(go);
+    });
     return;
   }
   go();
+}
+// Run fn once the map has loaded. `once("load")` alone would never fire for a map that finished
+// loading before we asked, which is the usual case on a warm cache.
+function whenReady(m, fn) {
+  if (!m) return fn();
+  if (m._ready || m.loaded()) return fn();
+  m.once("load", fn);
 }
 let deferHeavy = false;
 
