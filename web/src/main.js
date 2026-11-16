@@ -10,9 +10,9 @@ import { renderCompare } from "./compare.js";
 import { attachInfoTips, infoIcon } from "./info.js";
 import { calendarPNG, coverage, fileTime, hotspotIndex, hotspotPlan, hotspotsCSV, liveCSV, monthlyCSV, saveBlob, utcStamp } from "./downloads.js";
 import { addGridLayers, attachGridHover, buildGrid, buildLiveGrid, gridLegendHTML, setGrid } from "./grid.js";
-import { initLayersControl, overlays, setLiveMode } from "./layers.js";
+import { initLayersControl, overlays, setLiveMode, setTrendAvailable } from "./layers.js";
 import { raisePlaces, setPlacesVisible } from "./places.js";
-import { addTrendLayers, attachTrendHover, buildTrend, setTrend, trendLegendHTML } from "./trend.js";
+import { MIN_YEARS, addTrendLayers, attachTrendHover, buildTrend, completeYears, setTrend, trendLegendHTML } from "./trend.js";
 import { addHoverLayers, footprint, raiseHover, scheduleHover, setHover, setPicked } from "./hover.js";
 import { closeWhyCard, renderWhyCard } from "./whycard.js";
 import { initTextSize } from "./textsize.js";
@@ -509,7 +509,12 @@ let unlock = null;
 
 function ensureSecondMap() {
   if (maps[1]) return maps[1];
-  $("map-slot-b").hidden = false;
+  const slot = $("map-slot-b");
+  slot.hidden = false;
+  // hidden is display:none, so the slot is 0x0 until the browser lays it out again. Creating the
+  // map before that gives WebGL a zero-sized drawing buffer, which some browsers keep showing as
+  // black. Read a layout property first to force the reflow, so the map is born at full size.
+  void slot.offsetHeight;
   const m = makeMap("map-b");
   maps.push(m);
   m.jumpTo({ center: maps[0].getCenter(), zoom: maps[0].getZoom() });
@@ -602,6 +607,12 @@ const trendYears = () => {
 const wantsTrend = () => (view.mode === "single" ? overlays.trend : view.top === "trend" || view.bottom === "trend");
 const wantsPeople = () => view.mode !== "single" && (view.top === "people" || view.bottom === "people");
 function updateTrend() {
+  // The toggle is only usable with enough complete years; switching it off here also drops the
+  // layer, so a range change cannot leave a stale trend on the map.
+  if (state.d) {
+    const ok = state.app !== "live" && completeYears(state.d, state.range) >= MIN_YEARS;
+    if (setTrendAvailable($("layers-panel"), ok, MIN_YEARS)) applyLayers();
+  }
   if (!wantsTrend() || state.app === "live" || !state.d || !state.agg) {
     state.trend = null;
     for (const m of maps) setTrend(m, []);
