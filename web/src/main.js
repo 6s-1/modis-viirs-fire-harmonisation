@@ -1065,6 +1065,19 @@ initInfoPanel(document.getElementById("info-btn"));
     openLayers: (on) => { const panel = $("layers-panel"); panel.hidden = !on; $("layers-btn").setAttribute("aria-expanded", String(on)); },
     isCompare: () => view.mode === "compare",
     setCompare: (on) => setView(on ? "compare" : "single"),
+    // Open the card for the live cell with the most hotspots, so the step that talks about
+    // clicking a cell shows a real one instead of asking the reader to imagine it.
+    openBusiestLiveCell: () => {
+      const g = state.liveGrid;
+      if (!g || !g.features || !g.features.length) return false;
+      // the cell with the most hotspots has the fullest card to show
+      const best = g.features.reduce((a, f) => ((f.properties.v || 0) > (a.properties.v || 0) ? f : a));
+      const i = best.properties.i;
+      if (i === undefined) return false;
+      openWhyForCell(+i);
+      return true;
+    },
+    closeCard: () => $("sec-why").querySelector(".wc-close")?.click(),
   });
   const btn = $("tour-btn");
   btn.addEventListener("click", tour.start);
